@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "opcodes.h"
 
 int main(int argc, char *argv[]) {
@@ -39,14 +40,19 @@ int main(int argc, char *argv[]) {
     while (pc < size) {
         uint8_t opcode = program[pc++];
         switch (opcode) {
-            case OPCODE_PRINT: {
-                if (pc >= size) {
-                    printf("Error: missing operand for PRINT\n");
+            case OPCODE_WRITE: {
+                if (pc + 1 >= size) {
+                    printf("Error: missing operands for WRITE\n");
                     free(program);
                     return 1;
                 }
+                uint8_t fd = program[pc++];
                 uint8_t value = program[pc++];
-                putchar(value);
+                if (write(fd, &value, 1) != 1) {
+                    perror("write");
+                    free(program);
+                    return 1;
+                }
                 break;
             }
             case OPCODE_NEWLINE:

@@ -40,13 +40,15 @@ int main(int argc, char *argv[]) {
         if (*s == '\0' || *s == ';')
             continue;
         
-        if (strncmp(s, "PRINT", 5) == 0) {
+        if (strncmp(s, "WRITE", 5) == 0) {
+            int fd;
             char c;
-            if (sscanf(s + 5, " '%c", &c) != 1) {
-                fprintf(stderr, "Syntax error on line %d\n", lineno);
+            if (sscanf(s + 5, " %d '%c'", &fd, &c) != 2) {
+                fprintf(stderr, "Syntax error on line %d: expected WRITE <fd> '<char>'\n", lineno);
                 return 1;
             }
-            fputc(OPCODE_PRINT, out);
+            fputc(OPCODE_WRITE, out);
+            fputc((uint8_t)fd, out);
             fputc((uint8_t)c, out);
         }
 

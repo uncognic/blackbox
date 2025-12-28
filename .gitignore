@@ -5,3 +5,4 @@ src/assembler/test.bbx
 src/assembler/test.bcx
 src/assembler/blackbox-assembler
 src/assembler/app.bcx
+src/assembler/output.bcx

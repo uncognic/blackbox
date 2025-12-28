@@ -1,7 +1,7 @@
 #ifndef BLACKBOX_OPCODES_H
 #define BLACKBOX_OPCODES_H
 
-#define OPCODE_PRINT 0x01
+#define OPCODE_WRITE 0x01
 #define OPCODE_HALT  0xFF
 #define OPCODE_NEWLINE 0x02
 
