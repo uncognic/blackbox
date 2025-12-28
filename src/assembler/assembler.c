@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
             int fd;
             char *str_start;
 
-            if (sscanf(s + 5, " %d", &fd) != 2) {
+            if (sscanf(s + 5, " %d", &fd) != 1) {
                 fprintf(stderr, "Syntax error on line %d: expected WRITE <fd> '<char>'\n", lineno);
                 fclose(in);
                 fclose(out);
@@ -69,10 +69,22 @@ int main(int argc, char *argv[]) {
             str_start++;
 
             char *str_end = strchr(str_start, '"');
-            if (!str_end)
+            if (!str_end) {
+                fprintf(stderr, "Syntax error on line %d: missing closing quote for string\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            size_t len = str_end - str_start;
+            if (len > 255) len = 255;
+
             fputc(OPCODE_WRITE, out);
             fputc((uint8_t)fd, out);
-            fputc((uint8_t)c, out);
+            fputc((uint8_t)len, out);
+
+            for (size_t i = 0; i < len; i++) {
+                fputc((uint8_t)str_start[i], out);
+            }
         }
 
         else if (strcmp(s, "NEWLINE") == 0) {

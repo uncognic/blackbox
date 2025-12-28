@@ -41,24 +41,25 @@ int main(int argc, char *argv[]) {
         uint8_t opcode = program[pc++];
         switch (opcode) {
             case OPCODE_WRITE: {
-                if (pc + 1 >= size) {
-                    printf("Error: missing operands for WRITE\n");
-                    free(program);
-                    return 1;
-                }
-                uint8_t fd = program[pc++];
-                uint8_t value = program[pc++];
-                if (fd != 1 && fd != 2) {
-                    fprintf(stderr, "Error: invalid file descriptor %u at position %zu (only 1=stdout, 2=stderr allowed)\n", fd, pc - 2);
-                    free(program);
-                    return 1;
-                }
-                if (write(fd, &value, 1) != 1) {
-                    perror("write");
-                    free(program);
-                    return 1;
-                }
-                break;
+            uint8_t fd = program[pc++];
+            uint8_t len = program[pc++];
+            if (fd != 1 && fd != 2) {
+                fprintf(stderr, "Error: invalid fd %u\n", fd);
+                free(program);
+                return 1;
+            }
+            if (pc + len > size) {
+                fprintf(stderr, "Error: string past end of program\n");
+                free(program);
+                return 1;
+            }
+            if (write(fd, &program[pc], len) != len) {
+                perror("write");
+                free(program);
+                return 1;
+            }
+            pc += len;
+            break;
             }
             case OPCODE_NEWLINE:
                 putchar('\n'); 
