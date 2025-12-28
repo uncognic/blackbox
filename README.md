@@ -3,7 +3,7 @@ Blackbox is an assembly-like language with an assembler and a bytecode interpret
 ### Example
 Hello World in Blackbox:
 ```
-WRITE 1 'A'
+WRITE 1 'A' ;1 for stdout
 NEWLINE
 HALT
 ```
