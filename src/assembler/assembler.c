@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
         else if (strncmp(s, "ADD", 3) == 0) {
             char src_reg[3];
             char dst_reg[3];
-            if (sscanf(s + 3, " %2s , %2s", src_reg, dst_reg) != 2) {
+            if (sscanf(s + 3, " %2s , %2s", dst_reg, src_reg) != 2) {
                 fprintf(stderr, "Syntax error on line %d: expected ADD <src>, <dst>\n", lineno);
                 fclose(in);
                 fclose(out);
