@@ -1,5 +1,5 @@
 # Blackbox
-Blackbox is an assembly-like language with an assembler and a bytecode interpreter.
+Blackbox is an assembly-like language with an assembler and a bytecode interpreter. It uses Intel Assembly-like syntax. (register order is dst, src)
 ### Examples
 Hello World in Blackbox:
 ```
