@@ -215,9 +215,25 @@ int main(int argc, char *argv[]) {
                 registers[dst] = value;
                 break;
             }
+            case OPCODE_JMP: {
+                if (pc + 3 >= size) {
+                    fprintf(stderr, "Missing operand for JMP\n");
+                    free(program);
+                    return 1;
+                }
+                uint32_t addr = program[pc] | (program[pc+1] << 8) | (program[pc+2] << 16) | (program[pc+3] << 24);
+                pc = addr;
+                if (pc >= size) {
+                    fprintf(stderr, "JMP addr out of bounds: %u\n", addr);
+                    free(program);
+                    return 1;
+                }
+                break;
+            }
             case OPCODE_NEWLINE:
                 putchar('\n'); 
                 break;
+            
             case OPCODE_HALT:
                 free(program);
                 return 0;

@@ -11,3 +11,4 @@ src/assembler/bbx-asm
 src/interpreter/bbx
 bbx
 bbx-asm
+src/assembler/output.bcx.bak

@@ -13,6 +13,73 @@ char *trim(char *s) {
     while (end >= s && (isspace(*end) || *end == '\r' || *end == '\n')) *end-- = '\0';
     return s;
 }
+typedef struct {
+    char name[32];
+    size_t addr;
+} Label;
+
+size_t find_label(const char *name, Label *labels, size_t count) {
+    for (size_t i = 0; i < count; i++) {
+        if (strcmp(labels[i].name, name) == 0) {
+            return labels[i].addr;
+        }
+    }
+    fprintf(stderr, "Unknown label %s\n", name);
+    exit(1);
+}
+size_t instr_size(const char *line) {
+    if (strncmp(line, "MOV", 3) == 0) {
+        char dst[8], src[32];
+
+        // Skip "MOV" and optional spaces
+        const char *p = line + 3;
+        while (*p && isspace(*p)) p++;
+
+        // Find comma
+        const char *comma = strchr(p, ',');
+        if (!comma) return 0; // invalid syntax
+
+        // Copy dst
+        size_t len = comma - p;
+        if (len >= sizeof(dst)) len = sizeof(dst) - 1;
+        strncpy(dst, p, len);
+        dst[len] = 0;
+
+        // Skip comma and spaces to get src
+        p = comma + 1;
+        while (*p && isspace(*p)) p++;
+        strncpy(src, p, sizeof(src) - 1);
+        src[sizeof(src)-1] = 0;
+
+        // Trim trailing whitespace/newline from src
+        char *end = src + strlen(src) - 1;
+        while (end >= src && isspace(*end)) *end-- = 0;
+
+        // Check if source is register
+        if (toupper(src[0]) == 'R') return 3;  // reg to reg
+        else return 6;                           // reg to immediate
+    }
+    else if (strncmp(line, "PUSH", 4) == 0) return 5; 
+    else if (strncmp(line, "POP", 3) == 0) return 2; 
+    else if (strncmp(line, "ADD", 3) == 0) return 3;  
+    else if (strncmp(line, "SUB", 3) == 0) return 3;
+    else if (strncmp(line, "MUL", 3) == 0) return 3;
+    else if (strncmp(line, "DIV", 3) == 0) return 3;
+    else if (strncmp(line, "PRINT_REG", 9) == 0) return 2; 
+    else if (strncmp(line, "PRINT", 5) == 0) return 2;
+    else if (strncmp(line, "WRITE", 5) == 0) {
+        char *quote = strchr(line, '"');
+        if (!quote) return 3; 
+        char *end = strchr(quote+1, '"');
+        if (!end) return 3;
+        size_t str_len = end - (quote+1);
+        return 3 + str_len;
+    }
+    else if (strncmp(line, "JMP", 3) == 0) return 5; 
+    else if (strcmp(line, "NEWLINE") == 0) return 1;
+    else if (strcmp(line, "HALT") == 0) return 1;
+    return 0; 
+}
 uint8_t parse_register(const char *r, int lineno) {
     if (strcmp(r, "R0") == 0) return 0;
     if (strcmp(r, "R1") == 0) return 1;
@@ -46,10 +113,41 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-
+    
     char line[256];
     int lineno = 0;
+    Label labels[256];
+    size_t label_count = 0;
+    int pc = 0;
 
+    while (fgets(line, sizeof(line), in)) {
+        lineno++;
+        char *s = trim(line);
+        if (*s == '\0' || *s == ';')
+            continue;
+        
+        size_t len = strlen(s);
+        if (s[0] == '.' && s[len-1] == ':') {
+            if (label_count >= 256) {
+                fprintf(stderr, "Too many labels (max 256)\n");
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+
+            s[len-1] = '\0';
+            strcpy(labels[label_count].name, s + 1); // copy first
+            labels[label_count].addr = pc;
+            printf("Label %s at pc=%zu\n", labels[label_count].name, labels[label_count].addr);
+            label_count++;
+            continue;
+        } 
+        
+        pc+= instr_size(s);
+    }
+    rewind(in);
+    lineno = 0;
+        
     while (fgets(line, sizeof(line), in)) {
         lineno++;
         char *s = trim(line);
@@ -103,6 +201,9 @@ int main(int argc, char *argv[]) {
         else if (strcmp(s, "NEWLINE") == 0) {
             fputc(OPCODE_NEWLINE, out);
         }
+        else if (s[0] == '.') {
+            continue;
+        }
 
         else if (strcmp(s, "HALT") == 0) {
             fputc(OPCODE_HALT, out);
@@ -154,6 +255,22 @@ int main(int argc, char *argv[]) {
             }
             fputc(OPCODE_PRINT, out);
             fputc((uint8_t)c, out);
+        }
+        else if (strncmp(s, "JMP", 3) == 0) {
+            char label_name[32];
+            if (sscanf(s+3, " %31s", label_name) == 0) {
+                fprintf(stderr, "Syntax error on line %d: expected JMP <label>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            size_t addr = find_label(label_name, labels, label_count);
+            printf("JMP to %s (addr=%zu)\n", label_name, addr);
+            fputc(OPCODE_JMP, out);
+            fputc((addr >> 0) & 0xFF, out);
+            fputc((addr >> 8) & 0xFF, out);
+            fputc((addr >> 16) & 0xFF, out);
+            fputc((addr >> 24) & 0xFF, out);
         }
         else if (strncmp(s, "PUSH", 4) == 0) {
             int32_t value;
