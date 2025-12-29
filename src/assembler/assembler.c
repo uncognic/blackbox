@@ -200,7 +200,7 @@ int main(int argc, char *argv[]) {
             char src_reg[3];
             char dst_reg[3];
             if (sscanf(s + 3, " %2s , %2s", dst_reg, src_reg) != 2) {
-                fprintf(stderr, "Syntax error on line %d: expected SUB <src>, <dst>\n", lineno);
+                fprintf(stderr, "Syntax error on line %d: expected SUB <dst>, <src>\n", lineno);
                 fclose(in);
                 fclose(out);
                 return 1;
@@ -215,7 +215,7 @@ int main(int argc, char *argv[]) {
             char src_reg[3];
             char dst_reg[3];
             if (sscanf(s + 3, " %2s , %2s", dst_reg, src_reg) != 2) {
-                fprintf(stderr, "Syntax error on line %d: expected MUL <src>, <dst>\n", lineno);
+                fprintf(stderr, "Syntax error on line %d: expected MUL <dst>, <src>\n", lineno);
                 fclose(in);
                 fclose(out);
                 return 1;
@@ -230,7 +230,7 @@ int main(int argc, char *argv[]) {
             char src_reg[3];
             char dst_reg[3];
             if (sscanf(s + 3, " %2s , %2s", dst_reg, src_reg) != 2) {
-                fprintf(stderr, "Syntax error on line %d: expected DIV <src>, <dst>\n", lineno);
+                fprintf(stderr, "Syntax error on line %d: expected DIV <dst>, <src>\n", lineno);
                 fclose(in);
                 fclose(out);
                 return 1;
@@ -240,6 +240,33 @@ int main(int argc, char *argv[]) {
             fputc(OPCODE_DIV, out);
             fputc(src, out);
             fputc(dst, out);
+        }
+        else if (strncmp(s, "MOV", 3) == 0) {
+            char dst_reg[3];
+            char src[32];
+
+            if (sscanf(s + 3, " %2s , %31s", dst_reg, src) != 2) {
+                fprintf(stderr, "Syntax error on line %d: expected MOV <dst>, <src>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t dst = parse_register(dst_reg, lineno);
+            if (src[0] == 'R') {
+                uint8_t srcp = parse_register(src, lineno);
+                fputc(OPCODE_MOV_REG, out);
+                fputc(dst, out);
+                fputc(srcp, out);
+            }
+            else {
+                int32_t imm = strtol(src, NULL, 0);
+                fputc(OPCODE_MOV_IMM, out);
+                fputc(dst, out);
+                fputc(imm & 0xFF, out);
+                fputc((imm >> 8) & 0xFF, out);
+                fputc((imm >> 16) & 0xFF, out);
+                fputc((imm >> 24) & 0xFF, out);
+            }
         }
         
         else {

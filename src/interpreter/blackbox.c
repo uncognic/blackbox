@@ -182,6 +182,39 @@ int main(int argc, char *argv[]) {
                 fflush(stdout);
                 break;
             }
+            case OPCODE_MOV_REG: {
+                if (pc + 2 >= size) {
+                    fprintf(stderr, "Missing operands for MOV_REG\n");
+                    free(program);
+                    return 1;
+                }
+                uint8_t dst = program[pc++];
+                uint8_t src = program[pc++];
+                if (dst >= REGISTERS || src >= REGISTERS) {
+                    fprintf(stderr, "Invalid register in MOV_REG\n");
+                    free(program);
+                    return 1;
+                }
+                registers[dst] = registers[src];
+                break;
+            }
+            case OPCODE_MOV_IMM: {
+                if (pc + 5 >= size) {
+                    fprintf(stderr, "Missing operands for MOV_IMM\n");
+                    free(program);
+                    return 1;
+                }
+                uint8_t dst = program[pc++];
+                if (dst >= REGISTERS) {
+                    fprintf(stderr, "Invalid register in MOV_IMM\n");
+                    free(program);
+                    return 1;
+                }
+                int32_t value = program[pc] | (program[pc+1]<<8) | (program[pc+2]<<16) | (program[pc+3]<<24);
+                pc += 4;
+                registers[dst] = value;
+                break;
+            }
             case OPCODE_NEWLINE:
                 putchar('\n'); 
                 break;
