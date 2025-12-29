@@ -3,7 +3,7 @@ CFLAGS = -Wall -Wextra -O2
 
 SRC = blackbox.c
 HEADER = opcodes.h
-TARGET = blackbox
+TARGET = bbx
 
 .PHONY: all clean
 

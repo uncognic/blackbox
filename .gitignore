@@ -7,3 +7,5 @@ src/assembler/blackbox-assembler
 src/assembler/app.bcx
 src/assembler/output.bcx
 *.bcx
+src/assembler/bbx-asm
+src/interpreter/bbx
