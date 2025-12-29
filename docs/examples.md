@@ -38,3 +38,11 @@ PRINT_REG R0 ;Result: 28
 NEWLINE
 HALT
 ``` 
+MOV operation:
+```
+MOV R0, 42
+MOV R1, R0
+PRINT_REG R1
+NEWLINE
+HALT
+```
