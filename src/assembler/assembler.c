@@ -13,6 +13,19 @@ char *trim(char *s) {
     while (end >= s && (isspace(*end) || *end == '\r' || *end == '\n')) *end-- = '\0';
     return s;
 }
+uint8_t parse_register(const char *r, int lineno) {
+    if (strcmp(r, "R0") == 0) return 0;
+    if (strcmp(r, "R1") == 0) return 1;
+    if (strcmp(r, "R2") == 0) return 2;
+    if (strcmp(r, "R3") == 0) return 3;
+    if (strcmp(r, "R4") == 0) return 4;
+    if (strcmp(r, "R5") == 0) return 5;
+    if (strcmp(r, "R6") == 0) return 6;
+    if (strcmp(r, "R7") == 0) return 7;
+
+    fprintf(stderr, "Invalid register on line %d\n", lineno);
+    exit(1);
+}
 
 int main(int argc, char *argv[]) {
     if (argc < 3) {
@@ -145,7 +158,7 @@ int main(int argc, char *argv[]) {
         else if (strncmp(s, "PUSH", 4) == 0) {
             int32_t value;
             if (sscanf(s+4, " %d", &value) != 1) {
-                fprintf(stderr, "Syntax error on line %d: expected PUSH <value>", lineno);
+                fprintf(stderr, "Syntax error on line %d: expected PUSH <value>\n", lineno);
                 fclose(in);
                 fclose(out);
                 return 1;   
@@ -164,29 +177,7 @@ int main(int argc, char *argv[]) {
                 fclose(out);
                 return 1;
             }
-            uint8_t reg;
-            if (strcmp(regname,"R0")==0) 
-                reg=0;
-            else if (strcmp(regname,"R1")==0) 
-                reg=1;
-            else if (strcmp(regname,"R2")==0) 
-                reg=2;
-            else if (strcmp(regname,"R3")==0) 
-                reg=3;
-            else if (strcmp(regname,"R4")==0) 
-                reg=4;
-            else if (strcmp(regname,"R5")==0) 
-                reg=5;
-            else if (strcmp(regname,"R6")==0) 
-                reg=6;
-            else if (strcmp(regname,"R7")==0) 
-                reg=7;
-            else {
-                fprintf(stderr, "Invalid register on line %d\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
-            }
+            uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_POP, out);
             fputc(reg, out);
         }
@@ -199,52 +190,8 @@ int main(int argc, char *argv[]) {
                 fclose(out);
                 return 1;
             }
-            uint8_t src;
-            uint8_t dst;
-            if (strcmp(src_reg,"R0")==0) 
-                src=0;
-            else if (strcmp(src_reg,"R1")==0) 
-                src=1;
-            else if (strcmp(src_reg,"R2")==0) 
-                src=2;
-            else if (strcmp(src_reg,"R3")==0) 
-                src=3;
-            else if (strcmp(src_reg,"R4")==0) 
-                src=4;
-            else if (strcmp(src_reg,"R5")==0) 
-                src=5;
-            else if (strcmp(src_reg,"R6")==0) 
-                src=6;
-            else if (strcmp(src_reg,"R7")==0) 
-                src=7;
-            else {
-                fprintf(stderr, "Invalid source register on line %d\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
-            }
-            if (strcmp(dst_reg,"R0")==0) 
-                dst=0;
-            else if (strcmp(dst_reg,"R1")==0) 
-                dst=1;
-            else if (strcmp(dst_reg,"R2")==0) 
-                dst=2;
-            else if (strcmp(dst_reg,"R3")==0) 
-                dst=3;
-            else if (strcmp(dst_reg,"R4")==0) 
-                dst=4;
-            else if (strcmp(dst_reg,"R5")==0) 
-                dst=5;
-            else if (strcmp(dst_reg,"R6")==0) 
-                dst=6;
-            else if (strcmp(dst_reg,"R7")==0) 
-                dst=7;
-            else {
-                fprintf(stderr, "Invalid destination register on line %d\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
-            }
+            uint8_t dst = parse_register(dst_reg, lineno);
+            uint8_t src = parse_register(src_reg, lineno);
             fputc(OPCODE_ADD, out);
             fputc(src, out);
             fputc(dst, out);
@@ -258,52 +205,8 @@ int main(int argc, char *argv[]) {
                 fclose(out);
                 return 1;
             }
-            uint8_t src;
-            uint8_t dst;
-            if (strcmp(src_reg,"R0")==0) 
-                src=0;
-            else if (strcmp(src_reg,"R1")==0) 
-                src=1;
-            else if (strcmp(src_reg,"R2")==0) 
-                src=2;
-            else if (strcmp(src_reg,"R3")==0) 
-                src=3;
-            else if (strcmp(src_reg,"R4")==0) 
-                src=4;
-            else if (strcmp(src_reg,"R5")==0) 
-                src=5;
-            else if (strcmp(src_reg,"R6")==0) 
-                src=6;
-            else if (strcmp(src_reg,"R7")==0) 
-                src=7;
-            else {
-                fprintf(stderr, "Invalid source register on line %d\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
-            }
-            if (strcmp(dst_reg,"R0")==0) 
-                dst=0;
-            else if (strcmp(dst_reg,"R1")==0) 
-                dst=1;
-            else if (strcmp(dst_reg,"R2")==0) 
-                dst=2;
-            else if (strcmp(dst_reg,"R3")==0) 
-                dst=3;
-            else if (strcmp(dst_reg,"R4")==0) 
-                dst=4;
-            else if (strcmp(dst_reg,"R5")==0) 
-                dst=5;
-            else if (strcmp(dst_reg,"R6")==0) 
-                dst=6;
-            else if (strcmp(dst_reg,"R7")==0) 
-                dst=7;
-            else {
-                fprintf(stderr, "Invalid destination register on line %d\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
-            }
+            uint8_t dst = parse_register(dst_reg, lineno);
+            uint8_t src = parse_register(src_reg, lineno);
             fputc(OPCODE_SUB, out);
             fputc(src, out);
             fputc(dst, out);
@@ -317,52 +220,8 @@ int main(int argc, char *argv[]) {
                 fclose(out);
                 return 1;
             }
-            uint8_t src;
-            uint8_t dst;
-            if (strcmp(src_reg,"R0")==0) 
-                src=0;
-            else if (strcmp(src_reg,"R1")==0) 
-                src=1;
-            else if (strcmp(src_reg,"R2")==0) 
-                src=2;
-            else if (strcmp(src_reg,"R3")==0) 
-                src=3;
-            else if (strcmp(src_reg,"R4")==0) 
-                src=4;
-            else if (strcmp(src_reg,"R5")==0) 
-                src=5;
-            else if (strcmp(src_reg,"R6")==0) 
-                src=6;
-            else if (strcmp(src_reg,"R7")==0) 
-                src=7;
-            else {
-                fprintf(stderr, "Invalid source register on line %d\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
-            }
-            if (strcmp(dst_reg,"R0")==0) 
-                dst=0;
-            else if (strcmp(dst_reg,"R1")==0) 
-                dst=1;
-            else if (strcmp(dst_reg,"R2")==0) 
-                dst=2;
-            else if (strcmp(dst_reg,"R3")==0) 
-                dst=3;
-            else if (strcmp(dst_reg,"R4")==0) 
-                dst=4;
-            else if (strcmp(dst_reg,"R5")==0) 
-                dst=5;
-            else if (strcmp(dst_reg,"R6")==0) 
-                dst=6;
-            else if (strcmp(dst_reg,"R7")==0) 
-                dst=7;
-            else {
-                fprintf(stderr, "Invalid destination register on line %d\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
-            }
+            uint8_t dst = parse_register(dst_reg, lineno);
+            uint8_t src = parse_register(src_reg, lineno);
             fputc(OPCODE_MUL, out);
             fputc(src, out);
             fputc(dst, out);
@@ -376,52 +235,8 @@ int main(int argc, char *argv[]) {
                 fclose(out);
                 return 1;
             }
-            uint8_t src;
-            uint8_t dst;
-            if (strcmp(src_reg,"R0")==0) 
-                src=0;
-            else if (strcmp(src_reg,"R1")==0) 
-                src=1;
-            else if (strcmp(src_reg,"R2")==0) 
-                src=2;
-            else if (strcmp(src_reg,"R3")==0) 
-                src=3;
-            else if (strcmp(src_reg,"R4")==0) 
-                src=4;
-            else if (strcmp(src_reg,"R5")==0) 
-                src=5;
-            else if (strcmp(src_reg,"R6")==0) 
-                src=6;
-            else if (strcmp(src_reg,"R7")==0) 
-                src=7;
-            else {
-                fprintf(stderr, "Invalid source register on line %d\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
-            }
-            if (strcmp(dst_reg,"R0")==0) 
-                dst=0;
-            else if (strcmp(dst_reg,"R1")==0) 
-                dst=1;
-            else if (strcmp(dst_reg,"R2")==0) 
-                dst=2;
-            else if (strcmp(dst_reg,"R3")==0) 
-                dst=3;
-            else if (strcmp(dst_reg,"R4")==0) 
-                dst=4;
-            else if (strcmp(dst_reg,"R5")==0) 
-                dst=5;
-            else if (strcmp(dst_reg,"R6")==0) 
-                dst=6;
-            else if (strcmp(dst_reg,"R7")==0) 
-                dst=7;
-            else {
-                fprintf(stderr, "Invalid destination register on line %d\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
-            }
+            uint8_t dst = parse_register(dst_reg, lineno);
+            uint8_t src = parse_register(src_reg, lineno);
             fputc(OPCODE_DIV, out);
             fputc(src, out);
             fputc(dst, out);

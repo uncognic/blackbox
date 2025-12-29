@@ -14,6 +14,8 @@
 #define OPCODE_MUL 0x08
 #define OPCODE_DIV 0x09
 #define OPCODE_PRINTREG 0x0A
+#define OPCODE_MOV_IMM 0x0B
+#define OPCODE_MOV_REG 0x0C
 #define OPCODE_HALT  0xFF
 
 #endif
