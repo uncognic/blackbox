@@ -12,3 +12,4 @@ src/interpreter/bbx
 bbx
 bbx-asm
 src/assembler/output.bcx.bak
+src/assembler/test

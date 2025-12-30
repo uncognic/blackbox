@@ -23,3 +23,5 @@ There are 9 registers from R0 to R8.
 | `JZ`        | Jump if register is zero                 | `<register>, <label>`        | Conditional branch                              |
 | `JNZ`       | Jump if register is non-zero             | `<register>, <label>`        | Conditional branch                              |
 | `HALT`      | Stop program execution                   | None                         | Ends the program                                |
+| `INC`       | Increment register by one                | `<register>`                 | `<register> + 1`                                |
+| `DEC`       | Decrement register by one                | `<register>`                 | `<register> - 1`                                |

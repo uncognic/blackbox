@@ -19,6 +19,8 @@
 #define OPCODE_JMP 0x0D
 #define OPCODE_JZ  0x0E
 #define OPCODE_JNZ 0x0F
+#define OPCODE_INC 0x10
+#define OPCODE_DEC 0x11
 #define OPCODE_HALT  0xFF
 
 #endif

@@ -63,6 +63,36 @@ int main(int argc, char *argv[]) {
                 pc += len;
                 break;
             }
+            case OPCODE_INC: {
+                if (pc >= size) {
+                    fprintf(stderr, "Missing operand for INC at pc=%zu\n", pc);
+                    free(program);
+                    return 1;
+                }
+                uint8_t reg = program[pc++];
+                if (reg >= REGISTERS) {
+                    fprintf(stderr, "Invalid register in INC at pc=%zu\n", pc);
+                    free(program);
+                    return 1;
+                }
+                registers[reg] += 1;
+                break;
+            }
+            case OPCODE_DEC: {
+                if (pc >= size) {
+                    fprintf(stderr, "Missing operand for DEC at pc=%zu\n", pc);
+                    free(program);
+                    return 1;
+                }
+                uint8_t reg = program[pc++];
+                if (reg >= REGISTERS) {
+                    fprintf(stderr, "Invalid register in DEC at pc=%zu\n", pc);
+                    free(program);
+                    return 1;
+                }
+                registers[reg] -= 1;
+                break;
+            }
             case OPCODE_PUSH: {
                 if (pc + 3 >= size) {
                     fprintf(stderr, "Missing operand for PUSH at pc=%zu\n", pc);

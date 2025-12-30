@@ -78,7 +78,9 @@ size_t instr_size(const char *line) {
     else if (strncmp(line, "JMP", 3) == 0) return 5; 
     else if (strcmp(line, "NEWLINE") == 0) return 1;
     else if (strncmp(line, "JZ", 2) == 0) return 6;
-    else if (strncmp(line, "JNZ", 3) == 0) return 6;    
+    else if (strncmp(line, "JNZ", 3) == 0) return 6;
+    else if (strncmp(line, "INC", 3) == 0) return 2;
+    else if (strncmp(line, "DEC", 3) == 0) return 2;  
     else if (strcmp(line, "HALT") == 0) return 1;
     return 0; 
 }
@@ -240,6 +242,44 @@ int main(int argc, char *argv[]) {
 
         else if (strcmp(s, "HALT") == 0) {
             fputc(OPCODE_HALT, out);
+        }
+        else if (strncmp(s, "INC", 3) == 0) {
+            char regname[8];
+
+            if (sscanf(s + 3, " %7s", regname) != 1) {
+                fprintf(stderr, "Syntax error on line %d: expected INC <register>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            for (int i = 0; regname[i]; i++) {
+                if (regname[i] == '\r' || regname[i] == '\n') {
+                    regname[i] = '\0';
+                    break;
+                }
+            }
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_INC, out);
+            fputc(reg, out);
+        }
+        else if (strncmp(s, "DEC", 3) == 0) {
+            char regname[8];
+
+            if (sscanf(s + 3, " %7s", regname) != 1) {
+                fprintf(stderr, "Syntax error on line %d: expected DEC <register>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            for (int i = 0; regname[i]; i++) {
+                if (regname[i] == '\r' || regname[i] == '\n') {
+                    regname[i] = '\0';
+                    break;
+                }
+            }
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_DEC, out);
+            fputc(reg, out);
         }
         else if (strncmp(s, "PRINT_REG", 9) == 0) {
             char regname[8];
