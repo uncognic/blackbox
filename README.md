@@ -5,8 +5,6 @@ The virtual machine executes a custom bytecode format produced from a simple ass
 
 It uses Intel-style syntax. (register order dst, src), (.label:)
 
-This is a learning-focused project that explores low-level concepts such as instruction decoding, registers, stacks, and control flow, similar to how real CPUs operate. 
-
 ### Docs
 See [docs.md](docs/docs.md) and [examples.md](docs/examples.md)
 
