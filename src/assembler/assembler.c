@@ -91,6 +91,7 @@ uint8_t parse_register(const char *r, int lineno) {
     if (strcmp(r, "R5") == 0) return 5;
     if (strcmp(r, "R6") == 0) return 6;
     if (strcmp(r, "R7") == 0) return 7;
+    if (strcmp(r, "R8") == 0) return 8;
 
     fprintf(stderr, "Invalid register on line %d\n", lineno);
     exit(1);
@@ -255,21 +256,7 @@ int main(int argc, char *argv[]) {
                     break;
                 }
             }
-            uint8_t reg;
-            if      (strcmp(regname, "R0") == 0) reg = 0;
-            else if (strcmp(regname, "R1") == 0) reg = 1;
-            else if (strcmp(regname, "R2") == 0) reg = 2;
-            else if (strcmp(regname, "R3") == 0) reg = 3;
-            else if (strcmp(regname, "R4") == 0) reg = 4;
-            else if (strcmp(regname, "R5") == 0) reg = 5;
-            else if (strcmp(regname, "R6") == 0) reg = 6;
-            else if (strcmp(regname, "R7") == 0) reg = 7;
-            else {
-                fprintf(stderr, "Invalid register on line %d\nGot: %s\n", lineno, regname);
-                fclose(in);
-                fclose(out);
-                return 1;
-            }
+            uint8_t reg = parse_register(regname, lineno);
 
             fputc(OPCODE_PRINTREG, out);
             fputc(reg, out);
