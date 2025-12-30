@@ -67,3 +67,22 @@ NEWLINE
 JMP label1
 HALT
 ```
+Conditional JZ and JNZ:
+```
+MOV R1, 3
+
+.label_loop:
+PRINT_REG R1
+NEWLINE
+
+MOV R3, 1
+SUB R1, R3
+JNZ R1, label_loop
+
+MOV R4, 42
+JZ R1, label_end
+PRINT_REG R4 ;SHOULD NOT PRINT 42!
+
+.label_end:
+HALT
+```
