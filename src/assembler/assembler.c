@@ -99,25 +99,51 @@ uint8_t parse_register(const char *r, int lineno) {
     exit(1);
 }
 
+
 int main(int argc, char *argv[]) {
-    if (argc < 3) {
-        fprintf(stderr, "Usage: %s input.bbx output.bcx\n", argv[0]);
+    if (argc > 1 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0)) {
+        fprintf(stdout, "Usage: %s [-d, --debug] [-h, --help] input.bbx output.bcx\n", argv[0]);
         return 1;
     }
+    char *input_file = NULL;
+    char *output_file = NULL;
+    int debug = 0;
 
-    FILE *in = fopen(argv[1], "rb");
+    for (int i = 1; i < argc; i++) {
+        if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--debug") == 0) {
+            debug = 1;
+        } else if (!input_file) {
+            input_file = argv[i];
+        } else if (!output_file) {
+            output_file = argv[i];
+        } else {
+            fprintf(stderr, "Unexpected argument: %s\n", argv[i]);
+            return 1;
+        }
+    }
+
+    if (!input_file || !output_file) {
+        fprintf(stderr, "Usage: %s [-d] input.bbx output.bcx\n", argv[0]);
+        return 1;
+    }
+    
+    FILE *in = fopen(input_file, "rb");
     if (!in) {
         perror("fopen input");
         return 1;
     }
-
-    FILE *out = fopen(argv[2], "wb");
+    
+    FILE *out = fopen(output_file, "wb");
     if (!out) {
         perror("fopen output");
         fclose(in);
         return 1;
     }
-    
+    if (debug) {
+        printf("Debug mode ON\n");
+        printf("[DEBUG] Input file: %s\n", input_file);
+        printf("[DEBUG] Output file: %s\n", output_file);
+    }
     
     char line[256];
     int lineno = 0;
@@ -141,14 +167,19 @@ int main(int argc, char *argv[]) {
             }
 
             s[len-1] = '\0';
-            strcpy(labels[label_count].name, s + 1); // copy first
+            strcpy(labels[label_count].name, s + 1);
             labels[label_count].addr = pc;
-            printf("Label %s at pc=%zu\n", labels[label_count].name, labels[label_count].addr);
+            if (debug) {
+                printf("[DEBUG] Label %s at pc=%zu\n", labels[label_count].name, labels[label_count].addr);
+            }
             label_count++;
             continue;
         } 
         
         pc += instr_size(s);
+        if (debug) {
+            printf("[DEBUG] Instruction: %s, size: %lu bytes, next PC=%u\n", s, instr_size(s), pc);
+        }
     }
     rewind(in);
     lineno = 0;
@@ -160,6 +191,9 @@ int main(int argc, char *argv[]) {
             continue;
         
         if (strncmp(s, "WRITE", 5) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             int fd;
             char *str_start;
 
@@ -204,12 +238,18 @@ int main(int argc, char *argv[]) {
         }
 
         else if (strcmp(s, "NEWLINE") == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             fputc(OPCODE_NEWLINE, out);
         }
         else if (s[0] == '.') {
             continue;
         }
         else if (strncmp(s, "JZ", 2) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char regname[3];
             char label[32];
             if (sscanf(s + 2, " %2s, %31s", regname, label) != 2) {
@@ -220,11 +260,17 @@ int main(int argc, char *argv[]) {
             }
             uint8_t src = parse_register(regname, lineno);
             size_t addr = find_label(label, labels, label_count);
+            if (debug) {
+                printf("[DEBUG] JZ to %s (addr=%zu)\n", label, addr);
+            }
             fputc(OPCODE_JZ, out);
             fputc(src, out);
             write_u32(out, addr);
         }
         else if (strncmp(s, "JNZ", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char regname[3];
             char label[32];
             if (sscanf(s + 3, " %2s, %31s", regname, label) != 2) {
@@ -235,15 +281,24 @@ int main(int argc, char *argv[]) {
             }
             uint8_t src = parse_register(regname, lineno);
             size_t addr = find_label(label, labels, label_count);
+            if (debug) {
+                printf("[DEBUG] JNZ to %s (addr=%zu)\n", label, addr);
+            }
             fputc(OPCODE_JNZ, out);
             fputc(src, out);
             write_u32(out, addr);
         }
 
         else if (strcmp(s, "HALT") == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             fputc(OPCODE_HALT, out);
         }
         else if (strncmp(s, "INC", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char regname[8];
 
             if (sscanf(s + 3, " %7s", regname) != 1) {
@@ -263,6 +318,9 @@ int main(int argc, char *argv[]) {
             fputc(reg, out);
         }
         else if (strncmp(s, "DEC", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char regname[8];
 
             if (sscanf(s + 3, " %7s", regname) != 1) {
@@ -282,6 +340,9 @@ int main(int argc, char *argv[]) {
             fputc(reg, out);
         }
         else if (strncmp(s, "PRINT_REG", 9) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char regname[8];
 
             if (sscanf(s + 9, " %7s", regname) != 1) {
@@ -302,6 +363,9 @@ int main(int argc, char *argv[]) {
             fputc(reg, out);
         }
         else if (strncmp(s, "PRINT", 5) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char c;
             if (sscanf(s + 5, " '%c", &c) != 1) {
                 fprintf(stderr, "Syntax error on line %d\nGot: %s\n", lineno, line);
@@ -313,6 +377,9 @@ int main(int argc, char *argv[]) {
             fputc((uint8_t)c, out);
         }
         else if (strncmp(s, "JMP", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char label_name[32];
             if (sscanf(s+3, " %31s", label_name) == 0) {
                 fprintf(stderr, "Syntax error on line %d: expected JMP <label>\nGot: %s\n", lineno, line);
@@ -321,11 +388,16 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
             size_t addr = find_label(label_name, labels, label_count);
-            printf("JMP to %s (addr=%zu)\n", label_name, addr);
+            if (debug) {
+                printf("[DEBUG] JMP to %s (addr=%zu)\n", label_name, addr);
+            }
             fputc(OPCODE_JMP, out);
             write_u32(out, addr);
         }
         else if (strncmp(s, "PUSH", 4) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             int32_t value;
             if (sscanf(s+4, " %d", &value) != 1) {
                 fprintf(stderr, "Syntax error on line %d: expected PUSH <value>\nGot: %s\n", lineno, line);
@@ -337,6 +409,9 @@ int main(int argc, char *argv[]) {
             write_u32(out, value);
         } 
         else if (strncmp(s, "POP", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char regname[3];
             if (sscanf(s + 3, " %2s", regname) != 1) {
                 fprintf(stderr, "Syntax error on line %d: expected POP <register>\nGot: %s\n", lineno, line);
@@ -349,6 +424,9 @@ int main(int argc, char *argv[]) {
             fputc(reg, out);
         }
         else if (strncmp(s, "ADD", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char src_reg[3];
             char dst_reg[3];
             if (sscanf(s + 3, " %2s , %2s", dst_reg, src_reg) != 2) {
@@ -364,6 +442,9 @@ int main(int argc, char *argv[]) {
             fputc(dst, out);
         }
         else if (strncmp(s, "SUB", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char src_reg[3];
             char dst_reg[3];
             if (sscanf(s + 3, " %2s , %2s", dst_reg, src_reg) != 2) {
@@ -379,6 +460,9 @@ int main(int argc, char *argv[]) {
             fputc(dst, out);
         }
         else if (strncmp(s, "MUL", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char src_reg[3];
             char dst_reg[3];
             if (sscanf(s + 3, " %2s , %2s", dst_reg, src_reg) != 2) {
@@ -394,6 +478,9 @@ int main(int argc, char *argv[]) {
             fputc(dst, out);
         }
         else if (strncmp(s, "DIV", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char src_reg[3];
             char dst_reg[3];
             if (sscanf(s + 3, " %2s , %2s", dst_reg, src_reg) != 2) {
@@ -409,6 +496,9 @@ int main(int argc, char *argv[]) {
             fputc(dst, out);
         }
         else if (strncmp(s, "MOV", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char dst_reg[3];
             char src[32];
 
@@ -444,5 +534,6 @@ int main(int argc, char *argv[]) {
 
     fclose(in);
     fclose(out);
+    printf("Assembly successful.\n");
     return 0;
 }
