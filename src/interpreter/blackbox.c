@@ -93,7 +93,7 @@ int main(int argc, char *argv[]) {
                 registers[reg] -= 1;
                 break;
             }
-            case OPCODE_PUSH: {
+            case OPCODE_PUSH_IMM: {
                 if (pc + 3 >= size) {
                     fprintf(stderr, "Missing operand for PUSH at pc=%zu\n", pc);
                     free(program);
@@ -108,6 +108,26 @@ int main(int argc, char *argv[]) {
                 pc += 4;
 
                 stack[sp++] = value;
+                break;
+            }
+            case OPCODE_PUSH_REG: {
+                if (pc >= size) {
+                    fprintf(stderr, "Missing operands for PUSH_REG at pc=%zu\n", pc);
+                    free(program);
+                    return 1;
+                }
+                uint8_t src = program[pc++];
+                if (src >= REGISTERS) {
+                    fprintf(stderr, "Invalid register in PUSH_REG at pc=%zu\n", pc);
+                    free(program);
+                    return 1;
+                }
+                if (sp >= STACK_SIZE) {
+                    fprintf(stderr, "Stack overflow at pc=%zu\n", pc);
+                    free(program);
+                    return 1;
+                }
+                stack[sp++] = registers[src];
                 break;
             }
             case OPCODE_POP: {

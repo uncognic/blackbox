@@ -7,7 +7,7 @@
 #define OPCODE_WRITE 0x01
 #define OPCODE_NEWLINE 0x02
 #define OPCODE_PRINT 0x03
-#define OPCODE_PUSH 0x04
+#define OPCODE_PUSH_IMM 0x04
 #define OPCODE_POP 0x05
 #define OPCODE_ADD 0x06
 #define OPCODE_SUB 0x07
@@ -21,6 +21,7 @@
 #define OPCODE_JNZ 0x0F
 #define OPCODE_INC 0x10
 #define OPCODE_DEC 0x11
+#define OPCODE_PUSH_REG 0x12
 #define OPCODE_HALT  0xFF
 
 #endif

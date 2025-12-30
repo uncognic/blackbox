@@ -59,7 +59,15 @@ size_t instr_size(const char *line) {
         if (toupper(src[0]) == 'R') return 3; 
         else return 6;   
     }
-    else if (strncmp(line, "PUSH", 4) == 0) return 5; 
+    else if (strncmp(line, "PUSH", 4) == 0) {
+        char operand[32];
+        sscanf(line + 4, " %31s", operand);
+        if (operand[0] == 'R') {
+            return 2;
+        } else {
+            return 5;
+        }
+    }
     else if (strncmp(line, "POP", 3) == 0) return 2; 
     else if (strncmp(line, "ADD", 3) == 0) return 3;  
     else if (strncmp(line, "SUB", 3) == 0) return 3;
@@ -394,20 +402,6 @@ int main(int argc, char *argv[]) {
             fputc(OPCODE_JMP, out);
             write_u32(out, addr);
         }
-        else if (strncmp(s, "PUSH", 4) == 0) {
-            if (debug) {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
-            int32_t value;
-            if (sscanf(s+4, " %d", &value) != 1) {
-                fprintf(stderr, "Syntax error on line %d: expected PUSH <value>\nGot: %s\n", lineno, line);
-                fclose(in);
-                fclose(out);
-                return 1;   
-            }
-            fputc(OPCODE_PUSH, out);
-            write_u32(out, value);
-        } 
         else if (strncmp(s, "POP", 3) == 0) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
@@ -522,6 +516,40 @@ int main(int argc, char *argv[]) {
                 write_u32(out, imm);
             }
         }
+        else if (strncmp(s, "PUSH", 4) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char operand[32];
+            if (sscanf(s + 4, " %31s", operand) != 1) {
+                fprintf(stderr, "Syntax error on line %d: expected PUSH <value|register>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            if (operand[0] == 'R') {
+                uint8_t reg = parse_register(operand, lineno);
+                if (debug) {
+                    printf("[DEBUG] PUSH_REG\n");
+                }   
+                fputc(OPCODE_PUSH_REG, out);
+                fputc(reg, out);
+            } else {
+                if (debug) {
+                    printf("[DEBUG] PUSH_IMM\n");
+                }
+                char *end;
+                int32_t imm = strtol(operand, &end, 0);
+                if (*end != '\0') {
+                    fprintf(stderr, "Invalid immediate on line %d: %s\n", lineno, operand);
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                fputc(OPCODE_PUSH_IMM, out);
+                write_u32(out, imm);
+            }
+        } 
         
         else {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);

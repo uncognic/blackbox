@@ -11,7 +11,7 @@ There are 9 registers from R0 to R8.
 | `WRITE`     | Write a string to a stream               | `<stream number> "<string>"` | `stream number = 1` for stdout, `2` for stderr  |
 | `NEWLINE`   | Prints a newline                         | None                         | Equivalent to `\n`                              |
 | `PRINT`     | Print a single character                 | `<char>`                     | Example: `PRINT 'A'`                            |
-| `PUSH`      | Push a 32-bit integer onto the stack     | `<value>`                    | Stack grows; check for overflow                 |
+| `PUSH`      | Push 32-bit integer or reg to the stack  | `<value or register>`        | Stack grows; check for overflow                 |
 | `POP`       | Pop the top of the stack into a register | `<register>`                 | Stack shrinks; check for underflow              |
 | `MOV`       | Move a value into a register             | `<dst>, <src>`               | `<src>` can be immediate or another register    |
 | `ADD`       | Add two registers                        | `<dst>, <src>`               | `dst = dst + src`                               |
