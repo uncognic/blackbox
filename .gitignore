@@ -13,3 +13,5 @@ bbx
 bbx-asm
 src/assembler/output.bcx.bak
 src/assembler/test
+test.bbx
+output.bbx
