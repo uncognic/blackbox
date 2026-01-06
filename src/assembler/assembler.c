@@ -89,6 +89,7 @@ size_t instr_size(const char *line) {
     else if (strncmp(line, "JNZ", 3) == 0) return 6;
     else if (strncmp(line, "INC", 3) == 0) return 2;
     else if (strncmp(line, "DEC", 3) == 0) return 2;  
+    else if (strncmp(line, "CMP", 3) == 0) return 3;
     else if (strcmp(line, "HALT") == 0) return 1;
     return 0; 
 }
@@ -549,7 +550,25 @@ int main(int argc, char *argv[]) {
                 fputc(OPCODE_PUSH_IMM, out);
                 write_u32(out, imm);
             }
-        } 
+        }
+        else if (strncmp(s, "CMP", 3) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char reg1[3];
+            char reg2[3];
+            if (sscanf(s + 3, " %2s , %2s", reg1, reg2) != 2) {
+                fprintf(stderr, "Syntax error on line %d: expected CMP <reg1>, <reg2>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t r1 = parse_register(reg1, lineno);
+            uint8_t r2 = parse_register(reg2, lineno);
+            fputc(OPCODE_CMP, out);
+            fputc(r1, out);
+            fputc(r2, out);
+        }
         
         else {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);

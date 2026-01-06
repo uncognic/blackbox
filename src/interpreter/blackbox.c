@@ -130,6 +130,29 @@ int main(int argc, char *argv[]) {
                 stack[sp++] = registers[src];
                 break;
             }
+            case OPCODE_CMP: {
+                if (pc + 2 >= size) {
+                    fprintf(stderr, "Missing operands for CMP at pc=%zu\n", pc);
+                    free(program);
+                    return 1;
+                }
+                uint8_t src = program[pc++];
+                uint8_t dst = program[pc++];
+                if (src >= REGISTERS || dst >= REGISTERS) {
+                    fprintf(stderr, "Invalid register in CMP at pc=%zu\n", pc);
+                    free(program);
+                    return 1;
+                }
+                int32_t result = registers[dst] - registers[src];
+                if (result < 0) { 
+                    registers[8] = 0;
+                } else if (result > 0) {
+                    registers[8] = 1;
+                } else {
+                    registers[8] = 0;
+                }
+                break;
+            }
             case OPCODE_POP: {
                 if (pc >= size) {
                     fprintf(stderr, "Missing operand for POP at pc=%zu\n", pc);
@@ -138,7 +161,7 @@ int main(int argc, char *argv[]) {
                 }
                 uint8_t reg = program[pc++];
                 if (reg >= REGISTERS) {
-                    fprintf(stderr, "Invalid register %lu at pc=%u\n", pc, reg);
+                    fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, pc);
                     free(program);
                     return 1;
                 }

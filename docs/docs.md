@@ -4,7 +4,8 @@ Syntax is Intel assembly-like (DST, SRC).\
 Labels start with a period (.) and end with a colon (:) (.label:)\
 The stack size is 16384 32-bit integers, 64KB total.\
 The stack acts like virtual memory.\
-There are 9 registers from R0 to R8, each can store a 32-bit integer
+There are 9 registers from R0 to R8, each can store a 32-bit integer.
+Register 8 (R8) is dedicated to CMP. 
 ### Calls/Opcodes:
 | Instruction | Description                              | Operands                     | Notes                                           |
 | ----------- | ---------------------------------------- | ---------------------------- | ----------------------------------------------- |
@@ -25,3 +26,4 @@ There are 9 registers from R0 to R8, each can store a 32-bit integer
 | `HALT`      | Stop program execution                   | None                         | Ends the program                                |
 | `INC`       | Increment register by one                | `<register>`                 | `<register> + 1`                                |
 | `DEC`       | Decrement register by one                | `<register>`                 | `<register> - 1`                                |
+| `CMP`       | Compare 2 registers                      | `<register>, <register>`     | Subtracts the registers, if bigger than 0, R8=1 |

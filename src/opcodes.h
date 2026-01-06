@@ -22,6 +22,7 @@
 #define OPCODE_INC 0x10
 #define OPCODE_DEC 0x11
 #define OPCODE_PUSH_REG 0x12
+#define OPCODE_CMP 0x13
 #define OPCODE_HALT  0xFF
 
 #endif
