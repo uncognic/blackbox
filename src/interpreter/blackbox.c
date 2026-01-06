@@ -145,11 +145,11 @@ int main(int argc, char *argv[]) {
                 }
                 int32_t result = registers[dst] - registers[src];
                 if (result < 0) { 
-                    registers[8] = 0;
+                    registers[REGISTERS-1] = 0;
                 } else if (result > 0) {
-                    registers[8] = 1;
+                    registers[REGISTERS-1] = 1;
                 } else {
-                    registers[8] = 0;
+                    registers[REGISTERS-1] = 0;
                 }
                 break;
             }

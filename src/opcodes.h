@@ -2,7 +2,7 @@
 #define OPCODES_H
 
 #define STACK_SIZE 16384
-#define REGISTERS 9
+#define REGISTERS 33
 
 #define OPCODE_WRITE 0x01
 #define OPCODE_NEWLINE 0x02
