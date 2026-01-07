@@ -1,6 +1,8 @@
 #ifndef OPCODES_H
 #define OPCODES_H
 
+#define MAGIC 0x626378
+
 #define STACK_SIZE 16384
 #define REGISTERS 33
 
