@@ -257,7 +257,7 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char regname[REGISTERS-1];
+            char regname[16];
             char label[32];
             if (sscanf(s + 2, " %3s, %31s", regname, label) != 2) {
                 fprintf(stderr, "Syntax error on line %d: expected JZ <register>, <label>\nGot: %s\n", lineno, s);
@@ -278,7 +278,7 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char regname[REGISTERS-1];
+            char regname[16];
             char label[32];
             if (sscanf(s + 3, " %3s, %31s", regname, label) != 2) {
                 fprintf(stderr, "Syntax error on line %d: expected JNZ <register>, <label>\nGot: %s\n", lineno, s);
@@ -306,7 +306,7 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char regname[REGISTERS-1];
+            char regname[16];
 
             if (sscanf(s + 3, " %7s", regname) != 1) {
                 fprintf(stderr, "Syntax error on line %d: expected INC <register>\nGot: %s\n", lineno, line);
@@ -328,7 +328,7 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char regname[REGISTERS-1];
+            char regname[16];
 
             if (sscanf(s + 3, " %7s", regname) != 1) {
                 fprintf(stderr, "Syntax error on line %d: expected DEC <register>\nGot: %s\n", lineno, line);
@@ -350,7 +350,7 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char regname[REGISTERS-1];
+            char regname[16];
 
             if (sscanf(s + 9, " %7s", regname) != 1) {
                 fprintf(stderr, "Syntax error on line %d: expected PRINT_REG <register>\nGot: %s\n", lineno, line);
@@ -405,8 +405,8 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char regname[3];
-            if (sscanf(s + 3, " %3s", regname) != 1) {
+            char regname[16];
+            if (sscanf(s + 3, " %15s", regname) != 1) {
                 fprintf(stderr, "Syntax error on line %d: expected POP <register>\nGot: %s\n", lineno, line);
                 fclose(in);
                 fclose(out);
@@ -420,9 +420,9 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char src_reg[REGISTERS-1];
-            char dst_reg[REGISTERS-1];
-            if (sscanf(s + 3, " %3s , %3s", dst_reg, src_reg) != 2) {
+            char src_reg[16];
+            char dst_reg[16];
+            if (sscanf(s + 3, " %15s , %15s", dst_reg, src_reg) != 2) {
                 fprintf(stderr, "Syntax error on line %d: expected ADD <src>, <dst>\nGot: %s\n", lineno, line);
                 fclose(in);
                 fclose(out);
@@ -438,9 +438,9 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char src_reg[REGISTERS-1];
-            char dst_reg[REGISTERS-1];
-            if (sscanf(s + 3, " %3s , %3s", dst_reg, src_reg) != 2) {
+            char src_reg[16];
+            char dst_reg[16];
+            if (sscanf(s + 3, " %15s , %15s", dst_reg, src_reg) != 2) {
                 fprintf(stderr, "Syntax error on line %d: expected SUB <dst>, <src>\nGot: %s\n", lineno, line);
                 fclose(in);
                 fclose(out);
@@ -456,9 +456,9 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char src_reg[REGISTERS-1];
-            char dst_reg[REGISTERS-1];
-            if (sscanf(s + 3, " %3s , %3s", dst_reg, src_reg) != 2) {
+            char src_reg[16];
+            char dst_reg[16];
+            if (sscanf(s + 3, " %15s, %15s", dst_reg, src_reg) != 2) {
                 fprintf(stderr, "Syntax error on line %d: expected MUL <dst>, <src>\nGot: %s\n", lineno, line);
                 fclose(in);
                 fclose(out);
@@ -474,9 +474,9 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char src_reg[REGISTERS-1];
-            char dst_reg[REGISTERS-1];
-            if (sscanf(s + 3, " %3s , %3s", dst_reg, src_reg) != 2) {
+            char src_reg[16];
+            char dst_reg[16];
+            if (sscanf(s + 3, " %15s, %15s", dst_reg, src_reg) != 2) {
                 fprintf(stderr, "Syntax error on line %d: expected DIV <dst>, <src>\nGot: %s\n", lineno, line);
                 fclose(in);
                 fclose(out);
@@ -492,10 +492,10 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char dst_reg[REGISTERS-1];
-            char src[32];
+            char dst_reg[16];
+            char src[16];
 
-            if (sscanf(s + 3, " %3s , %31s", dst_reg, src) != 2) {
+            if (sscanf(s + 3, " %15s, %15s", dst_reg, src) != 2) {
                 fprintf(stderr, "Syntax error on line %d: expected MOV <dst>, <src>\nGot: %s\n", lineno, line);
                 fclose(in);
                 fclose(out);
@@ -519,8 +519,8 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char operand[32];
-            if (sscanf(s + 4, " %31s", operand) != 1) {
+            char operand[16];
+            if (sscanf(s + 4, " %15s", operand) != 1) {
                 fprintf(stderr, "Syntax error on line %d: expected PUSH <value|register>\nGot: %s\n", lineno, line);
                 fclose(in);
                 fclose(out);
@@ -553,9 +553,9 @@ int main(int argc, char *argv[]) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char reg1[REGISTERS-1];
-            char reg2[REGISTERS-1];
-            if (sscanf(s + 3, " %3s , %3s", reg1, reg2) != 2) {
+            char reg1[16];
+            char reg2[16];
+            if (sscanf(s + 3, " %15s , %15s", reg1, reg2) != 2) {
                 fprintf(stderr, "Syntax error on line %d: expected CMP <reg1>, <reg2>\nGot: %s\n", lineno, line);
                 fclose(in);
                 fclose(out);
