@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "../opcodes.h"
+static int64_t stack[STACK_SIZE];
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -10,7 +11,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     int32_t registers[REGISTERS] = {0};
-    int32_t stack[STACK_SIZE];
     size_t sp = 0;  
     FILE *f = fopen(argv[1], "rb");
     if (!f) {
