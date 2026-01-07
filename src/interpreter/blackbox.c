@@ -35,9 +35,25 @@ int main(int argc, char *argv[]) {
         fclose(f);
         return 1;
     }
+    if (size < 3) {
+        fprintf(stderr, "Error: program too small (missing magic)\n");
+        free(program);
+        fclose(f);
+        return 1;
+    }
+    uint8_t m0 = (MAGIC >> 16) & 0xFF;
+    uint8_t m1 = (MAGIC >> 8) & 0xFF;
+    uint8_t m2 = (MAGIC) & 0xFF;
+    if (program[0] != m0 || program[1] != m1 || program[2] != m2) {
+        fprintf(stderr, "Error: invalid magic (expected '%c%c%c')\n", m0, m1, m2);
+        free(program);
+        fclose(f);
+        return 1;
+    }
+
     fclose(f);
 
-    size_t pc = 0;
+    size_t pc = 3;
 
     while (pc < size) {
         uint8_t opcode = program[pc++];

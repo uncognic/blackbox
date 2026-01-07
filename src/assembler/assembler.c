@@ -5,7 +5,6 @@
 #include <ctype.h>
 #include "../opcodes.h"
 
-#define BCX_VERSION 1
 
 char *trim(char *s) {
     while (isspace(*s)) s++;
@@ -15,10 +14,10 @@ char *trim(char *s) {
 }
 typedef struct {
     char name[32];
-    size_t addr;
+    uint32_t addr;
 } Label;
 
-size_t find_label(const char *name, Label *labels, size_t count) {
+uint32_t find_label(const char *name, Label *labels, size_t count) {
     for (size_t i = 0; i < count; i++) {
         if (strcmp(labels[i].name, name) == 0) {
             return labels[i].addr;
@@ -81,6 +80,7 @@ size_t instr_size(const char *line) {
         char *end = strchr(quote+1, '"');
         if (!end) return 3;
         size_t str_len = end - (quote+1);
+        if (str_len > 255) str_len = 255;
         return 3 + str_len;
     }
     else if (strncmp(line, "JMP", 3) == 0) return 5; 
@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
     int lineno = 0;
     Label labels[256];
     size_t label_count = 0;
-    int pc = 0;
+    uint32_t pc = 3;
 
     while (fgets(line, sizeof(line), in)) {
         lineno++;
@@ -174,23 +174,28 @@ int main(int argc, char *argv[]) {
             }
 
             s[len-1] = '\0';
-            strcpy(labels[label_count].name, s + 1);
+            strncpy(labels[label_count].name, s + 1, sizeof(labels[label_count].name)-1);
+            labels[label_count].name[sizeof(labels[label_count].name)-1] = '\0';
             labels[label_count].addr = pc;
             if (debug) {
-                printf("[DEBUG] Label %s at pc=%zu\n", labels[label_count].name, labels[label_count].addr);
+                printf("[DEBUG] Label %s at pc=%u\n", labels[label_count].name, (unsigned)labels[label_count].addr);
             }
             label_count++;
             continue;
         } 
         
-        pc += instr_size(s);
+        pc += (uint32_t)instr_size(s);
         if (debug) {
-            printf("[DEBUG] Instruction: %s, size: %lu bytes, next PC=%u\n", s, instr_size(s), pc);
+            printf("[DEBUG] Instruction: %s, size: %lu bytes, next PC=%u\n", s, instr_size(s), (unsigned)pc);
         }
     }
     rewind(in);
     lineno = 0;
-        
+
+    fputc((MAGIC >> 16) & 0xFF, out);
+    fputc((MAGIC >> 8) & 0xFF, out);
+    fputc((MAGIC >> 0) & 0xFF, out);
+    
     while (fgets(line, sizeof(line), in)) {
         lineno++;
         char *s = trim(line);
@@ -266,9 +271,9 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
             uint8_t src = parse_register(regname, lineno);
-            size_t addr = find_label(label, labels, label_count);
+            uint32_t addr = find_label(label, labels, label_count);
             if (debug) {
-                printf("[DEBUG] JZ to %s (addr=%zu)\n", label, addr);
+                printf("[DEBUG] JZ to %s (addr=%u)\n", label, (unsigned)addr);
             }
             fputc(OPCODE_JZ, out);
             fputc(src, out);
@@ -287,9 +292,9 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
             uint8_t src = parse_register(regname, lineno);
-            size_t addr = find_label(label, labels, label_count);
+            uint32_t addr = find_label(label, labels, label_count);
             if (debug) {
-                printf("[DEBUG] JNZ to %s (addr=%zu)\n", label, addr);
+                printf("[DEBUG] JNZ to %s (addr=%u)\n", label, (unsigned)addr);
             }
             fputc(OPCODE_JNZ, out);
             fputc(src, out);
@@ -394,9 +399,9 @@ int main(int argc, char *argv[]) {
                 fclose(out);
                 return 1;
             }
-            size_t addr = find_label(label_name, labels, label_count);
+            uint32_t addr = find_label(label_name, labels, label_count);
             if (debug) {
-                printf("[DEBUG] JMP to %s (addr=%zu)\n", label_name, addr);
+                printf("[DEBUG] JMP to %s (addr=%u)\n", label_name, (unsigned)addr);
             }
             fputc(OPCODE_JMP, out);
             write_u32(out, addr);
