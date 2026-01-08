@@ -573,6 +573,40 @@ int main(int argc, char *argv[]) {
                 }
                 break;
             }
+            case OPCODE_FREE: {
+                if (pc + 3 >= size) {
+                    fprintf(stderr, "Missing operand for FREE at pc=%zu\n", pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+
+                uint32_t num = program[pc] | (program[pc+1] << 8) | (program[pc+2] << 16) | (program[pc+3] << 24);
+                pc += 4;
+
+                if (num == 0) 
+                    break;
+
+                if (num > stack_cap) {
+                    fprintf(stderr, "FREE size out of bounds: %u at pc=%zu\n", num, pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+
+                size_t new_cap = stack_cap - num;
+
+                int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
+                if (!tmp) {
+                    perror("realloc");
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                stack = tmp;
+                stack_cap = new_cap;
+                break;
+            }
             default: {
                 fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode, pc - 1);
                 free(program);

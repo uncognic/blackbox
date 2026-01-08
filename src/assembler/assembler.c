@@ -557,6 +557,21 @@ int main(int argc, char *argv[]) {
             fputc(OPCODE_RESIZE, out);
             write_u32(out, num);
         }
+        else if (strncmp(s, "FREE", 4) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char operand[32];
+            if (sscanf(s + 4, " %31s", operand) != 1) {
+                fprintf(stderr, "Syntax error on line %d: expected FREE <number of elements>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t num = strtoul(operand, NULL, 0);
+            fputc(OPCODE_FREE, out);
+            write_u32(out, num);
+        }
         else {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);
             fclose(in);

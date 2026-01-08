@@ -62,8 +62,12 @@
   - Behavior: increases capacity by the specified count (no-op if count == 0).  
 - RESIZE: Resize stack to specified amount
   - Syntax: RESIZE <elements>
-  - ENCODING: OPCODE_RESIZE, 4-byte unsigned count
+  - Encoding: OPCODE_RESIZE, 4-byte unsigned count
   - Behavior: Resizes stack to specified amount. If SP is lower than the new cap, set it to the maximum of the new cap.
+- FREE: Reduce the stack by specified amount
+  - Syntax: FREE <elements>
+  - Encoding: OPCODE_FREE, 4-byte unsigned count
+  - Behavior: Reduce the stack size by the specified amount of elements.
 - HALT: Stop program execution  
   - Syntax: HALT  
   - Encoding: OPCODE_HALT
