@@ -543,6 +543,11 @@ int main(int argc, char *argv[]) {
                 stack_cap = new_cap;
                 break;
             }
+            case OPCODE_PRINT_STACKSIZE: {
+                printf("%zu", stack_cap);
+                fflush(stdout);
+                break;
+            }
             default: {
                 fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode, pc - 1);
                 free(program);

@@ -72,6 +72,7 @@ size_t instr_size(const char *line) {
     else if (strncmp(line, "SUB", 3) == 0) return 3;
     else if (strncmp(line, "MUL", 3) == 0) return 3;
     else if (strncmp(line, "DIV", 3) == 0) return 3;
+    else if (strcmp(line, "PRINT_STACKSIZE") == 0) return 1;
     else if (strncmp(line, "PRINT_REG", 9) == 0) return 2; 
     else if (strncmp(line, "PRINT", 5) == 0) return 2;
     else if (strncmp(line, "WRITE", 5) == 0) {
@@ -378,6 +379,12 @@ int main(int argc, char *argv[]) {
             fputc(OPCODE_PRINTREG, out);
             fputc(reg, out);
         }
+        else if (strncmp(s, "PRINT_STACKSIZE", 15) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            fputc(OPCODE_PRINT_STACKSIZE, out);
+        }
         else if (strncmp(s, "PRINT", 5) == 0) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
@@ -642,6 +649,7 @@ int main(int argc, char *argv[]) {
             fputc(OPCODE_GROW, out);
             write_u32(out, num);
         }
+        
         else {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);
             fclose(in);

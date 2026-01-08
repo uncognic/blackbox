@@ -28,6 +28,7 @@
 #define OPCODE_LOAD 0x15
 #define OPCODE_STORE 0x16
 #define OPCODE_GROW 0x17
+#define OPCODE_PRINT_STACKSIZE 0x18
 #define OPCODE_HALT  0xFF
 
 #endif
