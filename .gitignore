@@ -17,3 +17,4 @@ test.bbx
 output.bbx
 src/assembler/tools.o
 src/assembler/assembler.o
+.VSCodeCounter/
