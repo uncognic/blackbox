@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "../opcodes.h"
+#include "../define.h"
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {

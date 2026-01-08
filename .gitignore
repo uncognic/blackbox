@@ -15,3 +15,4 @@ src/assembler/output.bcx.bak
 src/assembler/test
 test.bbx
 output.bbx
+src/assembler/tools.o

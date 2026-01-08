@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O2
 
 SRC = blackbox.c
-HEADER = ../opcodes.h
+HEADER = ../define.h
 TARGET = bbx
 
 .PHONY: all clean

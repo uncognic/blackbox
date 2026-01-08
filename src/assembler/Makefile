@@ -1,16 +1,21 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -O2
+INCLUDES = -I.
 
-SRC = assembler.c
-HEADER = ../opcodes.h
+SRC = assembler.c tools.c
+OBJ = $(SRC:.c=.o)
+HEADER = ../define.h tools.h
 TARGET = bbx-asm
 
 .PHONY: all clean
 
 all: $(TARGET)
 
-$(TARGET): $(SRC) $(HEADER)
-	$(CC) $(CFLAGS) $(SRC) -o $(TARGET)
+$(TARGET): $(OBJ)
+	$(CC) $(CFLAGS) $(INCLUDES) $(OBJ) -o $(TARGET)
+
+%.o: %.c $(HEADER)
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(OBJ)
