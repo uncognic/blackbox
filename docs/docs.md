@@ -32,6 +32,9 @@
 - PRINT_REG: Print integer value of a register (decimal, no newline)  
   - Syntax: PRINT_REG <register>  
   - Encoding: OPCODE_PRINTREG, 1 byte register  
+- PRINT_STACKSIZE: Print the current stack size in elements
+  - Syntax: PRINT_STACKSIZE
+  - encoding: OPCODE_PRINT_STACKSIZE
 - JMP: Unconditional jump  
   - Syntax: JMP <label>  
   - Encoding: OPCODE_JMP, 4-byte address (little-endian)  
@@ -45,7 +48,7 @@
   - Syntax: CMP <reg1>, <reg2>  (computes reg2 - reg1)  
   - Encoding: OPCODE_CMP, 1 byte reg1, 1 byte reg2  
   - Result: R98 = 1 if reg2 > reg1, otherwise R98 = 0  
-- ALLOC: Reserve stack capacity (elements)  
+- ALLOC: Ensure stack capacity (elements)  
   - Syntax: ALLOC <elements>  
   - Encoding: OPCODE_ALLOC, 4-byte unsigned count  
   - Behavior: if requested elements > current capacity, interpreter resizes capacity to exactly that number.  
