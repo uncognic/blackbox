@@ -60,6 +60,10 @@
   - Syntax: GROW <additional elements>  
   - Encoding: OPCODE_GROW, 4-byte unsigned count  
   - Behavior: increases capacity by the specified count (no-op if count == 0).  
+- RESIZE: Resize stack to specified amount
+  - Syntax: RESIZE <elements>
+  - ENCODING: OPCODE_RESIZE, 4-byte unsigned count
+  - Behavior: Resizes stack to specified amount. If SP is lower than the new cap, set it to the maximum of the new cap.
 - HALT: Stop program execution  
   - Syntax: HALT  
   - Encoding: OPCODE_HALT

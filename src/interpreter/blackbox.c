@@ -548,6 +548,31 @@ int main(int argc, char *argv[]) {
                 fflush(stdout);
                 break;
             }
+            case OPCODE_RESIZE: {
+                if (pc + 3 >= size) {
+                    fprintf(stderr, "Missing operand for RESIZE at pc=%zu\n", pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+
+                uint32_t new_size = program[pc] | (program[pc+1] << 8) | (program[pc+2] << 16) | (program[pc+3] << 24);
+                pc += 4;
+
+                int64_t *tmp = realloc(stack, new_size * sizeof *stack);
+                if (!tmp) {
+                    perror("realloc");
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                stack = tmp;
+                stack_cap = new_size;
+                if (sp > stack_cap) {
+                    sp = stack_cap; 
+                }
+                break;
+            }
             default: {
                 fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode, pc - 1);
                 free(program);

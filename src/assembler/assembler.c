@@ -95,6 +95,7 @@ size_t instr_size(const char *line) {
     else if (strncmp(line, "STORE", 5) == 0) return 6;
     else if (strncmp(line, "LOAD", 4) == 0) return 6;
     else if (strncmp(line, "GROW", 4) == 0) return 5;
+    else if (strncmp(line, "RESIZE", 6) == 0) return 5;
     else if (strcmp(line, "HALT") == 0) return 1;
     return 0; 
 }
@@ -649,7 +650,21 @@ int main(int argc, char *argv[]) {
             fputc(OPCODE_GROW, out);
             write_u32(out, num);
         }
-        
+        else if (strncmp(s, "RESIZE", 6) == 0) {
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char operand[32];
+            if (sscanf(s + 6, " %31s", operand) != 1) {
+                fprintf(stderr, "Syntax error on line %d: expected RESIZE <new size>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t num = strtoul(operand, NULL, 0);
+            fputc(OPCODE_RESIZE, out);
+            write_u32(out, num);
+        }
         else {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);
             fclose(in);
