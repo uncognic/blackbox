@@ -84,7 +84,7 @@ int main(int argc, char *argv[]) {
         
         pc += (uint32_t)instr_size(s);
         if (debug) {
-            printf("[DEBUG] Instruction: %s, size: %lu bytes, next PC=%u\n", s, instr_size(s), (unsigned)pc);
+            printf("[DEBUG] Instruction: %s, size: %zu bytes, next PC=%u\n", s, instr_size(s), (unsigned)pc);
         }
     }
     rewind(in);

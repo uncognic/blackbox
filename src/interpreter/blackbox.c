@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <unistd.h>
 #include "../define.h"
 
 int main(int argc, char *argv[]) {
@@ -70,7 +69,7 @@ int main(int argc, char *argv[]) {
                 uint8_t fd = program[pc++];
                 uint8_t len = program[pc++];
                 if (fd != 1 && fd != 2) {
-                    fprintf(stderr, "Error: invalid fd %lu at pc=%u\n", pc, fd);
+                    fprintf(stderr, "Error: invalid fd %zu at pc=%u\n", pc, fd);
                     free(program);
                     free(stack);
                     return 1;
@@ -81,8 +80,11 @@ int main(int argc, char *argv[]) {
                     free(stack);
                     return 1;
                 }
-                if (write(fd, &program[pc], len) != len) {
-                    perror("write");
+                FILE *out = (fd == 1) ? stdout : stderr;
+                size_t written = fwrite(&program[pc], 1, len, out);
+                fflush(out);
+                if (written != len) {
+                    perror("fwrite");
                     free(program);
                     free(stack);
                     return 1;
@@ -415,7 +417,7 @@ int main(int argc, char *argv[]) {
                 uint32_t addr = program[pc] | (program[pc+1] << 8) | (program[pc+2] << 16) | (program[pc+3] << 24);
                 pc = addr;
                 if (pc >= size) {
-                    fprintf(stderr, "JMP addr out of bounds: %lu at pc=%u\n", pc, addr);
+                    fprintf(stderr, "JMP addr out of bounds: %zu at pc=%u\n", pc, addr);
                     free(program);
                     free(stack);
                     return 1;

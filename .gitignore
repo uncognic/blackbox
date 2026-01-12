@@ -18,3 +18,8 @@ output.bbx
 src/assembler/tools.o
 src/assembler/assembler.o
 .VSCodeCounter/
+blackbox.exe
+bbx-asm.exe
+src/interpreter/blackbox.obj
+src/assembler/assembler.obj
+src/assembler/tools.obj
