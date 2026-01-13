@@ -804,7 +804,38 @@ int main(int argc, char *argv[])
                 write_u32(out, offset_imm);
             }
         }
-        
+        else if (strncmp(s, "FWRITE", 6) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char fid[4];
+            char size[16];
+            if (sscanf(s + 6, " %3s, %15s", fid, size) != 2)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected FWRITE <file_descriptor>, <size_value|size_register>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t fd = parse_file(fid, lineno);
+            if (size[0] == 'R')
+            {
+                uint8_t size_reg = parse_register(size, lineno);
+                fputc(OPCODE_FWRITE_REG, out);
+                fputc(fd, out);
+                fputc(size_reg, out);
+            }
+            else
+            {
+                uint32_t size_imm = strtoul(size, NULL, 0);
+                fputc(OPCODE_FWRITE_IMM, out);
+                fputc(fd, out);
+                write_u32(out, size_imm);
+            }
+        }
+
         else
         {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);
