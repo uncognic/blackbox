@@ -36,7 +36,8 @@
 #define OPCODE_FCLOSE 0x22
 #define OPCODE_FREAD 0x23
 #define OPCODE_FWRITE 0x24
-#define OPCODE_FSEEK 0x25
+#define OPCODE_FSEEK_REG 0x25
+#define OPCODE_FSEEK_IMM 0x26
 #define OPCODE_HALT  0xFF
 
 #endif

@@ -100,6 +100,18 @@ uint8_t parse_register(const char *r, int lineno) {
     }
     return (uint8_t)v;
 }
+uint8_t parse_file(const char *r, int lineno) {
+    if (r[0] != 'F') { 
+        fprintf(stderr, "Invalid file descriptor on line %d\n", lineno); 
+        exit(1); 
+    }
+    char *end; long v = strtol(r+1, &end, 10);
+    if (*end != '\0' || v < 0 || v >= FILE_DESCRIPTORS) {
+         fprintf(stderr, "Invalid file descriptor on line %d\n", lineno); 
+         exit(1); 
+    }
+    return (uint8_t)v;
+}
 char *trim(char *s) {
     while (isspace(*s)) s++;
     char *end = s + strlen(s) - 1;
