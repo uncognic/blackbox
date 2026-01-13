@@ -3,8 +3,10 @@
 - File magic: 3 bytes 0x62 0x63 0x78 ("bcx") at program start.
 - Syntax is Intel-assembly like: instructions use whitespace and commas (e.g. MOV R01, 42). Labels start with a period and end with a colon (.label:).
 - Registers: R0–R98 (99 total). CMP result/flag is stored in R98.
-- Stack: heap-backed array of int64_t elements. Initially 16384 elements (128MiB). Stack grows automatically using a 1.5× growth policy when needed. ALLOC resizes stack capacity (in elements). GROW increases capacity by the specified additional elements.
+- Stack: heap-backed array of int64_t elements. Initially 16384 elements. The stack capacity can be changed explicitly via ALLOC, GROW, RESIZE and FREE; the interpreter maintains stack capacity in elements and reallocates the backing buffer on those operations.
 - Immediate values encoded as 32-bit little-endian.
+- File descriptors are referenced as F<n> in assembler source. Valid F<n> are 0..(FILE_DESCRIPTORS-1). The assembler validates descriptors via parse_file().
+- Filenames and written strings are limited to 255 bytes in the binary encoding (length stored in one byte).
 
 ### Instruction encodings
 - WRITE: Write a string to a stream  
@@ -26,15 +28,15 @@
   - Syntax: MOV <dst>, <src>  (src can be immediate or register)  
   - Encoding: OPCODE_MOV_IMM, 1 byte dst, 4-byte immediate OR OPCODE_MOV_REG, 1 byte dst, 1 byte src  
 - ADD / SUB / MUL / DIV: Binary register ops  
-  - Syntax: <OP> <dst>, <src>  (per-assembler uses first operand = destination)  
-  - Encoding: OPCODE_*, 1 byte src, 1 byte dst  
+  - Syntax: <OP> <dst>, <src>  (first operand = destination)  
+  - Encoding: OPCODE_*, 1 byte dst, 1 byte src  
   - DIV: division by zero is an error (interpreter checks).  
 - PRINT_REG: Print integer value of a register (decimal, no newline)  
   - Syntax: PRINT_REG <register>  
   - Encoding: OPCODE_PRINTREG, 1 byte register  
-- PRINT_STACKSIZE: Print the current stack size in elements
+- PRINT_STACKSIZE: Print the current stack capacity (in elements)
   - Syntax: PRINT_STACKSIZE
-  - encoding: OPCODE_PRINT_STACKSIZE
+  - Encoding: OPCODE_PRINT_STACKSIZE
 - JMP: Unconditional jump  
   - Syntax: JMP <label>  
   - Encoding: OPCODE_JMP, 4-byte address (little-endian)  
@@ -63,15 +65,40 @@
 - RESIZE: Resize stack to specified amount
   - Syntax: RESIZE <elements>
   - Encoding: OPCODE_RESIZE, 4-byte unsigned count
-  - Behavior: Resizes stack to specified amount. If SP is lower than the new cap, set it to the maximum of the new cap.
-- FREE: Reduce the stack by specified amount
+  - Behavior: Resizes stack to specified amount. If SP (stack pointer) is greater than the new capacity, SP will be clamped to the new capacity.
+- FREE: Reduce the stack capacity by specified amount
   - Syntax: FREE <elements>
   - Encoding: OPCODE_FREE, 4-byte unsigned count
-  - Behavior: Reduce the stack size by the specified amount of elements.
+  - Behavior: Decreases the stack capacity by the specified amount (interpreter adjusts backing buffer accordingly).
 - HALT: Stop program execution  
   - Syntax: HALT  
   - Encoding: OPCODE_HALT
+- FOPEN: Open a file into a descriptor
+  - Syntax: FOPEN <mode>, F<fd>, "<filename>"  (mode typically ''r' or 'w'')
+  - Encoding: OPCODE_FOPEN, 1 byte fd, 1 byte name-length, then filename bytes
+  - Behavior: interpreter opens the named file and stores the FILE* in the fds table at index fd. Mode determines fopen flags.
+- FCLOSE: Close an open file
+  - Syntax: FCLOSE F<fd>
+  - Encoding: OPCODE_FCLOSE, 1 byte fd
+  - Behavior: interpreter closes fds[fd] and clears the slot.
+- FREAD: Read from a file into a register
+  - Syntax (assembler): FREAD F<fd>, <reg>
+  - Encoding: OPCODE_FREAD, 1 byte fd, 1 byte register
+  - Behavior: reads up to one element/byte (implementation detail depends on interpreter) and stores the result in the specified register; assembler/interpreter validate fd and reg.
+- FWRITE (register): Write integer/bytes from a register to a file
+  - Syntax: FWRITE F<fd>, <reg>
+  - Encoding: OPCODE_FWRITE_REG, 1 byte fd, 1 byte register
+  - Behavior: writes the register's value/bytes to the file associated with fd.
+- FWRITE (immediate/string): Write immediate string/data to a file
+  - Syntax: FWRITE F<fd>, "<string>"
+  - Encoding: OPCODE_FWRITE_IMM, 1 byte fd, 1 byte length, then string bytes
+- FSEEK (register / immediate): Seek file position
+  - Syntax: FSEEK F<fd>, <reg>   OR   FSEEK F<fd>, <imm>
+  - Encoding: OPCODE_FSEEK_REG, 1 byte fd, 1 byte reg  OR  OPCODE_FSEEK_IMM, 1 byte fd, 4-byte offset
+  - Behavior: sets file position for fd; interpreter validates fd and range.
 
 ### Notes / errors
 - The assembler enforces register names as R followed by a decimal index (0–98). Use zero-padded forms like R01 for single-digit registers when needed.
+- File descriptors in assembler are specified as F<n> (e.g. F1). The assembler validates descriptor numbers.
 - Immediate parsing supports C-style numeric literals (decimal, hex 0x, etc.).
+- Assembler limits string lengths in binary to 255 bytes.

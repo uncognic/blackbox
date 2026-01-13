@@ -760,20 +760,22 @@ int main(int argc, char *argv[])
             {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char fid[4];
-            char reg_name[4];
-            if (sscanf(s + 5, " %3s, %3s", fid, reg_name) != 2)
+            char fid_raw[8];
+            char reg_raw[8];
+            if (sscanf(s + 5, " %7[^,], %7[^,]", fid_raw, reg_raw) != 2)
             {
-                fprintf(stderr, "Syntax error on line %d: expected FREAD <file_descriptor>, <buffer_register>, <size_register>\nGot: %s\n", lineno, line);
+                fprintf(stderr, "Syntax error on line %d: expected FREAD <file_descriptor>, <register to read into>\nGot: %s\n", lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
+            char *fid = trim(fid_raw);
+            char *reg_tok = trim(reg_raw);
             uint8_t fd = parse_file(fid, lineno);
-            uint8_t buf = parse_register(reg_name, lineno);
+            uint8_t reg = parse_register(reg_tok, lineno);
             fputc(OPCODE_FREAD, out);
             fputc(fd, out);
-            fputc(buf, out);
+            fputc(reg, out);
         }
         else if (strncmp(s, "FSEEK", 5) == 0)
         {
@@ -781,26 +783,43 @@ int main(int argc, char *argv[])
             {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char fid[4];
-            char offset[16];
-            if (sscanf(s + 5, " %3s, %15s", fid, offset) != 2)
+            char fid_raw[8];
+            char offset_raw[64];
+            if (sscanf(s + 5, " %7[^,], %63[^\n]", fid_raw, offset_raw) != 2)
             {
                 fprintf(stderr, "Syntax error on line %d: expected FSEEK <file_descriptor>, <offset_value|offset_register>\nGot: %s\n", lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
+            char *fid = trim(fid_raw);
+            char *offset_tok = trim(offset_raw);
             uint8_t fd = parse_file(fid, lineno);
-            if (offset[0] == 'R')
+            if (offset_tok[0] == 'R')
             {
-                uint8_t offset_reg = parse_register(offset, lineno);
+                uint8_t offset_reg = parse_register(offset_tok, lineno);
                 fputc(OPCODE_FSEEK_REG, out);
                 fputc(fd, out);
                 fputc(offset_reg, out);
             }
+            else if (offset_tok[0] == '"')
+            {
+                char inner[64];
+                if (sscanf(offset_tok, "\"%63[^\"]\"", inner) != 1)
+                {
+                    fprintf(stderr, "Syntax error on line %d: malformed quoted offset\nGot: %s\n", lineno, line);
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                int32_t offset_imm = (int32_t)strtol(inner, NULL, 0);
+                fputc(OPCODE_FSEEK_IMM, out);
+                fputc(fd, out);
+                write_u32(out, offset_imm);
+            }
             else
             {
-                int32_t offset_imm = strtol(offset, NULL, 0);
+                int32_t offset_imm = (int32_t)strtol(offset_tok, NULL, 0);
                 fputc(OPCODE_FSEEK_IMM, out);
                 fputc(fd, out);
                 write_u32(out, offset_imm);

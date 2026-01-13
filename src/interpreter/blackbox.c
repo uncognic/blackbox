@@ -818,24 +818,25 @@ int main(int argc, char *argv[])
                 free(stack);
                 return 1;
             }
+            size_t operand_pc = pc;
             uint8_t fd = program[pc++];
             uint8_t reg = program[pc++];
             if (fd >= FILE_DESCRIPTORS)
             {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
+                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, operand_pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, pc);
+                fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, operand_pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             if (!fds[fd]) {
-                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd, pc);
+                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd, operand_pc);
                 free(program);
                 free(stack);
                 return 1;
