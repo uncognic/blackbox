@@ -1,7 +1,7 @@
 # Blackbox documentation
 ### Info
 - File magic: 3 bytes 0x62 0x63 0x78 ("bcx") at program start.
-- Syntax is Intel-assembly like: instructions use whitespace and commas (e.g. MOV R01, 42). Labels start with a period and end with a colon (.label:).
+- Syntax is Intel-assembly like: instructions use spaces and commas (e.g. MOV R01, 42). Labels start with a period and end with a colon (.label:).
 - Registers: R0–R98 (99 total). CMP result/flag is stored in R98.
 - Stack: heap-backed array of int64_t elements. Initially 16384 elements. The stack capacity can be changed explicitly via ALLOC, GROW, RESIZE and FREE; the interpreter maintains stack capacity in elements and reallocates the backing buffer on those operations.
 - Immediate values encoded as 32-bit little-endian.
