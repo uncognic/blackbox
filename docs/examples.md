@@ -225,3 +225,26 @@ PRINT_REG R03
 NEWLINE
 HALT
 ```
+Example which writes stuff to a file and reads it
+```
+FOPEN w, F1, "test"
+FWRITE F1, "123"
+FSEEK F1, 10
+FWRITE F1, "123"
+FSEEK F1, 5
+FWRITE F1, "123"
+FCLOSE F1
+FOPEN r, F1, "test"
+FSEEK F1, 0
+FREAD F1, R0
+PRINT_REG R0
+NEWLINE
+FSEEK F1, 5
+FREAD F1, R0
+PRINT_REG R0
+FCLOSE F1
+NEWLINE
+HALT
+
+;expected output is 123 123
+```
