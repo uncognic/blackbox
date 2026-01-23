@@ -24,3 +24,4 @@ src/interpreter/blackbox.obj
 src/assembler/assembler.obj
 src/assembler/tools.obj
 qozoq
+test

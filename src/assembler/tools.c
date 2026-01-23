@@ -147,7 +147,7 @@ size_t instr_size(const char *line)
         return 3;
     else if (strncmp(line, "FWRITE", 6) == 0)
     {
-        char *p = line + 6;
+        const char *p = line + 6;
         while (*p && isspace(*p))
             p++;
         if (toupper(p[0]) == 'R')
@@ -157,7 +157,7 @@ size_t instr_size(const char *line)
     }
     else if (strncmp(line, "FSEEK", 5) == 0)
     {
-        char *p = line + 5;
+        const char *p = line + 5;
         while (*p && isspace(*p))
             p++;
         if (toupper(p[0]) == 'R')
@@ -167,7 +167,8 @@ size_t instr_size(const char *line)
     }
     else if (strcmp(line, "HALT") == 0)
         return 1;
-    return 0;
+    fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
+    exit(1);
 }
 uint8_t parse_register(const char *r, int lineno)
 {

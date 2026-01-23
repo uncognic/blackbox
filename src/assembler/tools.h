@@ -14,6 +14,7 @@ void write_u32(FILE *out, uint32_t val);
 size_t instr_size(const char *line);
 uint8_t parse_register(const char *r, int lineno);
 char *trim(char *s);
+uint8_t parse_file(const char *r, int lineno);
 
 
 #endif
