@@ -17,7 +17,7 @@ The virtual machine executes a custom bytecode format produced from a simple ass
 - Minimal, easy-to-read codebase. Great for learning, embedding, or extending with new opcodes.
 - Deterministic, compact bytecode (small binaries, predictable behavior)
 # Docs
-See [docs.md](docs/docs.md) and [examples.md](docs/examples.md)
+See [docs.md](docs/docs.md) and [examples](/examples/)
 # Building
 ### Unix-like (Linux, macOS, BSD family)
 1. Ensure you have `gcc` and `make` installed.
