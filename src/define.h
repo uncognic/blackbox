@@ -39,6 +39,8 @@
 #define OPCODE_FWRITE_IMM 0x27
 #define OPCODE_FSEEK_REG 0x25
 #define OPCODE_FSEEK_IMM 0x26
+#define OPCODE_LOADSTR 0x28
+#define OPCODE_PRINT_STR 0x29 
 #define OPCODE_HALT  0xFF
 
 #endif

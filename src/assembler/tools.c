@@ -18,6 +18,16 @@ uint32_t find_label(const char *name, Label *labels, size_t count)
     fprintf(stderr, "Unknown label %s\n", name);
     exit(1);
 }
+uint32_t find_string(const char *name, String *strings, size_t count)
+{
+    for (size_t i = 0; i < count; i++)
+    {
+        if (strcmp(strings[i].name, name) == 0)
+            return strings[i].offset;
+    }
+    fprintf(stderr, "Error: undefined string constant '%s'\n", name);
+    exit(1);
+}
 void write_u32(FILE *out, uint32_t val)
 {
     fputc((val >> 0) & 0xFF, out);
@@ -165,6 +175,10 @@ size_t instr_size(const char *line)
         else
             return 6;
     }
+    else if (strncmp(line, "LOADSTR", 7) == 0)
+        return 6;
+    else if (strncmp(line, "PRINT_STR", 9) == 0)
+        return 2; 
     else if (strcmp(line, "HALT") == 0)
         return 1;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);

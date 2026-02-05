@@ -70,12 +70,100 @@ int main(int argc, char *argv[])
     size_t label_count = 0;
     uint32_t pc = 3;
 
+    String strings[256];
+    size_t string_count = 0;
+    uint32_t string_table_size = 0;
+    char string_data[8192];
+
+    int current_section = 0;
+    int found_code_section = 0;
+
     while (fgets(line, sizeof(line), in))
     {
         lineno++;
         char *s = trim(line);
         if (*s == '\0' || *s == ';')
             continue;
+
+        if (strcmp(s, "$string") == 0 || strcmp(s, "$strings") == 0)
+        {
+            if (found_code_section)
+            {
+                fprintf(stderr, "Error on line %d: $string section must come before $main/$entry\n", lineno);
+                fclose(in); fclose(out);
+                return 1;
+            }
+            current_section = 1;
+            if (debug)
+                printf("[DEBUG] Entering string section at line %d\n", lineno);
+            continue;
+        }
+        if (strcmp(s, "$main") == 0 || strcmp(s, "$entry") == 0)
+        {
+            current_section = 2;
+            found_code_section = 1;
+            if (debug)
+                printf("[DEBUG] Entering code section at line %d\n", lineno);
+            continue;
+        }
+
+        if (strncmp(s, "STR ", 4) == 0)
+        {
+            if (current_section != 1)
+            {
+                fprintf(stderr, "Error on line %d: STR must be inside $string section\n", lineno);
+                fclose(in); fclose(out);
+                return 1;
+            }
+            char name[32];
+            char *quote_start = strchr(s, '"');
+            if (!quote_start || sscanf(s + 4, " $%31[^,]", name) != 1)
+            {
+                fprintf(stderr, "Syntax error line %d: expected STR $name, \"value\"\n", lineno);
+                fclose(in); fclose(out);
+                return 1;
+            }
+            quote_start++;
+            char *quote_end = strchr(quote_start, '"');
+            if (!quote_end)
+            {
+                fprintf(stderr, "Syntax error line %d: missing closing quote\n", lineno);
+                fclose(in); fclose(out);
+                return 1;
+            }
+            size_t len = quote_end - quote_start;
+            
+            strncpy(strings[string_count].name, name, 31);
+            strings[string_count].offset = string_table_size;
+            
+            memcpy(string_data + string_table_size, quote_start, len);
+            string_data[string_table_size + len] = '\0'; 
+            string_table_size += len + 1;
+            string_count++;
+            
+            if (debug)
+                printf("[DEBUG] String $%s at offset %u\n", name, strings[string_count-1].offset);
+            continue;
+        }
+
+        if (current_section != 2)
+        {
+            size_t len = strlen(s);
+            if (s[0] == '.' && s[len - 1] == ':')
+            {
+                fprintf(stderr, "Error on line %d: labels must be inside $main/$entry section\n", lineno);
+                fclose(in); fclose(out);
+                return 1;
+            }
+ 
+            if (current_section == 0)
+            {
+                fprintf(stderr, "Error on line %d: code outside of section. Use $string or $main/$entry\n", lineno);
+                fclose(in); fclose(out);
+                return 1;
+            }
+            continue;
+        }
 
         size_t len = strlen(s);
         if (s[0] == '.' && s[len - 1] == ':')
@@ -101,17 +189,31 @@ int main(int argc, char *argv[])
         }
 
         pc += (uint32_t)instr_size(s);
-        if (debug)
-        {
-            printf("[DEBUG] Instruction: %s, size: %zu bytes, next PC=%u\n", s, instr_size(s), (unsigned)pc);
-        }
     }
+
+    if (!found_code_section)
+    {
+        fprintf(stderr, "Error: missing $main or $entry section\n");
+        fclose(in);
+        fclose(out);
+        return 1;
+    }
+    
+    uint32_t header_offset = 4 + string_table_size;
+    for (size_t i = 0; i < label_count; i++)
+    {
+        labels[i].addr += header_offset;
+    }
+    
     rewind(in);
     lineno = 0;
+    current_section = 0;
 
     fputc((MAGIC >> 16) & 0xFF, out);
     fputc((MAGIC >> 8) & 0xFF, out);
     fputc((MAGIC >> 0) & 0xFF, out);
+    write_u32(out, string_table_size);
+    fwrite(string_data, 1, string_table_size, out);
 
     while (fgets(line, sizeof(line), in))
     {
@@ -119,8 +221,26 @@ int main(int argc, char *argv[])
         char *s = trim(line);
         if (*s == '\0' || *s == ';')
             continue;
+        if (strcmp(s, "$string") == 0 || strcmp(s, "$strings") == 0)
+        {
+            current_section = 1;
+            continue;
+        }
+        if (strcmp(s, "$main") == 0 || strcmp(s, "$entry") == 0)
+        {
+            current_section = 2;
+            continue;
+        }
 
-        if (strncmp(s, "WRITE", 5) == 0)
+        if (current_section == 1)
+            continue;
+
+        if (current_section != 2)
+            continue;
+
+        if (strncmp(s, "STR ", 4) == 0)
+            continue;
+        else if (strncmp(s, "WRITE", 5) == 0)
         {
             if (debug)
             {
@@ -174,7 +294,46 @@ int main(int argc, char *argv[])
                 fputc((uint8_t)str_start[i], out);
             }
         }
-
+        else if (strncmp(s, "LOADSTR", 7) == 0)
+        {
+            char name[32];
+            char regname[16];
+            if (sscanf(s + 7, " $%31[^,], %15s", name, regname) != 2)
+            {
+                fprintf(stderr, "Syntax error line %d: expected LOADSTR $name, <register>\n", lineno);
+                fclose(in); fclose(out);
+                return 1;
+            }
+            uint32_t offset = find_string(name, strings, string_count);
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_LOADSTR, out);
+            fputc(reg, out);
+            write_u32(out, offset);
+            if (debug)
+                printf("[DEBUG] LOADSTR $%s (offset=%u) -> %s\n", name, offset, regname);
+        }
+        else if (strncmp(s, "PRINT_STR", 9) == 0)
+        {
+            if (debug)
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            char regname[16];
+            if (sscanf(s + 9, " %15s", regname) != 1)
+            {
+                fprintf(stderr, "Syntax error line %d: expected PRINT_STR <register>\n", lineno);
+                fclose(in); fclose(out);
+                return 1;
+            }
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_PRINT_STR, out);
+            fputc(reg, out);
+        }
+        else if (strncmp(s, "CONTINUE", 8) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+        }
         else if (strcmp(s, "NEWLINE") == 0)
         {
             if (debug)
@@ -696,7 +855,7 @@ int main(int argc, char *argv[])
             char filename[128];
             char mode_raw[8];
             char fid_raw[8];
-            if (sscanf(s + 5, " %7[^,], %7[^,], \" %127[^\"]\"", mode_raw, fid_raw, filename) != 3)
+            if (sscanf(s + 5, " %7[^,], %7[^,], \"%127[^\"]\"", mode_raw, fid_raw, filename) != 3)
             {
                 fprintf(stderr, "Syntax error on line %d: expected FOPEN <mode>, <file_descriptor>, \"<filename>\"\nGot: %s\n", lineno, line);
                 fclose(in);

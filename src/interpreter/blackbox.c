@@ -59,6 +59,24 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if (size < 7)
+    {
+        fprintf(stderr, "Error: program too small (missing string table header)\n");
+        free(program);
+        fclose(f);
+        return 1;
+    }
+    uint32_t string_table_size = (uint32_t)program[3] | ((uint32_t)program[4] << 8) | ((uint32_t)program[5] << 16) | ((uint32_t)program[6] << 24);
+    uint8_t *string_table = &program[7];  
+    
+    if (size < 7 + string_table_size)
+    {
+        fprintf(stderr, "Error: program too small for declared string table\n");
+        free(program);
+        fclose(f);
+        return 1;
+    }
+
     fclose(f);
 
     stack = malloc(stack_cap * sizeof *stack);
@@ -69,7 +87,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    size_t pc = 3;
+    size_t pc = 7 + string_table_size; 
+
     FILE *fds[FILE_DESCRIPTORS];
     for (size_t i = 0; i < FILE_DESCRIPTORS; i++)
     {
@@ -997,6 +1016,66 @@ int main(int argc, char *argv[])
             }
             break;
         }
+        case OPCODE_LOADSTR:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADSTR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            uint32_t offset = program[pc] | (program[pc + 1] << 8) | 
+                              (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOADSTR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            if (offset >= string_table_size)
+            {
+                fprintf(stderr, "String offset out of bounds: %u at pc=%zu\n", offset, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            registers[reg] = (int64_t)offset;
+            break;
+        }
+        case OPCODE_PRINT_STR:
+        {
+            if (pc >= size)
+            {
+                fprintf(stderr, "Missing operand for PRINT_STR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in PRINT_STR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint32_t offset = (uint32_t)registers[reg];
+            if (offset >= string_table_size)
+            {
+                fprintf(stderr, "String offset out of bounds: %u at pc=%zu\n", offset, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            printf("%s", (char *)(string_table + offset));
+            fflush(stdout);
+            break;
+        }
+
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode, pc - 1);

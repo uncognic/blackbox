@@ -7,6 +7,13 @@
 
 typedef struct {
     char name[32];
+    uint32_t offset;
+} String;
+
+uint32_t find_string(const char *name, String *strings, size_t count);
+
+typedef struct {
+    char name[32];
     uint32_t addr;
 } Label;
 uint32_t find_label(const char *name, Label *labels, size_t count);

@@ -1,34 +1,34 @@
 ;prints prime numbers up to 50
+$main
+    MOV R0, 50
+    MOV R1, 2 
+    .loop_outer:
+        MOV R2, 2
+        MOV R3, 1
 
-MOV R0, 50
-MOV R1, 2 
-.loop_outer:
-    MOV R2, 2
-    MOV R3, 1
+    .loop_inner:
+        MOV R4, R1
+        DIV R4, R2
+        MUL R4, R2
+        SUB R4, R1
+        JZ R4, not_prime
+        INC R2
+        MOV R5, R2
+        SUB R5, R1
+        JNZ R5, loop_inner
 
-.loop_inner:
-    MOV R4, R1
-    DIV R4, R2
-    MUL R4, R2
-    SUB R4, R1
-    JZ R4, not_prime
-    INC R2
-    MOV R5, R2
-    SUB R5, R1
-    JNZ R5, loop_inner
+        PRINT_REG R1
+        NEWLINE
+        JMP next_number
 
-    PRINT_REG R1
-    NEWLINE
-    JMP next_number
-
-.not_prime:
+    .not_prime:
 
 
-.next_number:
-    INC R1
-    MOV R5, R1
-    SUB R5, R0
-    JNZ R5, loop_outer
+    .next_number:
+        INC R1
+        MOV R5, R1
+        SUB R5, R0
+        JNZ R5, loop_outer
 
-HALT
+    HALT
 

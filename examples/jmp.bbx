@@ -1,20 +1,20 @@
 ;unconditional jump
+$main
+    .label1:
+    MOV R1, 1
+    PRINT_REG R1
+    NEWLINE
+    JMP label2
 
-.label1:
-MOV R1, 1
-PRINT_REG R1
-NEWLINE
-JMP label2
+    .label2:
+    MOV R2, 2
+    PRINT_REG R2
+    NEWLINE
+    JMP label3
 
-.label2:
-MOV R2, 2
-PRINT_REG R2
-NEWLINE
-JMP label3
-
-.label3:
-MOV R3, 3
-PRINT_REG R3
-NEWLINE
-JMP label1
-HALT
+    .label3:
+    MOV R3, 3
+    PRINT_REG R3
+    NEWLINE
+    JMP label1
+    HALT

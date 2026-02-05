@@ -25,3 +25,5 @@ src/assembler/assembler.obj
 src/assembler/tools.obj
 qozoq
 test
+calc.bbx
+/string.bbx

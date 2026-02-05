@@ -2,6 +2,8 @@
 ### Info
 - File magic: 3 bytes 0x62 0x63 0x78 ("bcx") at program start.
 - Syntax is Intel-assembly like: instructions use spaces and commas (e.g. MOV R01, 42). Labels start with a period and end with a colon (.label:).
+- All files must have a $main or $entry section for the program entry point. 
+- String definitions must be in the $string section, before the entry point.
 - Registers: R0–R98 (99 total). CMP result/flag is stored in R98.
 - Stack: heap-backed array of int64_t elements. Initially 16384 elements. The stack capacity can be changed explicitly via ALLOC, GROW, RESIZE and FREE; the interpreter maintains stack capacity in elements and reallocates the backing buffer on those operations.
 - Immediate values encoded as 32-bit little-endian.
@@ -10,7 +12,6 @@
 - The assembler enforces register names as R followed by a decimal index (0–98). Use zero-padded forms like R01 for single-digit registers when needed.
 - File descriptors in assembler are specified as F<n> (e.g. F1). The assembler validates descriptor numbers.
 - Immediate parsing supports C-style numeric literals (decimal, hex 0x, etc.).
-
 ### Instruction encodings
 - WRITE: Write a string to a stream  
   - Syntax: WRITE <fd> "<string>"  
@@ -96,4 +97,13 @@
   - Syntax: FSEEK F<fd>, <reg|imm>
   - Encoding: OPCODE_FSEEK_REG, 1 byte fd, 1 byte reg or OPCODE_FSEEK_IMM, 1 byte fd, 4-byte offset
   - Behavior: sets file position for fd; interpreter validates fd and range.
-
+- STR: Define variable with the string datatype  (Must be in $string)
+  - Syntax: STR $<name>, "<contents>"
+  - Encoding: in the string table
+  - Behavior: Adds an entry to the string table
+- LOADSTR: Load a string into a register
+  - Syntax: LOADSTR $<name>, <register>
+  - Behavior: Writes the address of a string to a register
+- PRINTSTR: Prints a string
+  - Syntax: PRINTSTR <register>
+  - Behavior: Prints the string at the address the register points to
