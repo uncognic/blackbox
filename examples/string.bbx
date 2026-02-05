@@ -1,8 +1,10 @@
-$string
+%asm
+
+%string
     STR $hello, "Hello, World!"
     STR $error, "An error occurred!"
 
-$main
+%main
     LOADSTR $hello, R01
     PRINT_STR R01
     NEWLINE

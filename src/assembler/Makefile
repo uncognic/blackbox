@@ -2,9 +2,9 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O2
 INCLUDES = -I.
 
-SRC = assembler.c tools.c
+SRC = assembler.c tools.c asm.c
 OBJ = $(SRC:.c=.o)
-HEADER = ../define.h tools.h
+HEADER = ../define.h tools.h asm.h
 TARGET = bbx-asm
 
 .PHONY: all clean
