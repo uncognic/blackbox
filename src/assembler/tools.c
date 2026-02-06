@@ -191,6 +191,8 @@ size_t instr_size(const char *line)
         return 3;
     else if (strncmp(line, "READSTR", 7) == 0)
         return 2;
+    else if (strncmp(line, "SLEEP", 5) == 0)
+        return 5;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }

@@ -1126,6 +1126,24 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_READSTR, out);
             fputc(reg, out);
         }
+        else if (strncmp(s, "SLEEP", 5) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char operand[32];
+            if (sscanf(s + 5, " %31s", operand) != 1)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected SLEEP <milliseconds>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t ms = strtoul(operand, NULL, 0);
+            fputc(OPCODE_SLEEP, out);
+            write_u32(out, ms);
+        }
         else
         {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);

@@ -113,3 +113,7 @@
   - Syntax: `READSTR <register>
   - Encoding: `OPCODE_READSTR`, 1 byte register
   - Behavior: Reads characters from stdin until newline or EOF, writes each byte into the stack, and stores the stack address to a register. 
+- SLEEP: Sleep for milliseconds
+  - Syntax: `SLEEP <ms>`
+  - Encoding: `OPCODE_SLEEP`, 4 byte uint32_t ms
+  - Behavior: Sleeps for a specified amount of time
