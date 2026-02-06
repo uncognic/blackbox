@@ -40,7 +40,11 @@
 #define OPCODE_FSEEK_REG 0x25
 #define OPCODE_FSEEK_IMM 0x26
 #define OPCODE_LOADSTR 0x28
-#define OPCODE_PRINT_STR 0x29 
+#define OPCODE_PRINT_STR 0x29
+#define OPCODE_XOR 0x2A
+#define OPCODE_AND 0x2B
+#define OPCODE_OR 0x2C
+#define OPCODE_NOT 0x2D
 #define OPCODE_HALT  0xFF
 
 #endif

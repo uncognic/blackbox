@@ -16,6 +16,7 @@ typedef struct {
     char name[32];
     uint32_t addr;
 } Label;
+
 uint32_t find_label(const char *name, Label *labels, size_t count);
 void write_u32(FILE *out, uint32_t val);
 size_t instr_size(const char *line);

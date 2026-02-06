@@ -1075,6 +1075,83 @@ int main(int argc, char *argv[])
             fflush(stdout);
             break;
         }
+        case OPCODE_NOT:
+        {
+            if (pc >= size)
+            {
+                fprintf(stderr, "Missing operand for NOT at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in NOT at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            registers[reg] = ~registers[reg];
+            break;
+        }
+        case OPCODE_AND:
+        {
+            if (pc + 1 >= size) {
+                fprintf(stderr, "Missing operands for AND at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t dst = program[pc++];
+            uint8_t src = program[pc++];
+            if (dst >= REGISTERS || src >= REGISTERS) {
+                fprintf(stderr, "Invalid register in AND at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            registers[dst] = registers[dst] & registers[src];
+            break;
+        }
+        case OPCODE_OR:
+        {
+            if (pc + 1 >= size) {
+                fprintf(stderr, "Missing operands for OR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t dst = program[pc++];
+            uint8_t src = program[pc++];
+            if (dst >= REGISTERS || src >= REGISTERS) {
+                fprintf(stderr, "Invalid register in OR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            registers[dst] = registers[dst] | registers[src];
+            break;
+        }
+        case OPCODE_XOR:
+        {
+            if (pc + 1 >= size) {
+                fprintf(stderr, "Missing operands for XOR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t dst = program[pc++];
+            uint8_t src = program[pc++];
+            if (dst >= REGISTERS || src >= REGISTERS) {
+                fprintf(stderr, "Invalid register in XOR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            registers[dst] = registers[dst] ^ registers[src];
+            break;
+        }
 
         default:
         {

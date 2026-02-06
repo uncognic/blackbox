@@ -181,6 +181,14 @@ size_t instr_size(const char *line)
         return 2; 
     else if (strcmp(line, "HALT") == 0)
         return 1;
+    else if (strncmp(line, "NOT", 3) == 0)
+        return 2;
+    else if (strncmp(line, "AND", 3) == 0)
+        return 3;
+    else if (strncmp(line, "OR", 2) == 0)
+        return 3;
+    else if (strncmp(line, "XOR", 3) == 0)
+        return 3;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }

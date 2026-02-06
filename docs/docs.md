@@ -108,3 +108,19 @@
 - PRINTSTR: Prints a string
   - Syntax: PRINTSTR <register>
   - Behavior: Prints the string at the address the register points to
+- NOT: Bitwise NOT  
+  - Syntax: `NOT <register>`  
+  - Encoding: `OPCODE_NOT`, 1 byte register  
+  - Behavior: logical NOT - flips all bits of the register
+- AND: Bitwise AND  
+  - Syntax: `AND <dst>, <src>`  
+  - Encoding: `OPCODE_AND`, 1 byte dst, 1 byte src  
+  - Behavior: bitwise AND - computes `dst = dst & src`.  
+- OR: Bitwise OR  
+  - Syntax: `OR <dst>, <src>`  
+  - Encoding: `OPCODE_OR`, 1 byte dst, 1 byte src  
+  - Behavior: bitwise OR - computes `dst = dst | src`.  
+- XOR: Bitwise XOR  
+  - Syntax: `XOR <dst>, <src>`  
+  - Encoding: `OPCODE_XOR`, 1 byte dst, 1 byte src  
+  - Behavior: bitwise XOR - computes `dst = dst ^ src`.

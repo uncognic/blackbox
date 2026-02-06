@@ -103,7 +103,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             size_t len = quote_end - quote_start;
             
-            strncpy(strings[string_count].name, name, 31);
+            snprintf(strings[string_count].name, sizeof(strings[string_count].name), "%s", name);
             strings[string_count].offset = string_table_size;
             
             memcpy(string_data + string_table_size, quote_start, len);
@@ -162,7 +162,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
     if (!found_code_section)
     {
-        fprintf(stderr, "Error: missing %main or %entry section\n");
+        fprintf(stderr, "Error: missing %%main or %%entry section\n");
         fclose(in);
         fclose(out);
         return 1;
@@ -1001,7 +1001,86 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 write_u32(out, size_imm);
             }
         }
-
+        else if (strncmp(s, "NOT", 3) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char regname[16];
+            if (sscanf(s + 3, " %3s", regname) != 1)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected NOT <register>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_NOT, out);
+            fputc(reg, out);
+        }
+        else if (strncmp(s, "AND", 3) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char reg1[16];
+            char reg2[16];
+            if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected AND <reg1>, <reg2>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t r1 = parse_register(reg1, lineno);
+            uint8_t r2 = parse_register(reg2, lineno);
+            fputc(OPCODE_AND, out);
+            fputc(r1, out);
+            fputc(r2, out);
+        }
+        else if (strncmp(s, "OR", 2) == 0) {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char reg1[16];
+            char reg2[16];
+            if (sscanf(s + 2, " %3s, %3s", reg1, reg2) != 2)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected OR <reg1>, <reg2>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t r1 = parse_register(reg1, lineno);
+            uint8_t r2 = parse_register(reg2, lineno);
+            fputc(OPCODE_OR, out);
+            fputc(r1, out);
+            fputc(r2, out);
+        }
+        else if (strncmp(s, "XOR", 3) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char reg1[16];
+            char reg2[16];
+            if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected XOR <reg1>, <reg2>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t r1 = parse_register(reg1, lineno);
+            uint8_t r2 = parse_register(reg2, lineno);
+            fputc(OPCODE_XOR, out);
+            fputc(r1, out);
+            fputc(r2, out);
+        }
         else
         {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);
