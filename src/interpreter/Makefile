@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -O2
 
-SRC = blackbox.c
+SRC = blackbox.c ../assembler/tools.c
 HEADER = ../define.h ../assembler/tools.h
 TARGET = bbx
 
