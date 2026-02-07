@@ -9,6 +9,9 @@
 #include <windows.h>
 #include <bcrypt.h>
 #include <stdio.h>
+#else
+#include <fcntl.h>
+#include <unistd.h>
 #endif
 
 uint32_t find_label(const char *name, Label *labels, size_t count)
