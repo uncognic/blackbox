@@ -1184,14 +1184,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 {
                     int32_t min = (int32_t)strtol(trim(a), NULL, 0);
                     int32_t max = (int32_t)strtol(trim(b), NULL, 0);
-                    write_u32(out, (uint32_t)min);
-                    write_u32(out, (uint32_t)max);
+                    write_u64(out, (uint64_t)min);
+                    write_u64(out, (uint64_t)max);
                 }
                 else
                 {
-                    int32_t max = (int32_t)strtol(trim(rest), NULL, 0);
-                    write_u32(out, (uint32_t)0);
-                    write_u32(out, (uint32_t)max);
+                    write_u64(out, (uint64_t)INT64_MIN);
+                    write_u64(out, (uint64_t)INT64_MAX);
                 }
             }
         }

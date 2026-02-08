@@ -43,6 +43,41 @@ void write_u32(FILE *out, uint32_t val)
     fputc((val >> 16) & 0xFF, out);
     fputc((val >> 24) & 0xFF, out);
 }
+void write_u64(FILE *out, uint64_t val)
+{
+    fputc((val >> 0) & 0xFF, out);
+    fputc((val >> 8) & 0xFF, out);
+    fputc((val >> 16) & 0xFF, out);
+    fputc((val >> 24) & 0xFF, out);
+    fputc((val >> 32) & 0xFF, out);
+    fputc((val >> 40) & 0xFF, out);
+    fputc((val >> 48) & 0xFF, out);
+    fputc((val >> 56) & 0xFF, out);
+}
+void write_i64(FILE *out, int64_t val)
+{
+    write_u64(out, (uint64_t)val);
+}
+int64_t read_i64(const uint8_t *data, size_t *pc)
+{
+    uint64_t u = 0;
+    for (int i = 0; i < 8; i++)
+    {
+        u |= ((uint64_t)data[*pc + i]) << (8 * i);
+    }
+    *pc += 8;
+    return (int64_t)u;
+}
+uint64_t read_u64(const uint8_t *data, size_t *pc)
+{
+    uint64_t u = 0;
+    for (int i = 0; i < 8; i++)
+    {
+        u |= ((uint64_t)data[*pc + i]) << (8 * i);
+    }
+    *pc += 8;
+    return u;
+}
 size_t instr_size(const char *line)
 {
     if (strncmp(line, "MOV", 3) == 0)
@@ -103,7 +138,7 @@ size_t instr_size(const char *line)
         return 3;
     else if (strcmp(line, "PRINT_STACKSIZE") == 0)
         return 1;
-    else if (strncmp(line, "PRINTREG", 9) == 0)
+    else if (strncmp(line, "PRINTREG", 8) == 0)
         return 2;
     else if (strncmp(line, "PRINT", 5) == 0)
         return 2;
@@ -150,14 +185,14 @@ size_t instr_size(const char *line)
     {
         const char *quote = strchr(line, '"');
         if (!quote)
-            return 3;
+            return 4;
         const char *end = strchr(quote + 1, '"');
         if (!end)
-            return 3;
+            return 4;
         size_t str_len = end - (quote + 1);
         if (str_len > 255)
             str_len = 255;
-        return 3 + str_len;
+        return 4 + str_len;
     }
     else if (strncmp(line, "FCLOSE", 6) == 0)
         return 2;
@@ -165,7 +200,10 @@ size_t instr_size(const char *line)
         return 3;
     else if (strncmp(line, "FWRITE", 6) == 0)
     {
-        const char *p = line + 6;
+        const char *comma = strchr(line + 6, ',');
+        if (!comma)
+            return 6;
+        const char *p = comma + 1;
         while (*p && isspace(*p))
             p++;
         if (toupper(p[0]) == 'R')
@@ -175,7 +213,10 @@ size_t instr_size(const char *line)
     }
     else if (strncmp(line, "FSEEK", 5) == 0)
     {
-        const char *p = line + 5;
+        const char *comma = strchr(line + 5, ',');
+        if (!comma)
+            return 6;
+        const char *p = comma + 1;
         while (*p && isspace(*p))
             p++;
         if (toupper(p[0]) == 'R')
@@ -186,7 +227,7 @@ size_t instr_size(const char *line)
     else if (strncmp(line, "LOADSTR", 7) == 0)
         return 6;
     else if (strncmp(line, "PRINTSTR", 8) == 0)
-        return 2; 
+        return 2;
     else if (strcmp(line, "HALT") == 0)
         return 1;
     else if (strncmp(line, "NOT", 3) == 0)
@@ -204,15 +245,13 @@ size_t instr_size(const char *line)
     else if (strncmp(line, "CLRSCR", 6) == 0)
         return 1;
     else if (strncmp(line, "RAND", 4) == 0)
-    {
-        if (strchr(line, ','))
-            return 2 + 4 + 4;
-        return 2; 
-    }
+        return 18;
     else if (strncmp(line, "GETKEY", 6) == 0)
         return 2;
     else if (strncmp(line, "READ", 4) == 0)
         return 2;
+    else if (strcmp(line, "CONTINUE") == 0)
+        return 1;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }
@@ -257,24 +296,28 @@ char *trim(char *s)
         *end-- = '\0';
     return s;
 }
-uint64_t get_true_random() {
-    #ifdef _WIN32
+uint64_t get_true_random()
+{
+#ifdef _WIN32
     uint64_t num;
-    if (!BCRYPT_SUCCESS(BCryptGenRandom(NULL, (PUCHAR)&num, (ULONG)sizeof(num), BCRYPT_USE_SYSTEM_PREFERRED_RNG))) {
+    if (!BCRYPT_SUCCESS(BCryptGenRandom(NULL, (PUCHAR)&num, (ULONG)sizeof(num), BCRYPT_USE_SYSTEM_PREFERRED_RNG)))
+    {
         fprintf(stderr, "Random generation failed\n");
         return 0;
     }
     return num;
-    #else
+#else
     uint64_t num = 0;
     int fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0) {
+    if (fd < 0)
+    {
         perror("open /dev/urandom");
         return 0;
     }
 
     ssize_t n = read(fd, &num, sizeof(num));
-    if (n != sizeof(num)) {
+    if (n != sizeof(num))
+    {
         fprintf(stderr, "Failed to read 8 bytes from /dev/urandom\n");
         close(fd);
         return 0;
@@ -282,5 +325,5 @@ uint64_t get_true_random() {
 
     close(fd);
     return num;
-    #endif
+#endif
 }

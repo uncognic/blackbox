@@ -1312,32 +1312,29 @@ int main(int argc, char *argv[])
                 free(stack);
                 return 1;
             }
-            if (pc + 8 <= size)
+            if (pc + 16 <= size)
             {
-                int32_t min = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
-                int32_t max = program[pc + 4] | (program[pc + 5] << 8) | (program[pc + 6] << 16) | (program[pc + 7] << 24);
-                pc += 8;
+                int64_t min = read_i64(program, &pc);
+                int64_t max = read_i64(program, &pc);
                 uint64_t r = get_true_random();
-                int64_t lo = (int64_t)min;
-                int64_t hi = (int64_t)max;
-                if (lo > hi)
+                if (min > max)
                 {
-                    int64_t t = lo;
-                    lo = hi;
-                    hi = t;
+                    int64_t t = min;
+                    min = max;
+                    max = t;
                 }
                 uint64_t range;
-                if ((uint64_t)(hi - lo) == UINT64_MAX)
+                if ((uint64_t)(max - min) == UINT64_MAX)
                 {
                     registers[reg] = (int64_t)r;
                 }
                 else
                 {
-                    range = (uint64_t)(hi - lo) + 1;
+                    range = (uint64_t)(max - min) + 1;
                     if (range == 0)
                         registers[reg] = (int64_t)r;
                     else
-                        registers[reg] = lo + (int64_t)(r % range);
+                        registers[reg] = min + (int64_t)(r % range);
                 }
             }
             else
@@ -1426,6 +1423,10 @@ int main(int argc, char *argv[])
                 registers[reg] = 0;
             else
                 registers[reg] = (int64_t)v;
+            break;
+        }
+        case OPCODE_CONTINUE:
+        {
             break;
         }
         default:
