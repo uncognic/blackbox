@@ -337,23 +337,20 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char regname[16];
             char label[32];
-            if (sscanf(s + 2, " %3s, %31s", regname, label) != 2)
+            if (sscanf(s + 2, " %31s", label) != 1)
             {
-                fprintf(stderr, "Syntax error on line %d: expected JZ <register>, <label>\nGot: %s\n", lineno, s);
+                fprintf(stderr, "Syntax error on line %d: expected JZ <label>\nGot: %s\n", lineno, s);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
-            uint8_t src = parse_register(regname, lineno);
             uint32_t addr = find_label(label, labels, label_count);
             if (debug)
             {
                 printf("[DEBUG] JZ to %s (addr=%u)\n", label, (unsigned)addr);
             }
             fputc(OPCODE_JZ, out);
-            fputc(src, out);
             write_u32(out, addr);
         }
         else if (strncmp(s, "JNZ", 3) == 0)
@@ -362,23 +359,20 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char regname[16];
             char label[32];
-            if (sscanf(s + 3, " %3s, %31s", regname, label) != 2)
+            if (sscanf(s + 3, " %31s", label) != 1)
             {
-                fprintf(stderr, "Syntax error on line %d: expected JNZ <register>, <label>\nGot: %s\n", lineno, s);
+                fprintf(stderr, "Syntax error on line %d: expected JNZ <label>\nGot: %s\n", lineno, s);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
-            uint8_t src = parse_register(regname, lineno);
             uint32_t addr = find_label(label, labels, label_count);
             if (debug)
             {
                 printf("[DEBUG] JNZ to %s (addr=%u)\n", label, (unsigned)addr);
             }
             fputc(OPCODE_JNZ, out);
-            fputc(src, out);
             write_u32(out, addr);
         }
 
@@ -644,6 +638,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fputc(OPCODE_MOV_REG, out);
                 fputc(dst, out);
                 fputc(srcp, out);
+            }
+            else if (src[0] == '\'')
+            {
+                int32_t imm = (int32_t)(unsigned char)src[1];
+                fputc(OPCODE_MOV_IMM, out);
+                fputc(dst, out);
+                write_u32(out, imm);
             }
             else
             {
@@ -1097,6 +1098,34 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_XOR, out);
             fputc(r1, out);
             fputc(r2, out);
+        }
+        else if (strncmp(s, "READCHAR", 8) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char regname[16];
+
+            if (sscanf(s + 8, " %7s", regname) != 1)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected READCHAR <register>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            for (int i = 0; regname[i]; i++)
+            {
+                if (regname[i] == '\r' || regname[i] == '\n')
+                {
+                    regname[i] = '\0';
+                    break;
+                }
+            }
+            uint8_t reg = parse_register(regname, lineno);
+
+            fputc(OPCODE_READCHAR, out);
+            fputc(reg, out);
         }
         else if (strncmp(s, "READSTR", 7) == 0)
         {

@@ -23,6 +23,10 @@ int main(int argc, char *argv[])
     }
     srand((unsigned int)time(NULL) ^ (uintptr_t)&main);
     int64_t registers[REGISTERS] = {0};
+    uint8_t ZF = 0;
+    uint8_t CF = 0;
+    uint8_t SF = 0;
+    uint8_t OF = 0;
     size_t sp = 0;
     size_t stack_cap = STACK_SIZE;
     int64_t *stack = NULL;
@@ -267,19 +271,36 @@ int main(int argc, char *argv[])
                 free(stack);
                 return 1;
             }
-            int32_t result = registers[dst] - registers[src];
-            if (result < 0)
-            {
-                registers[REGISTERS - 1] = 0;
+      
+            int64_t a = registers[src];
+            int64_t b = registers[dst];
+            int64_t res = a - b;
+
+            if (res == 0) {
+                ZF = 1;
+            } else {
+                ZF = 0;
             }
-            else if (result > 0)
-            {
-                registers[REGISTERS - 1] = 1;
+
+            if (res < 0) {
+                SF = 1;
+            } else {
+                SF = 0;
             }
-            else
-            {
-                registers[REGISTERS - 1] = 0;
+
+            if ((uint64_t)a < (uint64_t)b) {
+                CF = 1;
+            } else {
+                CF = 0;
             }
+
+            int64_t x = (a ^ b) & (a ^ res);
+            if (x < 0) {
+                OF = 1;
+            } else {
+                OF = 0;
+            }
+
             break;
         }
         case OPCODE_POP:
@@ -311,17 +332,16 @@ int main(int argc, char *argv[])
         }
         case OPCODE_JZ:
         {
-            if (pc + 4 >= size)
+            if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for JZ at pc=%zu at pc=%zu\n", pc, pc);
+                fprintf(stderr, "Missing operands for JZ at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            uint8_t reg = program[pc++];
             uint32_t addr = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (registers[reg] == 0)
+            if (ZF)
             {
                 if (addr >= size)
                 {
@@ -336,17 +356,16 @@ int main(int argc, char *argv[])
         }
         case OPCODE_JNZ:
         {
-            if (pc + 4 >= size)
+            if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for JNZ at pc=%zu at pc=%zu\n", pc, pc);
+                fprintf(stderr, "Missing operands for JNZ at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            uint8_t reg = program[pc++];
             uint32_t addr = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (registers[reg] != 0)
+            if (!ZF)
             {
                 if (addr >= size)
                 {
@@ -1423,6 +1442,40 @@ int main(int argc, char *argv[])
                 registers[reg] = 0;
             else
                 registers[reg] = (int64_t)v;
+            break;
+        }
+        case OPCODE_READCHAR:
+        {
+            if (pc >= size)
+            {
+                fprintf(stderr, "Missing operand for READCHAR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in READCHAR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+
+            int c;
+            while ((c = getchar()) != EOF && (c == ' ' || c == '\t' || c == '\n' || c == '\r'))
+                ;
+            if (c == EOF)
+            {
+                registers[reg] = 0;
+            }
+            else
+            {
+                registers[reg] = (int64_t)(unsigned char)c;
+                int ch;
+                while ((ch = getchar()) != EOF && ch != '\n')
+                    ;
+            }
             break;
         }
         case OPCODE_CONTINUE:

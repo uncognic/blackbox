@@ -39,7 +39,7 @@
 - CMP: Compare two registers  
   - Syntax: CMP <reg1>, <reg2>  (computes reg2 - reg1)  
   - Encoding: OPCODE_CMP, 1 byte reg1, 1 byte reg2  
-  - Result: R98 = 1 if reg2 > reg1, otherwise R98 = 0  
+  - Behavior: Sets ZF, SF, CF and OF flags based on the result of reg2 - reg1.
 - ALLOC: Ensure stack capacity (elements)  
   - Syntax: ALLOC <elements>  
   - Encoding: OPCODE_ALLOC, 4-byte unsigned count  g
@@ -113,6 +113,11 @@
   - Syntax: `READSTR <register>
   - Encoding: `OPCODE_READSTR`, 1 byte register
   - Behavior: Reads characters from stdin until newline or EOF, writes each byte into the stack, and stores the stack address to a register. 
+- READ: Read integer from stdin
+  - Syntax: `READ <register>`
+  - Encoding: `OPCODE_READ`, 1 byte register
+  - Behavior: Reads an integer from stdin and stores it in the specified register
+
 - SLEEP: Sleep for milliseconds
   - Syntax: `SLEEP <ms>`
   - Encoding: `OPCODE_SLEEP`, 4 byte uint32_t ms
@@ -129,3 +134,11 @@
   - Syntax: `GETKEY <reg>`
   - Encoding: `OPCODE_GETKEY`, 1 byte register
   - Behavior: Checks if a key has been pressed. If so, stores the key code in the register; otherwise, stores -1. Does not block program execution.
+- CONTINUE: Do nothing
+  - Syntax: `CONTINUE`
+  - Encoding: `OPCODE_CONTINUE`
+  - Behavior: No operation
+- READCHAR: Read a single character from stdin
+  - Syntax: `READCHAR <reg>`
+  - Encoding: `OPCODE_READCHAR`, 1 byte register
+  - Behavior: Reads a single character from stdin and stores its ASCII code in the specified register

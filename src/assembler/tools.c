@@ -174,9 +174,9 @@ size_t instr_size(const char *line)
     else if (strcmp(line, "NEWLINE") == 0)
         return 1;
     else if (strncmp(line, "JZ", 2) == 0)
-        return 6;
+        return 5;
     else if (strncmp(line, "JNZ", 3) == 0)
-        return 6;
+        return 5;
     else if (strncmp(line, "INC", 3) == 0)
         return 2;
     else if (strncmp(line, "DEC", 3) == 0)
@@ -264,6 +264,8 @@ size_t instr_size(const char *line)
         return 2;
     else if (strcmp(line, "CONTINUE") == 0)
         return 1;
+    else if (strncmp(line, "READCHAR", 8) == 0)
+        return 2;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }
