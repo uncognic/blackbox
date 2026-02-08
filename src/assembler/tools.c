@@ -26,16 +26,19 @@ uint32_t find_label(const char *name, Label *labels, size_t count)
     fprintf(stderr, "Unknown label %s\n", name);
     exit(1);
 }
-uint32_t find_string(const char *name, String *strings, size_t count)
+static uint32_t find_data_offset(const DataEntry *data_entries, size_t data_count, const char *name, FILE *in, FILE *out)
 {
-    for (size_t i = 0; i < count; i++)
+    for (size_t i = 0; i < data_count; i++)
     {
-        if (strcmp(strings[i].name, name) == 0)
-            return strings[i].offset;
+        if (strcmp(data_entries[i].name, name) == 0)
+            return data_entries[i].offset;
     }
-    fprintf(stderr, "Error: undefined string constant '%s'\n", name);
+    fprintf(stderr, "Unknown data label: %s\n", name);
+    fclose(in);
+    fclose(out);
     exit(1);
 }
+
 void write_u32(FILE *out, uint32_t val)
 {
     fputc((val >> 0) & 0xFF, out);
@@ -157,7 +160,7 @@ size_t instr_size(const char *line)
         size_t str_len = end - (quote + 1);
         if (str_len > 255)
             str_len = 255;
-        return 3 + str_len;
+        return 4 + str_len;
     }
     else if (strncmp(line, "FCLOSE", 6) == 0)
         return 2;
@@ -165,7 +168,10 @@ size_t instr_size(const char *line)
         return 3;
     else if (strncmp(line, "FWRITE", 6) == 0)
     {
-        const char *p = line + 6;
+        const char *comma = strchr(line + 6, ',');
+        if (!comma)
+            return 6;
+        const char *p = comma + 1;
         while (*p && isspace(*p))
             p++;
         if (toupper(p[0]) == 'R')
@@ -175,7 +181,10 @@ size_t instr_size(const char *line)
     }
     else if (strncmp(line, "FSEEK", 5) == 0)
     {
-        const char *p = line + 5;
+        const char *comma = strchr(line + 5, ',');
+        if (!comma)
+            return 6;
+        const char *p = comma + 1;
         while (*p && isspace(*p))
             p++;
         if (toupper(p[0]) == 'R')
@@ -186,7 +195,7 @@ size_t instr_size(const char *line)
     else if (strncmp(line, "LOADSTR", 7) == 0)
         return 6;
     else if (strncmp(line, "PRINTSTR", 8) == 0)
-        return 2; 
+        return 2;
     else if (strcmp(line, "HALT") == 0)
         return 1;
     else if (strncmp(line, "NOT", 3) == 0)
@@ -204,15 +213,13 @@ size_t instr_size(const char *line)
     else if (strncmp(line, "CLRSCR", 6) == 0)
         return 1;
     else if (strncmp(line, "RAND", 4) == 0)
-    {
-        if (strchr(line, ','))
-            return 2 + 4 + 4;
-        return 2; 
-    }
+        return 10;
     else if (strncmp(line, "GETKEY", 6) == 0)
         return 2;
     else if (strncmp(line, "READ", 4) == 0)
         return 2;
+    else if (strcmp(line, "CONTINUE") == 0)
+        return 1;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }
@@ -257,24 +264,28 @@ char *trim(char *s)
         *end-- = '\0';
     return s;
 }
-uint64_t get_true_random() {
-    #ifdef _WIN32
+uint64_t get_true_random()
+{
+#ifdef _WIN32
     uint64_t num;
-    if (!BCRYPT_SUCCESS(BCryptGenRandom(NULL, (PUCHAR)&num, (ULONG)sizeof(num), BCRYPT_USE_SYSTEM_PREFERRED_RNG))) {
+    if (!BCRYPT_SUCCESS(BCryptGenRandom(NULL, (PUCHAR)&num, (ULONG)sizeof(num), BCRYPT_USE_SYSTEM_PREFERRED_RNG)))
+    {
         fprintf(stderr, "Random generation failed\n");
         return 0;
     }
     return num;
-    #else
+#else
     uint64_t num = 0;
     int fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0) {
+    if (fd < 0)
+    {
         perror("open /dev/urandom");
         return 0;
     }
 
     ssize_t n = read(fd, &num, sizeof(num));
-    if (n != sizeof(num)) {
+    if (n != sizeof(num))
+    {
         fprintf(stderr, "Failed to read 8 bytes from /dev/urandom\n");
         close(fd);
         return 0;
@@ -282,5 +293,5 @@ uint64_t get_true_random() {
 
     close(fd);
     return num;
-    #endif
+#endif
 }

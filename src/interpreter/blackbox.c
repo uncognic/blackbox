@@ -72,17 +72,17 @@ int main(int argc, char *argv[])
 
     if (size < 7)
     {
-        fprintf(stderr, "Error: program too small (missing string table header)\n");
+        fprintf(stderr, "Error: program too small (missing data section header)\n");
         free(program);
         fclose(f);
         return 1;
     }
-    uint32_t string_table_size = (uint32_t)program[3] | ((uint32_t)program[4] << 8) | ((uint32_t)program[5] << 16) | ((uint32_t)program[6] << 24);
-    uint8_t *string_table = &program[7];
+    uint32_t data_section_size = (uint32_t)program[3] | ((uint32_t)program[4] << 8) | ((uint32_t)program[5] << 16) | ((uint32_t)program[6] << 24);
+    uint8_t *data_section = &program[7];
 
-    if (size < 7 + string_table_size)
+    if (size < 7 + data_section_size)
     {
-        fprintf(stderr, "Error: program too small for declared string table\n");
+        fprintf(stderr, "Error: program too small for declared data section\n");
         free(program);
         fclose(f);
         return 1;
@@ -98,7 +98,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    size_t pc = 7 + string_table_size;
+    size_t pc = 7 + data_section_size;
 
     FILE *fds[FILE_DESCRIPTORS];
     for (size_t i = 0; i < FILE_DESCRIPTORS; i++)
@@ -1071,9 +1071,9 @@ int main(int argc, char *argv[])
                 free(stack);
                 return 1;
             }
-            if (offset >= string_table_size)
+            if (offset >= data_section_size)
             {
-                fprintf(stderr, "String offset out of bounds: %u at pc=%zu\n", offset, pc);
+                fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", offset, pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -1111,14 +1111,14 @@ int main(int argc, char *argv[])
             }
             else
             {
-                if (addr >= string_table_size)
+                if (addr >= data_section_size)
                 {
-                    fprintf(stderr, "String offset out of bounds: %u at pc=%zu\n", addr, pc);
+                    fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", addr, pc);
                     free(program);
                     free(stack);
                     return 1;
                 }
-                printf("%s", (char *)(string_table + addr));
+                printf("%s", (char *)(data_section + addr));
             }
             fflush(stdout);
             break;

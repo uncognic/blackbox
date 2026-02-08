@@ -46,12 +46,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
 
     Label labels[256];
     size_t label_count = 0;
-    uint32_t pc = 3;
+    uint32_t pc = 0;
 
-    String strings[256];
-    size_t string_count = 0;
-    uint32_t string_table_size = 0;
-    char string_data[8192];
+    DataEntry data_entries[256];
+    size_t data_count = 0;
+    uint32_t data_section_size = 0;
+    char data_data[16384];
 
     int current_section = 0;
     int found_code_section = 0;
@@ -63,18 +63,18 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         if (*s == '\0' || *s == ';')
             continue;
 
-        if (strcmp(s, "%string") == 0 || strcmp(s, "%strings") == 0)
+        if (strcmp(s, "%string") == 0 || strcmp(s, "%strings") == 0 || strcmp(s, "%data") == 0)
         {
             if (found_code_section)
             {
-                fprintf(stderr, "Error on line %d: %%string section must come before %%main/%%entry\n", lineno);
+                fprintf(stderr, "Error on line %d: %%data section must come before %%main/%%entry\n", lineno);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             current_section = 1;
             if (debug)
-                printf("[DEBUG] Entering string section at line %d\n", lineno);
+                printf("[DEBUG] Entering data section at line %d\n", lineno);
             continue;
         }
         if (strcmp(s, "%main") == 0 || strcmp(s, "%entry") == 0)
@@ -86,46 +86,270 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             continue;
         }
 
-        if (strncmp(s, "STR ", 4) == 0)
+        if (current_section == 1)
         {
-            if (current_section != 1)
+            if (strncmp(s, "STR", 3) == 0)
             {
-                fprintf(stderr, "Error on line %d: STR must be inside %%string section\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                char name[32];
+                char *quote_start = strchr(s, '"');
+                if (!quote_start || sscanf(s + 3, " $%31[^,]", name) != 1)
+                {
+                    fprintf(stderr, "Syntax error line %d: expected STR $name, \"value\"\n", lineno);
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                quote_start++;
+                char *quote_end = strchr(quote_start, '"');
+                if (!quote_end)
+                {
+                    fprintf(stderr, "Syntax error line %d: missing closing quote\n", lineno);
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                size_t len = quote_end - quote_start;
+
+                if (data_count >= 256)
+                {
+                    fprintf(stderr, "Too many data labels (max 256)\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                if (data_section_size + len + 1 > sizeof(data_data))
+                {
+                    fprintf(stderr, "Data section too large\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+
+                snprintf(data_entries[data_count].name, sizeof(data_entries[data_count].name), "%s", name);
+                data_entries[data_count].offset = data_section_size;
+                data_entries[data_count].size = (uint32_t)(len + 1);
+                data_entries[data_count].type = DT_STRING;
+
+                memcpy(data_data + data_section_size, quote_start, len);
+                data_data[data_section_size + len] = '\0';
+                data_section_size += (uint32_t)(len + 1);
+                data_count++;
+
+                if (debug)
+                    printf("[DEBUG] Data STR $%s at data_offset=%u (len=%zu)\n", name, (unsigned)data_entries[data_count - 1].offset, len);
+                continue;
             }
-            char name[32];
-            char *quote_start = strchr(s, '"');
-            if (!quote_start || sscanf(s + 4, " $%31[^,]", name) != 1)
+
+            else if (strncmp(s, "BYTE", 4) == 0)
             {
-                fprintf(stderr, "Syntax error line %d: expected STR $name, \"value\"\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                char name[32];
+                char valtok[128];
+                if (sscanf(s + 4, " $%31[^,], %127[^\n]", name, valtok) != 2)
+                {
+                    fprintf(stderr, "Syntax error line %d: expected BYTE $name, <value>\n", lineno);
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                char *t = trim(valtok);
+                int negative = 0;
+                if (*t == '-')
+                {
+                    negative = 1;
+                    t++;
+                }
+                uint64_t value = strtoull(t, NULL, 0);
+                if (negative)
+                    value = (uint64_t)(-(int64_t)value);
+
+                if (data_count >= 256)
+                {
+                    fprintf(stderr, "Too many data labels (max 256)\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                if (data_section_size + 1 > sizeof(data_data))
+                {
+                    fprintf(stderr, "Data section too large\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+
+                snprintf(data_entries[data_count].name, sizeof(data_entries[data_count].name), "%s", name);
+                data_entries[data_count].offset = data_section_size;
+                data_entries[data_count].size = 1;
+                data_entries[data_count].type = DT_BYTE;
+                data_data[data_section_size++] = (uint8_t)(value & 0xFF);
+                data_count++;
+
+                if (debug)
+                    printf("[DEBUG] Data BYTE $%s at data_offset=%u (size=1, value=0x%llx)\n",
+                           name, (unsigned)data_entries[data_count - 1].offset, (unsigned long long)value);
+                continue;
             }
-            quote_start++;
-            char *quote_end = strchr(quote_start, '"');
-            if (!quote_end)
+
+            else if (strncmp(s, "WORD", 4) == 0)
             {
-                fprintf(stderr, "Syntax error line %d: missing closing quote\n", lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                char name[32];
+                char valtok[128];
+                if (sscanf(s + 4, " $%31[^,], %127[^\n]", name, valtok) != 2)
+                {
+                    fprintf(stderr, "Syntax error line %d: expected WORD $name, <value>\n", lineno);
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                char *t = trim(valtok);
+                int negative = 0;
+                if (*t == '-')
+                {
+                    negative = 1;
+                    t++;
+                }
+                uint64_t value = strtoull(t, NULL, 0);
+                if (negative)
+                    value = (uint64_t)(-(int64_t)value);
+
+                if (data_count >= 256)
+                {
+                    fprintf(stderr, "Too many data labels (max 256)\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                if (data_section_size + 2 > sizeof(data_data))
+                {
+                    fprintf(stderr, "Data section too large\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+
+                snprintf(data_entries[data_count].name, sizeof(data_entries[data_count].name), "%s", name);
+                data_entries[data_count].offset = data_section_size;
+                data_entries[data_count].size = 2;
+                data_entries[data_count].type = DT_WORD;
+                for (int i = 0; i < 2; i++)
+                    data_data[data_section_size + i] = (uint8_t)((value >> (8 * i)) & 0xFF);
+                data_section_size += 2;
+                data_count++;
+
+                if (debug)
+                    printf("[DEBUG] Data WORD $%s at data_offset=%u (size=2, value=0x%llx)\n",
+                           name, (unsigned)data_entries[data_count - 1].offset, (unsigned long long)value);
+                continue;
             }
-            size_t len = quote_end - quote_start;
 
-            snprintf(strings[string_count].name, sizeof(strings[string_count].name), "%s", name);
-            strings[string_count].offset = string_table_size;
+            else if (strncmp(s, "DWORD", 5) == 0)
+            {
+                char name[32];
+                char valtok[128];
+                if (sscanf(s + 5, " $%31[^,], %127[^\n]", name, valtok) != 2)
+                {
+                    fprintf(stderr, "Syntax error line %d: expected DWORD $name, <value>\n", lineno);
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                char *t = trim(valtok);
+                int negative = 0;
+                if (*t == '-')
+                {
+                    negative = 1;
+                    t++;
+                }
+                uint64_t value = strtoull(t, NULL, 0);
+                if (negative)
+                    value = (uint64_t)(-(int64_t)value);
 
-            memcpy(string_data + string_table_size, quote_start, len);
-            string_data[string_table_size + len] = '\0';
-            string_table_size += len + 1;
-            string_count++;
+                if (data_count >= 256)
+                {
+                    fprintf(stderr, "Too many data labels (max 256)\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                if (data_section_size + 4 > sizeof(data_data))
+                {
+                    fprintf(stderr, "Data section too large\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
 
-            if (debug)
-                printf("[DEBUG] String $%s at offset %u\n", name, strings[string_count - 1].offset);
-            continue;
+                snprintf(data_entries[data_count].name, sizeof(data_entries[data_count].name), "%s", name);
+                data_entries[data_count].offset = data_section_size;
+                data_entries[data_count].size = 4;
+                data_entries[data_count].type = DT_DWORD;
+                for (int i = 0; i < 4; i++)
+                    data_data[data_section_size + i] = (uint8_t)((value >> (8 * i)) & 0xFF);
+                data_section_size += 4;
+                data_count++;
+
+                if (debug)
+                    printf("[DEBUG] Data DWORD $%s at data_offset=%u (size=4, value=0x%llx)\n",
+                           name, (unsigned)data_entries[data_count - 1].offset, (unsigned long long)value);
+                continue;
+            }
+
+            else if (strncmp(s, "QWORD", 5) == 0)
+            {
+                char name[32];
+                char valtok[128];
+                if (sscanf(s + 5, " $%31[^,], %127[^\n]", name, valtok) != 2)
+                {
+                    fprintf(stderr, "Syntax error line %d: expected QWORD $name, <value>\n", lineno);
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                char *t = trim(valtok);
+                int negative = 0;
+                if (*t == '-')
+                {
+                    negative = 1;
+                    t++;
+                }
+                uint64_t value = strtoull(t, NULL, 0);
+                if (negative)
+                    value = (uint64_t)(-(int64_t)value);
+
+                if (data_count >= 256)
+                {
+                    fprintf(stderr, "Too many data labels (max 256)\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                if (data_section_size + 8 > sizeof(data_data))
+                {
+                    fprintf(stderr, "Data section too large\n");
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+
+                snprintf(data_entries[data_count].name, sizeof(data_entries[data_count].name), "%s", name);
+                data_entries[data_count].offset = data_section_size;
+                data_entries[data_count].size = 8;
+                data_entries[data_count].type = DT_QWORD;
+                for (int i = 0; i < 8; i++)
+                    data_data[data_section_size + i] = (uint8_t)((value >> (8 * i)) & 0xFF);
+                data_section_size += 8;
+                data_count++;
+
+                if (debug)
+                    printf("[DEBUG] Data QWORD $%s at data_offset=%u (size=8, value=0x%llx)\n",
+                           name, (unsigned)data_entries[data_count - 1].offset, (unsigned long long)value);
+                continue;
+            }
+
+            fprintf(stderr, "Unknown data directive on line %d:\n %s\n", lineno, s);
+            fclose(in);
+            fclose(out);
+            return 1;
         }
 
         if (current_section != 2)
@@ -140,7 +364,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             if (current_section == 0)
             {
-                fprintf(stderr, "Error on line %d: code outside of section. Use %%string or %%main/%%entry\n", lineno);
+                fprintf(stderr, "Error on line %d: code outside of section. Use %%data or %%main/%%entry\n", lineno);
                 fclose(in);
                 fclose(out);
                 return 1;
@@ -182,7 +406,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         return 1;
     }
 
-    uint32_t header_offset = 4 + string_table_size;
+    const uint32_t HEADER_FIXED = 3 + 4;
+    uint32_t header_offset = HEADER_FIXED + data_section_size;
     for (size_t i = 0; i < label_count; i++)
     {
         labels[i].addr += header_offset;
@@ -195,8 +420,9 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     fputc((MAGIC >> 16) & 0xFF, out);
     fputc((MAGIC >> 8) & 0xFF, out);
     fputc((MAGIC >> 0) & 0xFF, out);
-    write_u32(out, string_table_size);
-    fwrite(string_data, 1, string_table_size, out);
+
+    write_u32(out, data_section_size);
+    fwrite(data_data, 1, data_section_size, out);
 
     while (fgets(line, sizeof(line), in))
     {
@@ -204,7 +430,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         char *s = trim(line);
         if (*s == '\0' || *s == ';')
             continue;
-        if (strcmp(s, "%string") == 0 || strcmp(s, "%strings") == 0)
+        if (strcmp(s, "%string") == 0 || strcmp(s, "%strings") == 0 ||
+            strcmp(s, "%data") == 0)
         {
             current_section = 1;
             continue;
@@ -214,6 +441,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             current_section = 2;
             continue;
         }
+        if (strcmp(s, "%asm") == 0)
+            continue;
 
         if (current_section == 1)
             continue;
@@ -221,8 +450,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         if (current_section != 2)
             continue;
 
-        if (strncmp(s, "STR ", 4) == 0)
-            continue;
+        if (strncmp(s, "STR ", 4) == 0 || strncmp(s, "BYTE", 4) == 0 || strncmp(s, "WORD", 4) == 0 || strncmp(s, "DWORD", 5) == 0 || strncmp(s, "QWORD", 5) == 0) {
+            fprintf(stderr, "Error on line %d: data directives (STR/BYTE/WORD/DWORD/QWORD/INT) are not allowed in code section\n", lineno);
+            fprintf(stderr, "Line content: %s\n", s);
+            fclose(in);
+            fclose(out);
+            return 1;
+        }
+            
         else if (strncmp(s, "WRITE", 5) == 0)
         {
             if (debug)
@@ -288,7 +523,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_string(name, strings, string_count);
+            uint32_t offset = find_data_offset(data_entries, data_count, name, in, out);
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_LOADSTR, out);
             fputc(reg, out);
@@ -318,6 +553,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
+            fputc(OPCODE_CONTINUE, out);
         }
         else if (strcmp(s, "NEWLINE") == 0)
         {
@@ -1193,6 +1429,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     write_u32(out, (uint32_t)0);
                     write_u32(out, (uint32_t)max);
                 }
+            }
+            else
+            {
+                write_u32(out, (uint32_t)INT32_MIN);
+                write_u32(out, (uint32_t)INT32_MAX);
             }
         }
         else if (strncmp(s, "GETKEY", 6) == 0)

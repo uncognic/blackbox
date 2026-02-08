@@ -5,17 +5,28 @@
 #include <stddef.h>
 #include <ctype.h>
 
+
+typedef enum {
+    DT_STRING = 1,
+    DT_BYTE,
+    DT_WORD,
+    DT_DWORD,
+    DT_QWORD
+} DataType;
+
 typedef struct {
     char name[32];
     uint32_t offset;
-} String;
-
-uint32_t find_string(const char *name, String *strings, size_t count);
+    uint32_t size;
+    DataType type;
+} DataEntry;
 
 typedef struct {
     char name[32];
     uint32_t addr;
 } Label;
+
+static uint32_t find_data_offset(const DataEntry *data_entries, size_t data_count, const char *name, FILE *in, FILE *out);
 
 uint32_t find_label(const char *name, Label *labels, size_t count);
 void write_u32(FILE *out, uint32_t val);
