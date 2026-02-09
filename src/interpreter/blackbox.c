@@ -29,9 +29,7 @@ int main(int argc, char *argv[])
     uint8_t OF = 0;
     uint8_t AF = 0;
     uint8_t PF = 0;
-    size_t sp = 0;
-    size_t stack_cap = STACK_SIZE;
-    int64_t *stack = NULL;
+
     FILE *f = fopen(argv[1], "rb");
     if (!f)
     {
@@ -96,11 +94,26 @@ int main(int argc, char *argv[])
 
     fclose(f);
 
+    size_t sp = 0;
+    size_t stack_cap = STACK_SIZE;
+    int64_t *stack = NULL;
     stack = malloc(stack_cap * sizeof *stack);
     if (!stack)
     {
         perror("malloc");
         free(program);
+        return 1;
+    }
+
+    size_t csp = 0;
+    size_t call_stack_cap = 1024;
+    size_t *call_stack = NULL;
+    call_stack = malloc(call_stack_cap * sizeof *call_stack);
+    if (!call_stack)
+    {
+        perror("malloc");
+        free(program);
+        free(stack);
         return 1;
     }
 
@@ -1604,6 +1617,65 @@ int main(int argc, char *argv[])
                     return 1;
                 }
                 pc = addr;
+            }
+            break;
+        }
+        case OPCODE_CALL:
+        {
+            if (pc + 3 >= size)
+            {
+                fprintf(stderr, "Missing operand for CALL at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint32_t addr = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+            if (addr >= size)
+            {
+                fprintf(stderr, "CALL addr out of bounds: %zu at pc=%u\n", pc, addr);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            if (csp >= call_stack_cap)
+            {
+                size_t new_cap = call_stack_cap + call_stack_cap / 2;
+                size_t *tmp = realloc(call_stack, new_cap * sizeof *call_stack);
+                if (!tmp)
+                {
+                    perror("realloc");
+                    free(program);
+                    free(stack);
+                    free(call_stack);
+                    return 1;
+                }
+                call_stack = tmp;
+                call_stack_cap = new_cap;
+            }
+            call_stack[csp++] = pc;
+            pc = addr;
+            break;
+        }
+        case OPCODE_RET:
+        {
+            if (csp == 0)
+            {
+                fprintf(stderr, "Stack underflow on RET at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                free(call_stack);
+                return 1;
+            }
+            size_t old_pc = pc;
+            pc = call_stack[--csp];
+            if (pc >= size)
+            {
+                fprintf(stderr, "Return address %zu out of bounds, popped at pc=%zu\n", pc, old_pc);
+                free(program);
+                free(stack);
+                free(call_stack);
+                return 1;
             }
             break;
         }

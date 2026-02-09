@@ -1351,6 +1351,36 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_JAE, out);
             write_u32(out, addr);
         }
+        else if (strncmp(s, "CALL", 4) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char label[32];
+            if (sscanf(s + 4, " %31s", label) != 1)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected CALL <label>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t addr = find_label(label, labels, label_count);
+            if (debug)
+            {
+                printf("[DEBUG] CALL to %s (addr=%u)\n", label, (unsigned)addr);
+            }
+            fputc(OPCODE_CALL, out);
+            write_u32(out, addr);
+        }
+        else if (strncmp(s, "RET", 3) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            fputc(OPCODE_RET, out);
+        }
         else
         {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);

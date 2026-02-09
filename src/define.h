@@ -57,6 +57,8 @@
 #define OPCODE_JGE 0x37
 #define OPCODE_JB 0x38
 #define OPCODE_JAE 0x39
+#define OPCODE_CALL 0x3A
+#define OPCODE_RET 0x3B
 #define OPCODE_HALT  0xFF
 
 #endif

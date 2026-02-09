@@ -274,6 +274,10 @@ size_t instr_size(const char *line)
         return 5;
     else if (strncmp(line, "JAE", 3) == 0)
         return 5;
+    else if (strncmp(line, "CALL", 4) == 0)
+        return 5;
+    else if (strncmp(line, "RET", 3) == 0)
+        return 1;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }

@@ -1,0 +1,15 @@
+%asm
+%main
+    WRITE 1 "Calling function..."
+    NEWLINE
+    CALL func
+    WRITE 1 "Back in main"
+    NEWLINE
+    WRITE 1 "Success"
+    HALT
+.func:
+    WRITE 1 "In function"
+    NEWLINE
+    WRITE 1 "Calling RET"
+    NEWLINE
+    RET
