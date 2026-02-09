@@ -14,8 +14,9 @@
     GETKEY R00
     MOV R01, R00
     INC R01
-    JNZ R01, got
-
+    MOV R02, 0
+    CMP R01, R02
+    JNE got
     SLEEP 100
     JMP wait
 

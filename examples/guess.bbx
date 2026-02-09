@@ -10,8 +10,8 @@
 .guess:
     WRITE 1 "Enter your guess: "
     READ R01
-    XOR R01, R00
-    JZ R01, correct
+    CMP R01, R00
+    JE correct
     JMP wrong
 .correct:
     WRITE 1 "Congratulations! You guessed the number!"

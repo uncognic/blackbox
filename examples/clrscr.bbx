@@ -2,7 +2,9 @@
 %main
     MOV R00, 10
 .main:
-    JNZ R00, loop
+    MOV R01, 0
+    CMP R00, R01
+    JNE loop
     SLEEP 1000
     NEWLINE 
     NEWLINE

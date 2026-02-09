@@ -19,8 +19,8 @@
 #define OPCODE_MOV_IMM 0x0B
 #define OPCODE_MOV_REG 0x0C
 #define OPCODE_JMP 0x0D
-#define OPCODE_JZ  0x0E
-#define OPCODE_JNZ 0x0F
+#define OPCODE_JE  0x0E
+#define OPCODE_JNE 0x0F
 #define OPCODE_INC 0x10
 #define OPCODE_DEC 0x11
 #define OPCODE_PUSH_REG 0x12
@@ -53,7 +53,10 @@
 #define OPCODE_GETKEY 0x32
 #define OPCODE_CONTINUE 0x34
 #define OPCODE_READCHAR 0x35
-
+#define OPCODE_JL 0x36
+#define OPCODE_JGE 0x37
+#define OPCODE_JB 0x38
+#define OPCODE_JAE 0x39
 #define OPCODE_HALT  0xFF
 
 #endif

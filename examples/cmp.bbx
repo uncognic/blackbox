@@ -1,0 +1,123 @@
+%asm
+;Tests CMP and conditional jump instructions (JE/JNE, JL/JGE, JB/JAE)
+%main
+.start:
+    WRITE 1 "Which function to test? (1 for JE/JNE, 2 for JL/JGE, 3 for JB/JAE): "
+    READ R00
+
+    MOV R95, 1
+    MOV R96, 2
+    MOV R97, 3
+
+    CMP R00, R95
+    JE jejne
+    CMP R00, R96
+    JE jljge
+    CMP R00, R97
+    JE jbjae
+
+    WRITE 1 "Invalid choice"
+    NEWLINE
+    JMP start
+
+; ======================
+; JE / JNE TEST
+; ======================
+.jejne:
+    WRITE 1 "JE/JNE pass 1"
+    NEWLINE
+
+    MOV R01, 0
+    MOV R05, 0
+    CMP R05, R01
+    JE jejne2
+    JMP jejnefail
+
+.jejne2:
+    WRITE 1 "JE/JNE pass 2"
+    NEWLINE
+
+    MOV R03, 1
+    CMP R01, R03
+    JNE jejnesuccess
+    JMP jejnefail
+
+.jejnesuccess:
+    WRITE 1 "JE and JNE Success"
+    NEWLINE
+    HALT
+
+.jejnefail:
+    WRITE 1 "JE/JNE Fail"
+    NEWLINE
+    HALT
+
+; ======================
+; JL / JGE TEST
+; ======================
+.jljge:
+    WRITE 1 "JL/JGE pass 1"
+    NEWLINE
+
+    ; -1 < 1  (signed)
+    MOV R01, -1
+    MOV R02, 1
+    CMP R01, R02
+    JL jljge2
+    JMP jljgefail
+
+.jljge2:
+    WRITE 1 "JL/JGE pass 2"
+    NEWLINE
+
+    ; 5 >= 5 (signed)
+    MOV R03, 5
+    MOV R04, 5
+    CMP R03, R04
+    JGE jljgesuccess
+    JMP jljgefail
+
+.jljgesuccess:
+    WRITE 1 "JL and JGE Success"
+    NEWLINE
+    HALT
+
+.jljgefail:
+    WRITE 1 "JL/JGE Fail"
+    NEWLINE
+    HALT
+
+; ======================
+; JB / JAE TEST 
+; ======================
+.jbjae:
+    WRITE 1 "JB/JAE pass 1"
+    NEWLINE
+
+    ; 1 < 2 (unsigned)
+    MOV R01, 1
+    MOV R02, 2
+    CMP R01, R02
+    JB jbjae2
+    JMP jbjaefail
+
+.jbjae2:
+    WRITE 1 "JB/JAE pass 2"
+    NEWLINE
+
+    ; 255 >= 1 (unsigned)
+    MOV R03, 255
+    MOV R04, 1
+    CMP R03, R04
+    JAE jbjaesuccess
+    JMP jbjaefail
+
+.jbjaesuccess:
+    WRITE 1 "JB and JAE Success"
+    NEWLINE
+    HALT
+
+.jbjaefail:
+    WRITE 1 "JB/JAE Fail"
+    NEWLINE
+    HALT

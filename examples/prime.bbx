@@ -1,24 +1,27 @@
-;prints prime numbers up to 50
 %asm
+;prints prime numbers up to 50 
 %main
-    MOV R0, 50
-    MOV R1, 2 
+    MOV R00, 50
+    MOV R01, 2 
+    MOV R20, 0
     .loop_outer:
-        MOV R2, 2
-        MOV R3, 1
+        MOV R02, 2
+        MOV R03, 1
 
     .loop_inner:
-        MOV R4, R1
-        DIV R4, R2
-        MUL R4, R2
-        SUB R4, R1
-        JZ R4, not_prime
-        INC R2
-        MOV R5, R2
-        SUB R5, R1
-        JNZ R5, loop_inner
+        MOV R04, R01
+        DIV R04, R02
+        MUL R04, R02
+        SUB R04, R01
+        CMP R04, R20
+        JE not_prime
+        INC R02
+        MOV R05, R02
+        SUB R05, R01
+        CMP R05, R20
+        JNE loop_inner
 
-        PRINTREG R1
+        PRINTREG R01
         NEWLINE
         JMP next_number
 
@@ -26,10 +29,10 @@
 
 
     .next_number:
-        INC R1
-        MOV R5, R1
-        SUB R5, R0
-        JNZ R5, loop_outer
-
+        INC R01
+        MOV R05, R01
+        SUB R05, R00
+        CMP R05, R20
+        JNE loop_outer
     HALT
 

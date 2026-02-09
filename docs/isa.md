@@ -30,9 +30,9 @@
 - JMP: Unconditional jump  
   - Syntax: JMP <label>  
   - Encoding: OPCODE_JMP, 4-byte address (little-endian)  
-- JZ / JNZ: Conditional jumps on register zero/non-zero  
-  - Syntax: JZ <register>, <label>  and  JNZ <register>, <label>  
-  - Encoding: OPCODE_JZ/OPCODE_JNZ, 1 byte register, 4-byte address  
+- JE / JNE: Conditional jumps on register zero/non-zero  
+  - Syntax: JE <register>, <label>  and  JNE <register>, <label>  
+  - Encoding: OPCODE_JE/OPCODE_JNE, 1 byte register, 4-byte address  
 - INC / DEC: Increment / decrement register by one  
   - Syntax: INC <register>  /  DEC <register>  
   - Encoding: OPCODE_INC / OPCODE_DEC, 1 byte register  
@@ -142,3 +142,16 @@
   - Syntax: `READCHAR <reg>`
   - Encoding: `OPCODE_READCHAR`, 1 byte register
   - Behavior: Reads a single character from stdin and stores its ASCII code in the specified register
+- JL / JGE: Conditional jumps on signed comparison (less / greater or equal)
+  - Syntax: `JL <label>`, `JGE <label>`
+  - Encoding: `OPCODE_JL` / `OPCODE_JGE`, 4-byte address
+  - Behavior (after CMP reg1, reg2):
+      JL: jump if reg1 < reg2, checks if SF != OF
+      JGE: jump if reg1 >= reg2 checks if SF == OF
+
+- JB / JAE: Conditional jumps on unsigned comparison (below / above or equal)
+  - Syntax: `JB <label>`, `JAE <label>`
+  - Encoding: `OPCODE_JB` / `OPCODE_JAE`, 4-byte address
+  - Behavior (after CMP reg1, reg2):
+      JB: jump if reg1 < reg2, checks if CF == 1
+      JAE: jump if reg1 >= reg2, checks if CF == 0

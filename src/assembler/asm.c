@@ -331,7 +331,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         {
             continue;
         }
-        else if (strncmp(s, "JZ", 2) == 0)
+        else if (strncmp(s, "JE", 2) == 0)
         {
             if (debug)
             {
@@ -340,7 +340,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             char label[32];
             if (sscanf(s + 2, " %31s", label) != 1)
             {
-                fprintf(stderr, "Syntax error on line %d: expected JZ <label>\nGot: %s\n", lineno, s);
+                fprintf(stderr, "Syntax error on line %d: expected JE <label>\nGot: %s\n", lineno, s);
                 fclose(in);
                 fclose(out);
                 return 1;
@@ -348,12 +348,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint32_t addr = find_label(label, labels, label_count);
             if (debug)
             {
-                printf("[DEBUG] JZ to %s (addr=%u)\n", label, (unsigned)addr);
+                printf("[DEBUG] JE to %s (addr=%u)\n", label, (unsigned)addr);
             }
-            fputc(OPCODE_JZ, out);
+            fputc(OPCODE_JE, out);
             write_u32(out, addr);
         }
-        else if (strncmp(s, "JNZ", 3) == 0)
+        else if (strncmp(s, "JNE", 3) == 0)
         {
             if (debug)
             {
@@ -362,7 +362,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             char label[32];
             if (sscanf(s + 3, " %31s", label) != 1)
             {
-                fprintf(stderr, "Syntax error on line %d: expected JNZ <label>\nGot: %s\n", lineno, s);
+                fprintf(stderr, "Syntax error on line %d: expected JNE <label>\nGot: %s\n", lineno, s);
                 fclose(in);
                 fclose(out);
                 return 1;
@@ -370,9 +370,9 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint32_t addr = find_label(label, labels, label_count);
             if (debug)
             {
-                printf("[DEBUG] JNZ to %s (addr=%u)\n", label, (unsigned)addr);
+                printf("[DEBUG] JNE to %s (addr=%u)\n", label, (unsigned)addr);
             }
-            fputc(OPCODE_JNZ, out);
+            fputc(OPCODE_JNE, out);
             write_u32(out, addr);
         }
 
@@ -1262,6 +1262,94 @@ int assemble_file(const char *filename, const char *output_file, int debug)
 
             fputc(OPCODE_READ, out);
             fputc(reg, out);
+        }
+        else if (strncmp(s, "JL", 2) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char label[32];
+            if (sscanf(s + 3, " %31s", label) != 1)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected JL <label>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t addr = find_label(label, labels, label_count);
+            if (debug)
+            {
+                printf("[DEBUG] JL to %s (addr=%u)\n", label, (unsigned)addr);
+            }
+            fputc(OPCODE_JL, out);
+            write_u32(out, addr);
+        }
+        else if (strncmp(s, "JGE", 3) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char label[32];
+            if (sscanf(s + 3, " %31s", label) != 1)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected JGE <label>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t addr = find_label(label, labels, label_count);
+            if (debug)
+            {
+                printf("[DEBUG] JGE to %s (addr=%u)\n", label, (unsigned)addr);
+            }
+            fputc(OPCODE_JGE, out);
+            write_u32(out, addr);
+        }
+        else if (strncmp(s, "JB", 2) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char label[32];
+            if (sscanf(s + 2, " %31s", label) != 1)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected JB <label>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t addr = find_label(label, labels, label_count);
+            if (debug)
+            {
+                printf("[DEBUG] JB to %s (addr=%u)\n", label, (unsigned)addr);
+            }
+            fputc(OPCODE_JB, out);
+            write_u32(out, addr);
+        }
+        else if (strncmp(s, "JAE", 3) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char label[32];
+            if (sscanf(s + 3, " %31s", label) != 1)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected JAE <label>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t addr = find_label(label, labels, label_count);
+            if (debug)
+            {
+                printf("[DEBUG] JAE to %s (addr=%u)\n", label, (unsigned)addr);
+            }
+            fputc(OPCODE_JAE, out);
+            write_u32(out, addr);
         }
         else
         {

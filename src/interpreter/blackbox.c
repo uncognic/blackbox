@@ -27,6 +27,8 @@ int main(int argc, char *argv[])
     uint8_t CF = 0;
     uint8_t SF = 0;
     uint8_t OF = 0;
+    uint8_t AF = 0;
+    uint8_t PF = 0;
     size_t sp = 0;
     size_t stack_cap = STACK_SIZE;
     int64_t *stack = NULL;
@@ -271,35 +273,62 @@ int main(int argc, char *argv[])
                 free(stack);
                 return 1;
             }
-      
+
             int64_t a = registers[src];
             int64_t b = registers[dst];
             int64_t res = a - b;
 
-            if (res == 0) {
+            if (res == 0)
+            {
                 ZF = 1;
-            } else {
+            }
+            else
+            {
                 ZF = 0;
             }
 
-            if (res < 0) {
+            if (res < 0)
+            {
                 SF = 1;
-            } else {
+            }
+            else
+            {
                 SF = 0;
             }
 
-            if ((uint64_t)a < (uint64_t)b) {
+            if ((uint64_t)a < (uint64_t)b)
+            {
                 CF = 1;
-            } else {
+            }
+            else
+            {
                 CF = 0;
             }
 
             int64_t x = (a ^ b) & (a ^ res);
-            if (x < 0) {
+            if (x < 0)
+            {
                 OF = 1;
-            } else {
+            }
+            else
+            {
                 OF = 0;
             }
+
+            if ((a & 0xF) < (b & 0xF))
+            {
+                AF = 1;
+            }
+            else
+            {
+                AF = 0;
+            }
+
+            uint8_t v = (uint8_t)res;
+            v ^= v >> 4;
+            v ^= v >> 2;
+            v ^= v >> 1;
+            PF = !(v & 1);
 
             break;
         }
@@ -330,11 +359,11 @@ int main(int argc, char *argv[])
             registers[reg] = stack[--sp];
             break;
         }
-        case OPCODE_JZ:
+        case OPCODE_JE:
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for JZ at pc=%zu\n", pc);
+                fprintf(stderr, "Missing operands for JE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -345,7 +374,7 @@ int main(int argc, char *argv[])
             {
                 if (addr >= size)
                 {
-                    fprintf(stderr, "JZ address out of bounds: %u at pc=%zu\n", addr, pc);
+                    fprintf(stderr, "JE address out of bounds: %u at pc=%zu\n", addr, pc);
                     free(program);
                     free(stack);
                     return 1;
@@ -354,11 +383,11 @@ int main(int argc, char *argv[])
             }
             break;
         }
-        case OPCODE_JNZ:
+        case OPCODE_JNE:
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for JNZ at pc=%zu\n", pc);
+                fprintf(stderr, "Missing operands for JNE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -369,7 +398,7 @@ int main(int argc, char *argv[])
             {
                 if (addr >= size)
                 {
-                    fprintf(stderr, "JNZ address out of bounds: %u at pc=%zu\n", addr, pc);
+                    fprintf(stderr, "JNE address out of bounds: %u at pc=%zu\n", addr, pc);
                     free(program);
                     free(stack);
                     return 1;
@@ -1480,6 +1509,102 @@ int main(int argc, char *argv[])
         }
         case OPCODE_CONTINUE:
         {
+            break;
+        }
+        case OPCODE_JL:
+        {
+            if (pc + 3 >= size)
+            {
+                fprintf(stderr, "Missing operands for JE at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint32_t addr = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+            if (SF != OF)
+            {
+                if (pc >= size)
+                {
+                    fprintf(stderr, "JL addr out of bounds: %zu at pc=%u\n", pc, addr);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                pc = addr;
+            }
+            break;
+        }
+        case OPCODE_JGE:
+        {
+            if (pc + 3 >= size)
+            {
+                fprintf(stderr, "Missing operands for JGE at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint32_t addr = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+            if (SF == OF)
+            {
+                if (pc >= size)
+                {
+                    fprintf(stderr, "JGE addr out of bounds: %zu at pc=%u\n", pc, addr);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                pc = addr;
+            }
+            break;
+        }
+        case OPCODE_JB:
+        {
+            if (pc + 3 >= size)
+            {
+                fprintf(stderr, "Missing operands for JB at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint32_t addr = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+            if (CF == 1)
+            {
+                if (pc >= size)
+                {
+                    fprintf(stderr, "JB addr out of bounds: %zu at pc=%u\n", pc, addr);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                pc = addr;
+            }
+            break;
+        }
+        case OPCODE_JAE:
+        {
+            if (pc + 3 >= size)
+            {
+                fprintf(stderr, "Missing operands for JAE at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint32_t addr = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+            if (CF == 0)
+            {
+                if (pc >= size)
+                {
+                    fprintf(stderr, "JAE addr out of bounds: %zu at pc=%u\n", pc, addr);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                pc = addr;
+            }
             break;
         }
         default:
