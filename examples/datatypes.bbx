@@ -1,0 +1,26 @@
+%asm
+;3
+;
+%data
+    BYTE $byte, 10 
+    WORD $word, 300
+    DWORD $dword, 70000
+    QWORD $qword, 5000000000
+    STR $str, "Hello, World!"
+%main
+    LOADBYTE $byte, R01 ;6
+    LOADWORD $word, R02 ;6
+    LOADDWORD $dword, R03 ;6
+    LOADQWORD $qword, R04 ;6
+    LOADSTR $str, R05 ;6
+    PRINTSTR R05 ;2
+    NEWLINE
+    PRINTREG R01 ;2
+    NEWLINE ;3
+    PRINTREG R02 ;2
+    NEWLINE ;3
+    PRINTREG R03 ;2
+    NEWLINE ;3
+    PRINTREG R04 ;2
+    NEWLINE  ;1
+    HALT ;1

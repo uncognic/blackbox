@@ -2,6 +2,8 @@
 #define OPCODES_H
 
 #define MAGIC 0x626378
+#define MAGIC_SIZE 3
+#define HEADER_FIXED_SIZE 8
 #define STACK_SIZE 16384
 #define REGISTERS 99
 #define FILE_DESCRIPTORS 99
@@ -59,6 +61,10 @@
 #define OPCODE_JAE 0x39
 #define OPCODE_CALL 0x3A
 #define OPCODE_RET 0x3B
+#define OPCODE_LOADBYTE 0x3C
+#define OPCODE_LOADWORD 0x3D
+#define OPCODE_LOADDWORD 0x3E
+#define OPCODE_LOADQWORD 0x3F
 #define OPCODE_HALT  0xFF
 
 #endif

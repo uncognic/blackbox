@@ -1,16 +1,29 @@
-#ifndef TOOLS_H
-#define TOOLS_H
+#pragma once
 #include <stdint.h>
 #include <stdio.h>
 #include <stddef.h>
 #include <ctype.h>
 
+typedef enum {
+    DATA_STRING,
+    DATA_DWORD,
+    DATA_QWORD,
+    DATA_WORD,
+    DATA_BYTE
+} DataType;
+
 typedef struct {
     char name[32];
+    DataType type;
+    char *str;
+    uint8_t byte;
+    uint16_t word;
+    uint32_t dword;
+    uint64_t qword;
     uint32_t offset;
-} String;
+} Data;
 
-uint32_t find_string(const char *name, String *strings, size_t count);
+uint32_t find_data(const char *name, Data *data, size_t count);
 
 typedef struct {
     char name[32];
@@ -28,5 +41,3 @@ uint8_t parse_file(const char *r, int lineno);
 uint64_t get_true_random();
 int64_t read_i64(const uint8_t *data, size_t *pc);
 uint64_t read_u64(const uint8_t *data, size_t *pc);
-
-#endif

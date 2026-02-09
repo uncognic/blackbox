@@ -29,8 +29,17 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     {
         lineno++;
         char *s = trim(line);
-        if (*s == '\0' || *s == ';')
+
+        char *comment = strchr(s, ';');
+        if (comment)
+        {
+            *comment = '\0';
+
+            s = trim(s);
+        }
+        if (*s == '\0')
             continue;
+
         if (strcmp(s, "%asm") == 0)
         {
             break;
@@ -46,12 +55,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
 
     Label labels[256];
     size_t label_count = 0;
-    uint32_t pc = 3;
+    uint32_t pc = MAGIC_SIZE;
 
-    String strings[256];
-    size_t string_count = 0;
-    uint32_t string_table_size = 0;
-    char string_data[8192];
+    Data data[256];
+    size_t data_count = 0;
+    uint32_t data_table_size = 0;
+    char data_table[8192];
 
     int current_section = 0;
     int found_code_section = 0;
@@ -60,21 +69,27 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     {
         lineno++;
         char *s = trim(line);
+        char *comment = strchr(s, ';');
+        if (comment)
+        {
+            *comment = '\0';
+            s = trim(s);
+        }
         if (*s == '\0' || *s == ';')
             continue;
 
-        if (strcmp(s, "%string") == 0 || strcmp(s, "%strings") == 0)
+        if (strcmp(s, "%data") == 0)
         {
             if (found_code_section)
             {
-                fprintf(stderr, "Error on line %d: %%string section must come before %%main/%%entry\n", lineno);
+                fprintf(stderr, "Error on line %d: %%data section must come before %%main/%%entry\n", lineno);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             current_section = 1;
             if (debug)
-                printf("[DEBUG] Entering string section at line %d\n", lineno);
+                printf("[DEBUG] Entering data section at line %d\n", lineno);
             continue;
         }
         if (strcmp(s, "%main") == 0 || strcmp(s, "%entry") == 0)
@@ -90,7 +105,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         {
             if (current_section != 1)
             {
-                fprintf(stderr, "Error on line %d: STR must be inside %%string section\n", lineno);
+                fprintf(stderr, "Error on line %d: STR must be inside %%data section\n", lineno);
                 fclose(in);
                 fclose(out);
                 return 1;
@@ -104,6 +119,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
+
             quote_start++;
             char *quote_end = strchr(quote_start, '"');
             if (!quote_end)
@@ -115,16 +131,159 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             size_t len = quote_end - quote_start;
 
-            snprintf(strings[string_count].name, sizeof(strings[string_count].name), "%s", name);
-            strings[string_count].offset = string_table_size;
+            snprintf(data[data_count].name, sizeof(data[data_count].name), "%s", name);
+            data[data_count].type = DATA_STRING;
+            data[data_count].offset = data_table_size;
+            data[data_count].str = &data_table[data_table_size];
 
-            memcpy(string_data + string_table_size, quote_start, len);
-            string_data[string_table_size + len] = '\0';
-            string_table_size += len + 1;
-            string_count++;
+            memcpy(data_table + data_table_size, quote_start, len);
+            data_table[data_table_size + len] = '\0';
+            data_table_size += len + 1;
+            data_count++;
 
             if (debug)
-                printf("[DEBUG] String $%s at offset %u\n", name, strings[string_count - 1].offset);
+                printf("[DEBUG] String $%s at offset %u\n", name, data[data_count - 1].offset);
+            continue;
+        }
+        else if (strncmp(s, "DWORD ", 6) == 0)
+        {
+            if (current_section != 1)
+            {
+                fprintf(stderr, "Error on line %d: DWORD must be inside %%data section\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            char name[32];
+            uint32_t value;
+            if (sscanf(s + 6, " $%31[^,], %u", name, &value) != 2)
+            {
+                fprintf(stderr, "Syntax error line %d: expected DWORD $name, value\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+
+            snprintf(data[data_count].name, sizeof(data[data_count].name), "%s", name);
+            data[data_count].type = DATA_DWORD;
+            data[data_count].offset = data_table_size;
+            data[data_count].dword = value;
+
+            data_table[data_table_size + 0] = (value >> 0) & 0xFF;
+            data_table[data_table_size + 1] = (value >> 8) & 0xFF;
+            data_table[data_table_size + 2] = (value >> 16) & 0xFF;
+            data_table[data_table_size + 3] = (value >> 24) & 0xFF;
+            data_table_size += sizeof(value);
+            data_count++;
+
+            if (debug)
+                printf("[DEBUG] DWORD $%s at offset %u\n", name, data[data_count - 1].offset);
+            continue;
+        }
+        else if (strncmp(s, "QWORD ", 6) == 0)
+        {
+            if (current_section != 1)
+            {
+                fprintf(stderr, "Error on line %d: QWORD must be inside %%data section\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            char name[32];
+            uint64_t value;
+            if (sscanf(s + 6, " $%31[^,], %llu", name, &value) != 2)
+            {
+                fprintf(stderr, "Syntax error line %d: expected QWORD $name, value\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+
+            snprintf(data[data_count].name, sizeof(data[data_count].name), "%s", name);
+            data[data_count].type = DATA_QWORD;
+            data[data_count].offset = data_table_size;
+            data[data_count].qword = value;
+
+            data_table[data_table_size + 0] = (value >> 0) & 0xFF;
+            data_table[data_table_size + 1] = (value >> 8) & 0xFF;
+            data_table[data_table_size + 2] = (value >> 16) & 0xFF;
+            data_table[data_table_size + 3] = (value >> 24) & 0xFF;
+            data_table[data_table_size + 4] = (value >> 32) & 0xFF;
+            data_table[data_table_size + 5] = (value >> 40) & 0xFF;
+            data_table[data_table_size + 6] = (value >> 48) & 0xFF;
+            data_table[data_table_size + 7] = (value >> 56) & 0xFF;
+
+            data_table_size += sizeof(value);
+            data_count++;
+
+            if (debug)
+                printf("[DEBUG] QWORD $%s at offset %u\n", name, data[data_count - 1].offset);
+            continue;
+        }
+        else if (strncmp(s, "WORD ", 5) == 0)
+        {
+            if (current_section != 1)
+            {
+                fprintf(stderr, "Error on line %d: WORD must be inside %%data section\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            char name[32];
+            uint16_t value;
+            if (sscanf(s + 5, " $%31[^,], %hu", name, &value) != 2)
+            {
+                fprintf(stderr, "Syntax error line %d: expected WORD $name, value\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+
+            snprintf(data[data_count].name, sizeof(data[data_count].name), "%s", name);
+            data[data_count].type = DATA_WORD;
+            data[data_count].offset = data_table_size;
+            data[data_count].word = value;
+
+            data_table[data_table_size + 0] = (value >> 0) & 0xFF;
+            data_table[data_table_size + 1] = (value >> 8) & 0xFF;
+
+            data_table_size += sizeof(value);
+            data_count++;
+
+            if (debug)
+                printf("[DEBUG] WORD $%s at offset %u\n", name, data[data_count - 1].offset);
+            continue;
+        }
+        else if (strncmp(s, "BYTE ", 5) == 0)
+        {
+            if (current_section != 1)
+            {
+                fprintf(stderr, "Error on line %d: BYTE must be inside %%data section\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            char name[32];
+            uint8_t value;
+            if (sscanf(s + 5, " $%31[^,], %hhu", name, &value) != 2)
+            {
+                fprintf(stderr, "Syntax error line %d: expected BYTE $name, value\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+
+            snprintf(data[data_count].name, sizeof(data[data_count].name), "%s", name);
+            data[data_count].type = DATA_BYTE;
+            data[data_count].offset = data_table_size;
+            data[data_count].byte = value;
+
+            memcpy(data_table + data_table_size, &value, sizeof(value));
+            data_table_size += sizeof(value);
+            data_count++;
+
+            if (debug)
+                printf("[DEBUG] BYTE $%s at offset %u\n", name, data[data_count - 1].offset);
             continue;
         }
 
@@ -182,7 +341,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         return 1;
     }
 
-    uint32_t header_offset = 4 + string_table_size;
+    uint32_t header_offset = (HEADER_FIXED_SIZE - MAGIC_SIZE) + data_table_size;
     for (size_t i = 0; i < label_count; i++)
     {
         labels[i].addr += header_offset;
@@ -195,16 +354,23 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     fputc((MAGIC >> 16) & 0xFF, out);
     fputc((MAGIC >> 8) & 0xFF, out);
     fputc((MAGIC >> 0) & 0xFF, out);
-    write_u32(out, string_table_size);
-    fwrite(string_data, 1, string_table_size, out);
+    fputc(data_count, out);
+    write_u32(out, data_table_size);
+    fwrite(data_table, 1, data_table_size, out);
 
     while (fgets(line, sizeof(line), in))
     {
         lineno++;
         char *s = trim(line);
+        char *comment = strchr(s, ';');
+        if (comment)
+        {
+            *comment = '\0';
+            s = trim(s);
+        }
         if (*s == '\0' || *s == ';')
             continue;
-        if (strcmp(s, "%string") == 0 || strcmp(s, "%strings") == 0)
+        if (strcmp(s, "%data") == 0)
         {
             current_section = 1;
             continue;
@@ -222,7 +388,41 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             continue;
 
         if (strncmp(s, "STR ", 4) == 0)
-            continue;
+        {
+            fprintf(stderr, "Syntax error on line %d: STR directive not allowed in code section\n", lineno);
+            fclose(in);
+            fclose(out);
+            return 1;
+        }
+        if (strncmp(s, "DWORD ", 6) == 0)
+        {
+            fprintf(stderr, "Syntax error on line %d: DWORD directive not allowed in code section\n", lineno);
+            fclose(in);
+            fclose(out);
+            return 1;
+        }
+
+        if (strncmp(s, "QWORD ", 6) == 0)
+        {
+            fprintf(stderr, "Syntax error on line %d: QWORD directive not allowed in code section\n", lineno);
+            fclose(in);
+            fclose(out);
+            return 1;
+        }
+        if (strncmp(s, "WORD ", 5) == 0)
+        {
+            fprintf(stderr, "Syntax error on line %d: WORD directive not allowed in code section\n", lineno);
+            fclose(in);
+            fclose(out);
+            return 1;
+        }
+        if (strncmp(s, "BYTE ", 5) == 0)
+        {
+            fprintf(stderr, "Syntax error on line %d: BYTE directive not allowed in code section\n", lineno);
+            fclose(in);
+            fclose(out);
+            return 1;
+        }
         else if (strncmp(s, "WRITE", 5) == 0)
         {
             if (debug)
@@ -288,11 +488,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_string(name, strings, string_count);
+            uint32_t offset = find_data(name, data, data_count);
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_LOADSTR, out);
             fputc(reg, out);
-            write_u32(out, offset);
+            uint32_t mem_offset = data[offset].offset;
+            write_u32(out, mem_offset);
             if (debug)
                 printf("[DEBUG] LOADSTR $%s (offset=%u) -> %s\n", name, offset, regname);
         }
@@ -311,6 +512,106 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_PRINTSTR, out);
             fputc(reg, out);
+        }
+        else if (strncmp(s, "LOADBYTE", 8) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char name[32];
+            char regname[16];
+            if (sscanf(s + 8, " $%31[^,], %15s", name, regname) != 2)
+            {
+                fprintf(stderr, "Syntax error line %d: expected LOADBYTE $name, <register>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t offset = find_data(name, data, data_count);
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_LOADBYTE, out);
+            fputc(reg, out);
+            Data *d = &data[offset];
+            uint32_t offset_in_table = d->offset;
+            write_u32(out, offset_in_table);
+            if (debug)
+                printf("[DEBUG] LOADBYTE $%s (offset=%u) -> %s\n", name, offset, regname);
+        }
+        else if (strncmp(s, "LOADWORD", 8) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char name[32];
+            char regname[16];
+            if (sscanf(s + 8, " $%31[^,], %15s", name, regname) != 2)
+            {
+                fprintf(stderr, "Syntax error line %d: expected LOADWORD $name, <register>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t offset = find_data(name, data, data_count);
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_LOADWORD, out);
+            fputc(reg, out);
+            Data *d = &data[offset];
+            uint32_t offset_in_table = d->offset;
+            write_u32(out, offset_in_table);
+            if (debug)
+                printf("[DEBUG] LOADWORD $%s (offset=%u) -> %s\n", name, offset, regname);
+        }
+        else if (strncmp(s, "LOADDWORD", 9) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char name[32];
+            char regname[16];
+            if (sscanf(s + 9, " $%31[^,], %15s", name, regname) != 2)
+            {
+                fprintf(stderr, "Syntax error line %d: expected LOADDWORD $name, <register>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t offset = find_data(name, data, data_count);
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_LOADDWORD, out);
+            fputc(reg, out);
+            Data *d = &data[offset];
+            uint32_t offset_in_table = d->offset;
+            write_u32(out, offset_in_table);
+            if (debug)
+                printf("[DEBUG] LOADDWORD $%s (offset=%u) -> %s\n", name, offset, regname);
+        }
+        else if (strncmp(s, "LOADQWORD", 9) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char name[32];
+            char regname[16];
+            if (sscanf(s + 9, " $%31[^,], %15s", name, regname) != 2)
+            {
+                fprintf(stderr, "Syntax error line %d: expected LOADQWORD $name, <register>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t offset = find_data(name, data, data_count);
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_LOADQWORD, out);
+            fputc(reg, out);
+            Data *d = &data[offset];
+            uint32_t offset_in_table = d->offset;
+            write_u32(out, offset_in_table);
+            if (debug)
+                printf("[DEBUG] LOADQWORD $%s (offset=%u) -> %s\n", name, offset, regname);
         }
         else if (strncmp(s, "CONTINUE", 8) == 0)
         {

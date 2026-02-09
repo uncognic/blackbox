@@ -74,19 +74,20 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (size < 7)
+    if (size < HEADER_FIXED_SIZE)
     {
-        fprintf(stderr, "Error: program too small (missing string table header)\n");
+        fprintf(stderr, "Error: program too small (missing data table header)\n");
         free(program);
         fclose(f);
         return 1;
     }
-    uint32_t string_table_size = (uint32_t)program[3] | ((uint32_t)program[4] << 8) | ((uint32_t)program[5] << 16) | ((uint32_t)program[6] << 24);
-    uint8_t *string_table = &program[7];
+    uint8_t data_count = program[MAGIC_SIZE];
+    uint32_t data_table_size = (uint32_t)program[MAGIC_SIZE + 1] | ((uint32_t)program[MAGIC_SIZE + 2] << 8) | ((uint32_t)program[MAGIC_SIZE + 3] << 16) | ((uint32_t)program[MAGIC_SIZE + 4] << 24);
+    uint8_t *data_table = &program[HEADER_FIXED_SIZE];
 
-    if (size < 7 + string_table_size)
+    if (size < HEADER_FIXED_SIZE + data_table_size)
     {
-        fprintf(stderr, "Error: program too small for declared string table\n");
+        fprintf(stderr, "Error: program too small for declared data table\n");
         free(program);
         fclose(f);
         return 1;
@@ -117,7 +118,7 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    size_t pc = 7 + string_table_size;
+    size_t pc = HEADER_FIXED_SIZE + data_table_size;
 
     FILE *fds[FILE_DESCRIPTORS];
     for (size_t i = 0; i < FILE_DESCRIPTORS; i++)
@@ -1132,14 +1133,14 @@ int main(int argc, char *argv[])
                 free(stack);
                 return 1;
             }
-            if (offset >= string_table_size)
+            if (offset >= data_table_size)
             {
-                fprintf(stderr, "String offset out of bounds: %u at pc=%zu\n", offset, pc);
+                fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", offset, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            registers[reg] = (int64_t)offset;
+            registers[reg] = offset;
             break;
         }
         case OPCODE_PRINTSTR:
@@ -1160,27 +1161,17 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            uint32_t addr = (uint32_t)registers[reg];
+            uint32_t offset = (uint32_t)registers[reg];
 
-            if (addr & 0x80000000)
+            if (offset >= data_table_size)
             {
-                uint32_t idx = addr & 0x7FFFFFFF;
-                while (idx < sp && stack[idx] != 0)
-                {
-                    putchar((int)stack[idx++]);
-                }
+                fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", offset, pc);
+                free(program);
+                free(stack);
+                return 1;
             }
-            else
-            {
-                if (addr >= string_table_size)
-                {
-                    fprintf(stderr, "String offset out of bounds: %u at pc=%zu\n", addr, pc);
-                    free(program);
-                    free(stack);
-                    return 1;
-                }
-                printf("%s", (char *)(string_table + addr));
-            }
+
+            printf("%s", &data_table[offset]);
             fflush(stdout);
             break;
         }
@@ -1677,6 +1668,138 @@ int main(int argc, char *argv[])
                 free(call_stack);
                 return 1;
             }
+            break;
+        }
+        case OPCODE_LOADBYTE:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADBYTE at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            uint32_t offset = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOADBYTE at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            if (offset >= data_table_size)
+            {
+                fprintf(stderr, "Data offset out of bounds: %u\n", offset);
+                exit(1);
+            }
+            registers[reg] = (int64_t)data_table[offset];
+            break;
+        }
+        case OPCODE_LOADWORD:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADWORD at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+
+            uint8_t reg = program[pc++];
+            uint32_t offset = program[pc] | (program[pc + 1] << 8) |
+                              (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOADWORD at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+
+            if (offset + 1 >= data_table_size)
+            {
+                fprintf(stderr, "Data offset out of bounds: %u\n", offset);
+                exit(1);
+            }
+            int16_t val = data_table[offset] | (data_table[offset + 1] << 8);
+            registers[reg] = (int64_t)val;
+
+            break;
+        }
+        case OPCODE_LOADDWORD:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADDWORD at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+
+            uint8_t reg = program[pc++];
+            uint32_t offset = program[pc] | (program[pc + 1] << 8) |
+                              (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOADDWORD at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+
+            if (offset + 3 >= data_table_size)
+            {
+                fprintf(stderr, "Data offset out of bounds: %u\n", offset);
+                exit(1);
+            }
+            int32_t val = data_table[offset] |
+                          (data_table[offset + 1] << 8) |
+                          (data_table[offset + 2] << 16) |
+                          (data_table[offset + 3] << 24);
+            registers[reg] = (int64_t)val;
+
+            break;
+        }
+        case OPCODE_LOADQWORD:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADQWORD at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+
+            uint8_t reg = program[pc++];
+            uint32_t offset = program[pc] | (program[pc + 1] << 8) |
+                              (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOADQWORD at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+
+            if (offset + 7 >= data_table_size)
+            {
+                fprintf(stderr, "Data offset out of bounds: %u\n", offset);
+                exit(1);
+            }
+            int64_t val = 0;
+            for (int i = 0; i < 8; i++)
+                val |= ((uint64_t)data_table[offset + i]) << (8 * i);
+            registers[reg] = val;
+            registers[reg] = (int64_t)val;
+
             break;
         }
         default:

@@ -26,12 +26,12 @@ uint32_t find_label(const char *name, Label *labels, size_t count)
     fprintf(stderr, "Unknown label %s\n", name);
     exit(1);
 }
-uint32_t find_string(const char *name, String *strings, size_t count)
+uint32_t find_data(const char *name, Data *data, size_t count)
 {
     for (size_t i = 0; i < count; i++)
     {
-        if (strcmp(strings[i].name, name) == 0)
-            return strings[i].offset;
+        if (strcmp(data[i].name, name) == 0)
+            return i;
     }
     fprintf(stderr, "Error: undefined string constant '%s'\n", name);
     exit(1);
@@ -171,7 +171,7 @@ size_t instr_size(const char *line)
         return 5;
     else if (strncmp(line, "ALLOC", 5) == 0)
         return 5;
-    else if (strcmp(line, "NEWLINE") == 0)
+    else if (strncmp(line, "NEWLINE", 7) == 0)
         return 1;
     else if (strncmp(line, "JE", 2) == 0)
         return 5;
@@ -240,7 +240,7 @@ size_t instr_size(const char *line)
         return 6;
     else if (strncmp(line, "PRINTSTR", 8) == 0)
         return 2;
-    else if (strcmp(line, "HALT") == 0)
+    else if (strncmp(line, "HALT", 4) == 0)
         return 1;
     else if (strncmp(line, "NOT", 3) == 0)
         return 2;
@@ -278,6 +278,14 @@ size_t instr_size(const char *line)
         return 5;
     else if (strncmp(line, "RET", 3) == 0)
         return 1;
+    else if (strncmp(line, "LOADBYTE", 8) == 0)
+        return 6;
+    else if (strncmp(line, "LOADWORD", 8) == 0)
+        return 6;
+    else if (strncmp(line, "LOADDWORD", 9) == 0)
+        return 6;
+    else if (strncmp(line, "LOADQWORD", 9) == 0)
+        return 6;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }
