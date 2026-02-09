@@ -9,13 +9,6 @@
 A minimal, Turing-complete bytecode virtual machine written in C, featuring a custom assembly language and instruction set.
 
 The virtual machine executes a custom bytecode format produced from a simple assembly-like language.
-# Features
-- Small, portable VM written in C with a compact custom bytecode format.
-- 99 general-purpose registers (R0–R98).
-- Heap-backed int64_t stack with ALLOC/GROW instructions.
-- Straightforward Intel-like assembly and label-based control flow.
-- Minimal, easy-to-read codebase. Great for learning, embedding, or extending with new opcodes.
-- Deterministic, compact bytecode (small binaries, predictable behavior)
 # Docs
 See [docs.md](docs/docs.md) and [examples](/examples/)
 # Building
