@@ -83,10 +83,38 @@
   - Syntax: FSEEK F<fd>, <reg|imm>
   - Encoding: OPCODE_FSEEK_REG, 1 byte fd, 1 byte reg or OPCODE_FSEEK_IMM, 1 byte fd, 4-byte offset
   - Behavior: sets file position for fd; interpreter validates fd and range.
-- STR: Define variable with the string datatype  (Must be in $string)
+- STR: Define variable with the string datatype. Must be in the %data section.
   - Syntax: STR $<name>, "<contents>"
-  - Encoding: in the string table
-  - Behavior: Adds an entry to the string table
+  - Encoding: in the data table
+  - Behavior: Adds a string entry to the data table
+- BYTE: 8-bit unsigned integer constant definition. Must be in the %data section.
+  - Syntax: BYTE $<name>, <value>
+  - Encoding: in the data table
+  - Behavior: Adds a byte entry to the data table
+- WORD: 16-bit unsigned integer constant definition. Must be in the %data section.
+  - Syntax: WORD $<name>, <value>
+  - Encoding: in the data table
+  - Behavior: Adds a word entry to the data table
+- DWORD: 32-bit unsigned integer constant definition. Must be in the %data section.
+  - Syntax: DWORD $<name>, <value>
+  - Encoding: in the data table
+  - Behavior: Adds a dword entry to the data table
+- QWORD: 64-bit unsigned integer constant definition. Must be in the %data section.
+  - Syntax: QWORD $<name>, <value>
+  - Encoding: in the data table
+  - Behavior: Adds a qword entry to the data table
+- LOADBYTE: Load a BYTE constant into a register
+  - Syntax: LOADBYTE $<name>, <register>
+  - Behavior: Writes the value of a BYTE constant to a register
+- LOADWORD: Load a WORD constant into a register
+  - Syntax: LOADWORD $<name>, <register>
+  - Behavior: Writes the value of a WORD constant to a register
+- LOADDWORD: Load a DWORD constant into a register
+  - Syntax: LOADDWORD $<name>, <register>
+  - Behavior: Writes the value of a DWORD constant to a register
+- LOADQWORD: Load a QWORD constant into a register
+  - Syntax: LOADQWORD $<name>, <register>
+  - Behavior: Writes the value of a QWORD constant to a register
 - LOADSTR: Load a string into a register
   - Syntax: LOADSTR $<name>, <register>
   - Behavior: Writes the address of a string to a register

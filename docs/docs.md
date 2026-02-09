@@ -4,7 +4,7 @@
 - Syntax is Intel-assembly like: instructions use spaces and commas (e.g. MOV R01, 42). Labels start with a period and end with a colon (.label:).
 - All files must have a %asm statement at the very top of the file.
 - All files must have a %main or %entry section for the program entry point. 
-- String definitions must be in the %string section, before the entry point.
+- Data definitions must be in the %data section, before the entry point.
 - Registers: R00–R98 (99 total). CMP result/flag is stored in R98.
 - Stack: heap-backed array of int64_t elements. Initially 16384 elements. The stack capacity can be changed explicitly via ALLOC, GROW, RESIZE and FREE; the interpreter maintains stack capacity in elements and reallocates the backing buffer on those operations.
 - Immediate values encoded as 32-bit little-endian.
