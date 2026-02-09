@@ -183,3 +183,12 @@
   - Behavior (after CMP reg1, reg2):
       JB: jump if reg1 < reg2, checks if CF == 1
       JAE: jump if reg1 >= reg2, checks if CF == 0
+
+- CALL: Call subroutine
+  - Syntax: `CALL <label>`
+  - Encoding: `OPCODE_CALL`, 4-byte address
+  - Behavior: Pushes the return address onto the call stack and jumps to the specified label
+- RET: Return from subroutine
+  - Syntax: `RET`
+  - Encoding: `OPCODE_RET`
+  - Behavior: Pops the return address from the call stack and jumps back to it
