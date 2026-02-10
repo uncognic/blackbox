@@ -31,5 +31,12 @@
     DIV R00, R02
     PRINTREG R00 ;Result: 28
 
+    ;Modulus operation
+    NEWLINE
+    MOV R00, 10
+    MOV R01, 3
+    MOD R00, R01
+    PRINTREG R00 ;Result: 1
+
     NEWLINE
     HALT

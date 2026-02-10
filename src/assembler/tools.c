@@ -193,6 +193,8 @@ size_t instr_size(const char *line)
         return 5;
     else if (strncmp(line, "FREE", 4) == 0)
         return 5;
+    else if (strncmp(line, "MOD", 3) == 0)
+        return 3;
     else if (strncmp(line, "FOPEN", 5) == 0)
     {
         const char *quote = strchr(line, '"');

@@ -65,6 +65,7 @@
 #define OPCODE_LOADWORD 0x3D
 #define OPCODE_LOADDWORD 0x3E
 #define OPCODE_LOADQWORD 0x3F
+#define OPCODE_MOD 0x40
 #define OPCODE_HALT  0xFF
 
 #endif

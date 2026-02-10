@@ -191,7 +191,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             char name[32];
             uint64_t value;
-            if (sscanf(s + 6, " $%31[^,], %llu", name, &value) != 2)
+            if (sscanf(s + 6, " $%31[^,], %lu", name, &value) != 2)
             {
                 fprintf(stderr, "Syntax error line %d: expected QWORD $name, value\n", lineno);
                 fclose(in);
@@ -1681,6 +1681,27 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_RET, out);
+        }
+        else if (strncmp(s, "MOD", 3) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char src_reg[16];
+            char dst_reg[16];
+            if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected MOD <dst>, <src>\nGot: %s\n", lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t dst = parse_register(dst_reg, lineno);
+            uint8_t src = parse_register(src_reg, lineno);
+            fputc(OPCODE_MOD, out);
+            fputc(dst, out);
+            fputc(src, out);
         }
         else
         {

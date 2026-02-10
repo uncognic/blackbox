@@ -1802,6 +1802,33 @@ int main(int argc, char *argv[])
 
             break;
         }
+        case OPCODE_MOD: {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for MOD at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t dst = program[pc++];
+            uint8_t src = program[pc++];
+            if (dst >= REGISTERS || src >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in MOD at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            if (registers[src] == 0)
+            {
+                fprintf(stderr, "Division by zero in MOD at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            registers[dst] = registers[dst] % registers[src];
+            break;
+        }
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode, pc - 1);
