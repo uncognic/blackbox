@@ -184,9 +184,31 @@ size_t instr_size(const char *line)
     else if (strncmp(line, "CMP", 3) == 0)
         return 3;
     else if (strncmp(line, "STORE", 5) == 0)
+    {
+        const char *p = line + 5;
+        const char *comma = strchr(p, ',');
+        if (!comma)
+            return 6;
+        const char *q = comma + 1;
+        while (*q && isspace(*q))
+            q++;
+        if (toupper((unsigned char)q[0]) == 'R')
+            return 3;
         return 6;
+    }
     else if (strncmp(line, "LOAD", 4) == 0)
+    {
+        const char *p = line + 4;
+        const char *comma = strchr(p, ',');
+        if (!comma)
+            return 6;
+        const char *q = comma + 1;
+        while (*q && isspace(*q))
+            q++;
+        if (toupper((unsigned char)q[0]) == 'R')
+            return 3;
         return 6;
+    }
     else if (strncmp(line, "GROW", 4) == 0)
         return 5;
     else if (strncmp(line, "RESIZE", 6) == 0)

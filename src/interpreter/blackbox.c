@@ -679,6 +679,35 @@ int main(int argc, char *argv[])
             registers[reg] = stack[addr];
             break;
         }
+        case OPCODE_LOAD_REG:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOAD_REG at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            uint8_t idxreg = program[pc++];
+            if (reg >= REGISTERS || idxreg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOAD_REG at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            int64_t idx64 = registers[idxreg];
+            if (idx64 < 0 || (size_t)idx64 >= stack_cap)
+            {
+                fprintf(stderr, "LOAD_REG address out of bounds: %lld at pc=%zu\n", (long long)idx64, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            registers[reg] = stack[(size_t)idx64];
+            break;
+        }
         case OPCODE_STORE:
         {
             if (pc + 5 >= size)
@@ -706,6 +735,35 @@ int main(int argc, char *argv[])
                 return 1;
             }
             stack[addr] = registers[reg];
+            break;
+        }
+        case OPCODE_STORE_REG:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for STORE_REG at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            uint8_t idxreg = program[pc++];
+            if (reg >= REGISTERS || idxreg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in STORE_REG at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            int64_t idx64 = registers[idxreg];
+            if (idx64 < 0 || (size_t)idx64 >= stack_cap)
+            {
+                fprintf(stderr, "STORE_REG address out of bounds: %lld at pc=%zu\n", (long long)idx64, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            stack[(size_t)idx64] = registers[reg];
             break;
         }
         case OPCODE_GROW:
@@ -1839,6 +1897,9 @@ int main(int argc, char *argv[])
         }
     }
 
+    (void)AF;
+    (void)PF;
+    (void)data_count;
     free(program);
     free(stack);
     return 0;

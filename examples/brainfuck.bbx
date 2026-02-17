@@ -1,0 +1,180 @@
+%asm
+; simple Brainfuck interpreter
+%main
+FOPEN w, F1, "/dev/stdout"
+
+READSTR R02
+
+MOV R03, R02
+MOV R09, 2147483647
+AND R03, R09 ;R03 = program_start
+
+MOV R04, 0 ;program counter
+
+MOV R10, 0
+MOV R11, 1
+MOV R20, 62 ;'>'
+MOV R21, 60 ;'<'
+MOV R22, 43 ;'+'
+MOV R23, 45 ;'-'
+MOV R24, 46 ;'.'
+MOV R25, 44 ;','
+MOV R26, 91 ;'['
+MOV R27, 93 ;']'
+MOV R26, 91 ;'['
+MOV R27, 93 ;']'
+
+MOV R05, 0
+
+.find_end:
+	MOV R12, R03
+	ADD R12, R05
+	LOAD R06, R12
+	CMP R06, R10
+	JE found_end
+	INC R05
+	JMP find_end
+.found_end:
+	MOV R28, R12
+	INC R28
+
+MOV R07, 0 ;tape pointer
+
+.main_loop:
+	MOV R05, R03
+	ADD R05, R04
+	LOAD R06, R05
+	CMP R06, R10
+	JE end_program
+
+	CMP R06, R20
+	JE op_gt
+	CMP R06, R21
+	JE op_lt
+	CMP R06, R22
+	JE op_plus
+	CMP R06, R23
+	JE op_minus
+	CMP R06, R24
+	JE op_dot
+	CMP R06, R25
+	JE op_comma
+	CMP R06, R26
+	JE op_lb
+	CMP R06, R27
+	JE op_rb
+
+	INC R04
+	JMP main_loop
+
+.op_gt:
+	INC R07
+	INC R04
+	JMP main_loop
+
+.op_lt:
+	DEC R07
+	INC R04
+	JMP main_loop
+
+.op_plus:
+	MOV R12, R28
+	ADD R12, R07
+	LOAD R08, R12
+	INC R08
+	STORE R08, R12
+	INC R04
+	JMP main_loop
+
+.op_minus:
+	MOV R12, R28
+	ADD R12, R07
+	LOAD R08, R12
+	DEC R08
+	STORE R08, R12
+	INC R04
+	JMP main_loop
+
+.op_dot:
+	MOV R12, R28
+	ADD R12, R07
+	LOAD R08, R12
+	FWRITE F1, R08
+	INC R04
+	JMP main_loop
+
+.op_comma:
+	MOV R12, R28
+	ADD R12, R07
+	READCHAR R08
+	STORE R08, R12
+	INC R04
+	JMP main_loop
+
+.op_lb:
+	MOV R12, R28
+	ADD R12, R07
+	LOAD R08, R12
+	CMP R08, R10
+	JE skip_loop
+	INC R04
+	JMP main_loop
+.skip_loop:
+	MOV R13, R11
+.scan_fwd:
+	INC R04
+	MOV R12, R03
+	ADD R12, R04
+	LOAD R06, R12
+	CMP R06, R26
+	JE inc_depth_fwd
+	CMP R06, R27
+	JE dec_depth_fwd
+	JMP scan_fwd
+.inc_depth_fwd:
+	INC R13
+	JMP scan_fwd
+.dec_depth_fwd:
+	DEC R13
+	CMP R13, R10
+	JE after_scan_fwd
+	JMP scan_fwd
+.after_scan_fwd:
+	INC R04
+	JMP main_loop
+
+.op_rb:
+	MOV R12, R28
+	ADD R12, R07
+	LOAD R08, R12
+	CMP R08, R10
+	JE after_rb
+	MOV R13, R11
+.scan_bwd:
+	DEC R04
+	MOV R12, R03
+	ADD R12, R04
+	LOAD R06, R12
+	CMP R06, R27
+	JE inc_depth_bwd
+	CMP R06, R26
+	JE dec_depth_bwd
+	JMP scan_bwd
+.inc_depth_bwd:
+	INC R13
+	JMP scan_bwd
+.dec_depth_bwd:
+	DEC R13
+	CMP R13, R10
+	JE found_lb
+	JMP scan_bwd
+.found_lb:
+	INC R04
+	JMP main_loop
+.after_rb:
+	INC R04
+	JMP main_loop
+
+.end_program:
+	HALT
+

@@ -45,8 +45,8 @@
   - Encoding: OPCODE_ALLOC, 4-byte unsigned count  g
   - Behavior: if requested elements > current capacity, interpreter resizes capacity to exactly that number.  
 - LOAD / STORE: Access stack by element index (int64_t elements)  
-  - Syntax: LOAD <register>, <index>  /  STORE <register>, <index>  
-  - Encoding: OPCODE_LOAD / OPCODE_STORE, 1 byte register, 4-byte index  
+  - Syntax: LOAD <register>, <index>  /  STORE <register>, <index> or LOAD <reg>, <reg> / STORE <reg>, <reg> (register form uses the register value as the index)
+  - Encoding: OPCODE_LOAD / OPCODE_STORE or OPCODE_LOAD_REG / OPCODE_STORE_REG, 1 byte register, 4-byte index or 1 byte register, 1 byte register
   - Bounds: index must be < stack capacity. LOAD reads an int64_t into the register; STORE writes a register's int64_t to the stack index.  
 - GROW: Increase stack capacity by additional elements  
   - Syntax: GROW <elements>  

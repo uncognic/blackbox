@@ -1047,16 +1047,26 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             char addrname[32];
             if (sscanf(s + 4, " %3s, %31s", regname, addrname) != 2)
             {
-                fprintf(stderr, "Syntax error on line %d: expected LOAD <register>, <index in stack>\nGot: %s\n", lineno, s);
+                fprintf(stderr, "Syntax error on line %d: expected LOAD <register>, <index in stack|Rxx>\nGot: %s\n", lineno, s);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             uint8_t reg = parse_register(regname, lineno);
-            uint32_t addr = strtoul(addrname, NULL, 0);
-            fputc(OPCODE_LOAD, out);
-            fputc(reg, out);
-            write_u32(out, addr);
+            if (toupper((unsigned char)addrname[0]) == 'R')
+            {
+                uint8_t idx = parse_register(addrname, lineno);
+                fputc(OPCODE_LOAD_REG, out);
+                fputc(reg, out);
+                fputc(idx, out);
+            }
+            else
+            {
+                uint32_t addr = strtoul(addrname, NULL, 0);
+                fputc(OPCODE_LOAD, out);
+                fputc(reg, out);
+                write_u32(out, addr);
+            }
         }
         else if (strncmp(s, "STORE", 5) == 0)
         {
@@ -1068,16 +1078,26 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             char addrname[32];
             if (sscanf(s + 5, " %3s, %31s", regname, addrname) != 2)
             {
-                fprintf(stderr, "Syntax error on line %d: expected STORE <register>, <index in stack>\nGot: %s\n", lineno, s);
+                fprintf(stderr, "Syntax error on line %d: expected STORE <register>, <index in stack|Rxx>\nGot: %s\n", lineno, s);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             uint8_t reg = parse_register(regname, lineno);
-            uint32_t addr = strtoul(addrname, NULL, 0);
-            fputc(OPCODE_STORE, out);
-            fputc(reg, out);
-            write_u32(out, addr);
+            if (toupper((unsigned char)addrname[0]) == 'R')
+            {
+                uint8_t idx = parse_register(addrname, lineno);
+                fputc(OPCODE_STORE_REG, out);
+                fputc(reg, out);
+                fputc(idx, out);
+            }
+            else
+            {
+                uint32_t addr = strtoul(addrname, NULL, 0);
+                fputc(OPCODE_STORE, out);
+                fputc(reg, out);
+                write_u32(out, addr);
+            }
         }
         else if (strncmp(s, "GROW", 4) == 0)
         {

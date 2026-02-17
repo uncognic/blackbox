@@ -1,0 +1,20 @@
+%asm
+
+%main
+;store 42 at stack index 10
+MOV R00, 42
+STORE R00, 10
+;load it back and print
+LOAD R01, 10
+PRINTREG R01
+NEWLINE
+
+;store using a register as the index
+MOV R02, 123 ;value to store
+MOV R10, 11 ;index in R10
+STORE R02, R10 ;store R02 at stack index 11
+LOAD R03, R10 ;load back into R03
+PRINTREG R03
+NEWLINE
+
+HALT
