@@ -1,5 +1,8 @@
 %asm
-; simple Brainfuck interpreter
+;simple brainfuck interpreter
+;pipe output to use
+;example:
+;echo '++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.' | ./bbx brainfuck.bcx
 %main
 FOPEN w, F1, "/dev/stdout"
 
