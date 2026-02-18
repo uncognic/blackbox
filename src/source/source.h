@@ -1,11 +1,10 @@
 #pragma once
-#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-uint64_t bb_add(uint64_t left, uint64_t right);
+int compile_file(const char* input, const char* output, int debug);
 
 #ifdef __cplusplus
 }
