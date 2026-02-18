@@ -63,6 +63,7 @@ int main(int argc, char *argv[])
             printf("Debug mode ON\n");
             printf("[DEBUG] Input file: %s\n", input_file);
             printf("[DEBUG] Output file: %s\n", output_file);
+            printf("[DEBUG] Pathway: assembly\n");
         }
         int result = assemble_file(input_file, output_file, debug);
         if (result == 0)
@@ -71,9 +72,18 @@ int main(int argc, char *argv[])
     }
     else
     {
-        // do the language stuff here
-        fclose(in);
-        fprintf(stderr, "Input file does not start with %%asm. No assembly performed.\n");
+        // int result = compile_file(input_file, output_file, debug);
+        // if (result == 0) {
+        //    printf("Compilation successful.\n");
+        //}
+        //fclose(in);
+        if (debug)
+        {
+            printf("Debug mode ON\n");
+            printf("[DEBUG] Input file: %s\n", input_file);
+            printf("[DEBUG] Output file: %s\n", output_file);
+            printf("[DEBUG] Pathway: source code\n");
+        }
         return 1;
     }
 }

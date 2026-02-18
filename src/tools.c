@@ -4,7 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "tools.h"
-#include "../define.h"
+#include "define.h"
 #ifdef _WIN32
 #include <windows.h>
 #include <bcrypt.h>

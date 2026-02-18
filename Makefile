@@ -7,9 +7,9 @@ all:
 
 copy:
 	cp src/interpreter/bbx .
-	cp src/assembler/bbx-asm .
+	cp src/assembler/bbxc .
 
 clean:
 	$(MAKE) -C src/interpreter clean
 	$(MAKE) -C src/assembler clean
-	rm -f bbx bbx-asm
+	rm -f bbx bbxc

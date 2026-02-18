@@ -4,7 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include "../define.h"
-#include "../assembler/tools.h"
+#include "../tools.h"
 #ifdef _WIN32
 #include <windows.h>
 #include <conio.h>

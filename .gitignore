@@ -31,3 +31,8 @@ src/assembler/asm.o
 bbx.exe
 src/assembler/asm.obj
 src/interpreter/tools.obj
+target/
+Cargo.lock
+bbxc
+src/compiler.o
+src/tools.o
