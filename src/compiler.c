@@ -2,9 +2,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "../define.h"
+#include "define.h"
 #include "tools.h"
-#include "asm.h" 
+#include "assembler/asm.h" 
 
 int main(int argc, char *argv[])
 {
@@ -51,11 +51,27 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    char header[8] = {0};
-    size_t n = fread(header, 1, 5, in);
+    char line[8192];
+    int is_asm = 0;
+    while (fgets(line, sizeof(line), in))
+    {
+        char *s = trim(line);
+        char *comment = strchr(s, ';');
+        if (comment)
+            *comment = '\0';
+        s = trim(s);
+        if (*s == '\0')
+            continue;
+        if (strncmp(s, "%asm", 4) == 0)
+        {
+            is_asm = 1;
+        }
+        break;
+    }
+
     rewind(in);
 
-    if (n >= 4 && strncmp(header, "%asm", 4) == 0)
+    if (is_asm)
     {
         fclose(in);
         if (debug)
@@ -72,11 +88,6 @@ int main(int argc, char *argv[])
     }
     else
     {
-        // int result = compile_file(input_file, output_file, debug);
-        // if (result == 0) {
-        //    printf("Compilation successful.\n");
-        //}
-        //fclose(in);
         if (debug)
         {
             printf("Debug mode ON\n");
@@ -84,6 +95,7 @@ int main(int argc, char *argv[])
             printf("[DEBUG] Output file: %s\n", output_file);
             printf("[DEBUG] Pathway: source code\n");
         }
+        fclose(in);
         return 1;
     }
 }

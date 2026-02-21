@@ -121,9 +121,11 @@ int main(int argc, char *argv[])
     size_t pc = HEADER_FIXED_SIZE + data_table_size;
 
     FILE *fds[FILE_DESCRIPTORS];
+    uint8_t fds_owned[FILE_DESCRIPTORS];
     for (size_t i = 0; i < FILE_DESCRIPTORS; i++)
     {
         fds[i] = NULL;
+        fds_owned[i] = 0;
     }
 
     while (pc < size)
@@ -925,19 +927,41 @@ int main(int argc, char *argv[])
             }
             if (fds[fd])
             {
-                fclose(fds[fd]);
+                if (fds_owned[fd])
+                    fclose(fds[fd]);
                 fds[fd] = NULL;
+                fds_owned[fd] = 0;
             }
 
-            FILE *file = fopen(fname, mode);
-            if (!file)
+
+            if (strcmp(fname, "/dev/stdout") == 0)
             {
-                perror("fopen");
-                free(program);
-                free(stack);
-                return 1;
+                fds[fd] = stdout;
+                fds_owned[fd] = 0;
             }
-            fds[fd] = file;
+            else if (strcmp(fname, "/dev/stderr") == 0)
+            {
+                fds[fd] = stderr;
+                fds_owned[fd] = 0;
+            }
+            else if (strcmp(fname, "/dev/stdin") == 0)
+            {
+                fds[fd] = stdin;
+                fds_owned[fd] = 0;
+            }
+            else
+            {
+                FILE *file = fopen(fname, mode);
+                if (!file)
+                {
+                    perror("fopen");
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                fds[fd] = file;
+                fds_owned[fd] = 1;
+            }
             break;
         }
         case OPCODE_FCLOSE:
@@ -959,8 +983,10 @@ int main(int argc, char *argv[])
             }
             if (fds[fd])
             {
-                fclose(fds[fd]);
+                if (fds_owned[fd])
+                    fclose(fds[fd]);
                 fds[fd] = NULL;
+                fds_owned[fd] = 0;
             }
             break;
         }
