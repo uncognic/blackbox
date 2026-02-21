@@ -4,30 +4,30 @@
 ;example:
 ;echo '++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.' | ./bbx brainfuck.bcx
 %main
-FOPEN w, F1, "/dev/stdout"
+	FOPEN w, F1, "/dev/stdout"
 
-READSTR R02
+	READSTR R02
 
-MOV R03, R02
-MOV R09, 2147483647
-AND R03, R09 ;R03 = program_start
+	MOV R03, R02
+	MOV R09, 2147483647
+	AND R03, R09 ;R03 = program_start
 
-MOV R04, 0 ;program counter
+	MOV R04, 0 ;program counter
 
-MOV R10, 0
-MOV R11, 1
-MOV R20, 62 ;'>'
-MOV R21, 60 ;'<'
-MOV R22, 43 ;'+'
-MOV R23, 45 ;'-'
-MOV R24, 46 ;'.'
-MOV R25, 44 ;','
-MOV R26, 91 ;'['
-MOV R27, 93 ;']'
-MOV R26, 91 ;'['
-MOV R27, 93 ;']'
+	MOV R10, 0
+	MOV R11, 1
+	MOV R20, 62 ;'>'
+	MOV R21, 60 ;'<'
+	MOV R22, 43 ;'+'
+	MOV R23, 45 ;'-'
+	MOV R24, 46 ;'.'
+	MOV R25, 44 ;','
+	MOV R26, 91 ;'['
+	MOV R27, 93 ;']'
+	MOV R26, 91 ;'['
+	MOV R27, 93 ;']'
 
-MOV R05, 0
+	MOV R05, 0
 
 .find_end:
 	MOV R12, R03
