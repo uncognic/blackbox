@@ -18,9 +18,10 @@ A small, Turing-complete bytecode virtual machine with a simple assembly languag
 1. Ensure you have `gcc` and `make` installed
 2. Run `make` in the project directory
 ### Windows MSVC
-1. Ensure you have atleast Visual Studio  2022 with the "Desktop development with C++" workload installed. 
-2. Open the Developer Command Prompt for Visual Studio.
-3. Run `build.bat` in the project directory.
+1. Ensure you have atleast Visual Studio 2022 with the "Desktop development with C++" workload installed. 
+2. Ensure you have the Rust programming language installed.
+3. Open the Developer Command Prompt for Visual Studio.
+4. Run `build.bat` in the project directory.
 
 ## Examples
 
