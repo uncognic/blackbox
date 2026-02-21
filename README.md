@@ -8,8 +8,8 @@
 A small, Turing-complete bytecode virtual machine with a simple assembly language.
 
 ## Links
-- Docs: [docs/docs.md](docs/docs.md)
-- ISA reference: [docs/isa.md](docs/isa.md)  
+- Docs (assembly): [docs/assembly/docs.md](docs/assembly/docs.md)
+- ISA reference (assembly): [docs/assembly/isa.md](docs/assembly/isa.md)  
 - Examples: [examples/](examples/)  
 - License: [LICENSE](LICENSE)
 
