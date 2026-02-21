@@ -196,6 +196,16 @@ size_t instr_size(const char *line)
             return 3;
         return 6;
     }
+    else if (strncmp(line, "LOADSTR", 7) == 0)
+        return 6;
+    else if (strncmp(line, "LOADBYTE", 8) == 0)
+        return 6;
+    else if (strncmp(line, "LOADWORD", 8) == 0)
+        return 6;
+    else if (strncmp(line, "LOADDWORD", 9) == 0)
+        return 6;
+    else if (strncmp(line, "LOADQWORD", 9) == 0)
+        return 6;
     else if (strncmp(line, "LOAD", 4) == 0)
     {
         const char *p = line + 4;
@@ -260,8 +270,6 @@ size_t instr_size(const char *line)
         else
             return 6;
     }
-    else if (strncmp(line, "LOADSTR", 7) == 0)
-        return 6;
     else if (strncmp(line, "PRINTSTR", 8) == 0)
         return 2;
     else if (strncmp(line, "HALT", 4) == 0)
@@ -276,6 +284,8 @@ size_t instr_size(const char *line)
         return 3;
     else if (strncmp(line, "READSTR", 7) == 0)
         return 2;
+    else if (strncmp(line, "READCHAR", 8) == 0)
+        return 2;
     else if (strncmp(line, "SLEEP", 5) == 0)
         return 5;
     else if (strncmp(line, "CLRSCR", 6) == 0)
@@ -288,8 +298,6 @@ size_t instr_size(const char *line)
         return 2;
     else if (strcmp(line, "CONTINUE") == 0)
         return 1;
-    else if (strncmp(line, "READCHAR", 8) == 0)
-        return 2;
     else if (strncmp(line, "JL", 2) == 0)
         return 5;
     else if (strncmp(line, "JGE", 3) == 0)
@@ -302,14 +310,6 @@ size_t instr_size(const char *line)
         return 5;
     else if (strncmp(line, "RET", 3) == 0)
         return 1;
-    else if (strncmp(line, "LOADBYTE", 8) == 0)
-        return 6;
-    else if (strncmp(line, "LOADWORD", 8) == 0)
-        return 6;
-    else if (strncmp(line, "LOADDWORD", 9) == 0)
-        return 6;
-    else if (strncmp(line, "LOADQWORD", 9) == 0)
-        return 6;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }
@@ -384,4 +384,196 @@ uint64_t get_true_random()
     close(fd);
     return num;
 #endif
+}
+
+Macro *find_macro(Macro *macros, size_t macro_count, const char *name)
+{
+    for (size_t m = 0; m < macro_count; m++)
+    {
+        if (strcmp(macros[m].name, name) == 0)
+            return &macros[m];
+    }
+    return NULL;
+}
+
+char *replace_all(const char *src, const char *find, const char *repl)
+{
+    if (!find || find[0] == '\0')
+        return strdup(src);
+
+    size_t src_len = strlen(src);
+    size_t find_len = strlen(find);
+    size_t repl_len = strlen(repl);
+
+    const char *p = src;
+    size_t count = 0;
+    while ((p = strstr(p, find)) != NULL)
+    {
+        count++;
+        p += find_len;
+    }
+
+    size_t out_len = src_len + count * (repl_len > find_len ? repl_len - find_len : 0) + 1;
+    char *out = malloc(out_len);
+    if (!out)
+    {
+        fprintf(stderr, "Out of memory\n");
+        exit(1);
+    }
+
+    char *dst = out;
+    const char *cur = src;
+    const char *match;
+    while ((match = strstr(cur, find)) != NULL)
+    {
+        size_t prefix = (size_t)(match - cur);
+        memcpy(dst, cur, prefix);
+        dst += prefix;
+        memcpy(dst, repl, repl_len);
+        dst += repl_len;
+        cur = match + find_len;
+    }
+    memcpy(dst, cur, strlen(cur) + 1);
+    return out;
+}
+
+int expand_invocation(const char *invocation_line, FILE *dest, int depth, Macro *macros, size_t macro_count, unsigned long *expand_id)
+{
+    if (depth > 32)
+        return -1;
+    char *copy = strdup(invocation_line);
+    char *t = trim(copy);
+    if (t[0] != '%')
+    {
+        free(copy);
+        return 0;
+    }
+    char *p = t + 1;
+    char *name = strtok(p, " \t\r\n");
+    if (!name)
+    {
+        free(copy);
+        return 0;
+    }
+    Macro *m = find_macro(macros, macro_count, name);
+    if (!m)
+    {
+        free(copy);
+        return 0;
+    }
+    char *args[32];
+    int argc = 0;
+    char *at;
+    while ((at = strtok(NULL, " \t\r\n")) != NULL && argc < 32)
+        args[argc++] = at;
+
+    (*expand_id)++;
+    char idbuf[32];
+    snprintf(idbuf, sizeof(idbuf), "M%lu", *expand_id);
+
+    for (int bi = 0; bi < m->bodyc; bi++)
+    {
+        char *line = strdup(m->body[bi]);
+        for (int pi = 0; pi < m->paramc; pi++)
+        {
+            char findbuf[128];
+            snprintf(findbuf, sizeof(findbuf), "$%s", m->params[pi]);
+            const char *repl = (pi < argc) ? args[pi] : "";
+            char *tmp = replace_all(line, findbuf, repl);
+            free(line);
+            line = tmp;
+        }
+        for (int pi = 0; pi < argc; pi++)
+        {
+            char findbuf[8];
+            snprintf(findbuf, sizeof(findbuf), "$%d", pi + 1);
+            char *tmp = replace_all(line, findbuf, args[pi]);
+            free(line);
+            line = tmp;
+        }
+
+        char *pcur = line;
+        size_t outcap = strlen(line) + 1;
+        char *out = malloc(outcap);
+        if (!out)
+        {
+            fprintf(stderr, "Out of memory\n");
+            exit(1);
+        }
+        out[0] = '\0';
+        for (;;)
+        {
+            char *atpos = strstr(pcur, "@@");
+            if (!atpos)
+            {
+                size_t need = strlen(out) + strlen(pcur) + 1;
+                if (need > outcap)
+                {
+                    outcap = need;
+                    out = realloc(out, outcap);
+                    if (!out)
+                    {
+                        fprintf(stderr, "Out of memory\n");
+                        exit(1);
+                    }
+                }
+                strcat(out, pcur);
+                break;
+            }
+            size_t prefixlen = (size_t)(atpos - pcur);
+            size_t need = strlen(out) + prefixlen + 1;
+            if (need > outcap)
+            {
+                outcap = need * 2;
+                out = realloc(out, outcap);
+                if (!out)
+                {
+                    fprintf(stderr, "Out of memory\n");
+                    exit(1);
+                }
+            }
+            strncat(out, pcur, prefixlen);
+            char *ident = atpos + 2;
+            int il = 0;
+            while (ident[il] && (isalnum((unsigned char)ident[il]) || ident[il] == '_'))
+                il++;
+            char identbuf[128];
+            strncpy(identbuf, ident, il);
+            identbuf[il] = '\0';
+            char replbuf[256];
+            snprintf(replbuf, sizeof(replbuf), "%s_%s", idbuf, identbuf);
+            size_t need2 = strlen(out) + strlen(replbuf) + 1;
+            if (need2 > outcap)
+            {
+                outcap = need2;
+                out = realloc(out, outcap);
+                if (!out)
+                {
+                    fprintf(stderr, "Out of memory\n");
+                    exit(1);
+                }
+            }
+            strcat(out, replbuf);
+            pcur = ident + il;
+        }
+
+        char *wline = trim(out);
+        if (wline[0] == '%')
+        {
+            expand_invocation(wline, dest, depth + 1, macros, macro_count, expand_id);
+        }
+        else
+        {
+            fputs(wline, dest);
+            size_t l = strlen(wline);
+            if (l == 0 || wline[l - 1] != '\n')
+                fputc('\n', dest);
+        }
+
+        free(out);
+        free(line);
+    }
+
+    free(copy);
+    return 1;
 }

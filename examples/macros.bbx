@@ -1,0 +1,22 @@
+%asm
+
+%macro loop_n cnt
+    MOV R00, $cnt
+.@@loop:
+    PRINT '.'
+    DEC R00
+    MOV R01, 0
+    CMP R00, R01
+    JNE @@loop
+%endmacro
+
+%macro hello
+    WRITE 1 "Hello from macro!"
+    NEWLINE
+%endmacro
+
+%main
+    %loop_n 3
+    %hello
+
+    HALT

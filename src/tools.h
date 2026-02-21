@@ -4,7 +4,8 @@
 #include <stddef.h>
 #include <ctype.h>
 
-typedef enum {
+typedef enum
+{
     DATA_STRING,
     DATA_DWORD,
     DATA_QWORD,
@@ -12,7 +13,8 @@ typedef enum {
     DATA_BYTE
 } DataType;
 
-typedef struct {
+typedef struct
+{
     char name[32];
     DataType type;
     char *str;
@@ -25,7 +27,8 @@ typedef struct {
 
 uint32_t find_data(const char *name, Data *data, size_t count);
 
-typedef struct {
+typedef struct
+{
     char name[32];
     uint32_t addr;
 } Label;
@@ -41,3 +44,16 @@ uint8_t parse_file(const char *r, int lineno);
 uint64_t get_true_random();
 int64_t read_i64(const uint8_t *data, size_t *pc);
 uint64_t read_u64(const uint8_t *data, size_t *pc);
+
+typedef struct
+{
+    char *name;
+    char **params;
+    int paramc;
+    char **body;
+    int bodyc;
+} Macro;
+
+Macro *find_macro(Macro *macros, size_t macro_count, const char *name);
+char *replace_all(const char *src, const char *find, const char *repl);
+int expand_invocation(const char *invocation_line, FILE *dest, int depth, Macro *macros, size_t macro_count, unsigned long *expand_id);

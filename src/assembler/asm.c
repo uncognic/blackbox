@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include "../define.h"
 #include "../tools.h"
 
@@ -13,6 +14,164 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     {
         perror("fopen input");
         return 1;
+    }
+    {
+        char readline[8192];
+        char **lines = NULL;
+        size_t lines_count = 0, lines_cap = 0;
+
+        while (fgets(readline, sizeof(readline), in))
+        {
+            if (lines_count + 1 >= lines_cap)
+            {
+                lines_cap = lines_cap ? lines_cap * 2 : 256;
+                lines = realloc(lines, lines_cap * sizeof(char *));
+            }
+            lines[lines_count++] = strdup(readline);
+        }
+
+        fclose(in);
+
+        FILE *tmp = tmpfile();
+        if (!tmp)
+        {
+            perror("tmpfile");
+            for (size_t i = 0; i < lines_count; i++)
+                free(lines[i]);
+            free(lines);
+            return 1;
+        }
+
+        Macro *macros = NULL;
+        size_t macro_count = 0, macro_cap = 0;
+
+        for (size_t i = 0; i < lines_count; i++)
+        {
+            char *copy = strdup(lines[i]);
+            char *t = trim(copy);
+            if (strncmp(t, "%macro", 6) == 0 && (t[6] == ' ' || t[6] == '\t' || t[6] == '\0'))
+            {
+                char *p = t + 6;
+                while (*p == ' ' || *p == '\t')
+                    p++;
+                char *tok = strtok(p, " \t\r\n");
+                if (!tok)
+                {
+                    fprintf(stderr, "Syntax error: bad %%macro header\n");
+                    free(copy);
+                    continue;
+                }
+                char *mname = strdup(tok);
+                char **params = NULL;
+                int paramc = 0, paramcap = 0;
+                char *argtok;
+                while ((argtok = strtok(NULL, " \t\r\n")) != NULL)
+                {
+                    if (paramc + 1 >= paramcap)
+                    {
+                        paramcap = paramcap ? paramcap * 2 : 8;
+                        params = realloc(params, paramcap * sizeof(char *));
+                    }
+                    params[paramc++] = strdup(argtok);
+                }
+
+                char **body = NULL;
+                int bodyc = 0, bodycap = 0;
+                size_t j = i + 1;
+                for (; j < lines_count; j++)
+                {
+                    char *c2 = strdup(lines[j]);
+                    char *t2 = trim(c2);
+                    if (strcmp(t2, "%endmacro") == 0)
+                    {
+                        free(c2);
+                        break;
+                    }
+                    if (bodyc + 1 >= bodycap)
+                    {
+                        bodycap = bodycap ? bodycap * 2 : 16;
+                        body = realloc(body, bodycap * sizeof(char *));
+                    }
+                    body[bodyc++] = strdup(lines[j]);
+                    free(c2);
+                }
+
+                if (macro_count + 1 >= macro_cap)
+                {
+                    macro_cap = macro_cap ? macro_cap * 2 : 16;
+                    macros = realloc(macros, macro_cap * sizeof(Macro));
+                }
+                macros[macro_count].name = mname;
+                macros[macro_count].params = params;
+                macros[macro_count].paramc = paramc;
+                macros[macro_count].body = body;
+                macros[macro_count].bodyc = bodyc;
+                macro_count++;
+
+                i = j;
+            }
+            free(copy);
+        }
+
+        unsigned long expand_id = 0;
+
+        for (size_t i = 0; i < lines_count; i++)
+        {
+            char *copy = strdup(lines[i]);
+            char *t = trim(copy);
+            if (strncmp(t, "%macro", 6) == 0)
+            {
+                size_t j = i + 1;
+                for (j; j < lines_count; j++)
+                {
+                    char *c2 = strdup(lines[j]);
+                    char *t2 = trim(c2);
+                    if (strcmp(t2, "%endmacro") == 0)
+                    {
+                        free(c2);
+                        break;
+                    }
+                    free(c2);
+                }
+                i = j;
+                free(copy);
+                continue;
+            }
+            if (t[0] == '%')
+            {
+                if (strcmp(t, "%asm") == 0 || strcmp(t, "%data") == 0 || strcmp(t, "%main") == 0 || strcmp(t, "%entry") == 0 || strcmp(t, "%endmacro") == 0)
+                {
+                    fputs(lines[i], tmp);
+                    free(copy);
+                    continue;
+                }
+                if (expand_invocation(t, tmp, 0, macros, macro_count, &expand_id))
+                {
+                    free(copy);
+                    continue;
+                }
+            }
+            fputs(lines[i], tmp);
+            free(copy);
+        }
+
+        for (size_t i = 0; i < lines_count; i++)
+            free(lines[i]);
+        free(lines);
+        for (size_t m = 0; m < macro_count; m++)
+        {
+            free(macros[m].name);
+            for (int p = 0; p < macros[m].paramc; p++)
+                free(macros[m].params[p]);
+            free(macros[m].params);
+            for (int b = 0; b < macros[m].bodyc; b++)
+                free(macros[m].body[b]);
+            free(macros[m].body);
+        }
+        free(macros);
+
+        rewind(tmp);
+        in = tmp;
     }
     FILE *out = fopen(output_file, "wb");
     if (!out)
@@ -619,6 +778,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
+            fputc(OPCODE_CONTINUE, out);
         }
         else if (strcmp(s, "NEWLINE") == 0)
         {
@@ -1510,9 +1670,9 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             char regname[16];
             char rest[64] = {0};
-            /* RAND <reg>
-               RAND <reg>, <max>
-               RAND <reg>, <min>, <max> */
+            // RAND <reg>
+            // RAND <reg>, <max>
+            // RAND <reg>, <min>, <max>
             int matched = sscanf(s + 4, " %3s , %63[^\n]", regname, rest);
             if (matched < 1)
             {
@@ -1542,6 +1702,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     write_u64(out, (uint64_t)INT64_MIN);
                     write_u64(out, (uint64_t)INT64_MAX);
                 }
+            }
+            else
+            {
+                write_u64(out, (uint64_t)INT64_MIN);
+                write_u64(out, (uint64_t)INT64_MAX);
             }
         }
         else if (strncmp(s, "GETKEY", 6) == 0)

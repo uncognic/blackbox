@@ -609,6 +609,7 @@ int main(int argc, char *argv[])
         {
             free(program);
             free(stack);
+            free(call_stack);
             return 0;
         }
         case OPCODE_PRINT:
@@ -618,6 +619,7 @@ int main(int argc, char *argv[])
                 printf("Error: missing operand for PRINT at pc=%zu\n", pc);
                 free(program);
                 free(stack);
+                free(call_stack);
                 return 1;
             }
             uint8_t value = program[pc++];
@@ -631,6 +633,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Missing operand for ALLOC at pc=%zu\n", pc);
                 free(program);
                 free(stack);
+                free(call_stack);
                 return 1;
             }
 
@@ -645,6 +648,7 @@ int main(int argc, char *argv[])
                     perror("realloc");
                     free(program);
                     free(stack);
+                    free(call_stack);
                     return 1;
                 }
                 stack = tmp;
@@ -1918,6 +1922,7 @@ int main(int argc, char *argv[])
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode, pc - 1);
             free(program);
             free(stack);
+            free(call_stack);
             return 1;
         }
         }
@@ -1928,5 +1933,6 @@ int main(int argc, char *argv[])
     (void)data_count;
     free(program);
     free(stack);
+    free(call_stack);
     return 0;
 }

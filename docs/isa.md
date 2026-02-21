@@ -192,3 +192,11 @@
   - Syntax: `RET`
   - Encoding: `OPCODE_RET`
   - Behavior: Pops the return address from the call stack and jumps back to it
+
+## Macros
+- %macro / %endmacro: Define compiler macro
+  - Syntax: `%macro <name> [param1 param2 ...]` ... `%endmacro`
+  - Parameters: Up to **32** parameters. Arbitrary limit, can be increased at any time. (space-separated on the `%macro` line). Inside the body, `$paramName` is replaced with the corresponding argument. You can also use parameters based on their position `$1`, `$2`, so definition isn't necessarily needed.
+  - Invocation: `%name [arg1 arg2 ...]`
+  - Local labels: Use `@@label` inside the macro body. Each expansion uniquifies them (e.g. `M1_label`, `M2_label`) to avoid collisions.
+  - Nesting: Macros may invoke other macros. Recursive expansion is capped at a depth of 32.
