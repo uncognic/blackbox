@@ -1,9 +1,15 @@
 @echo off
-if exist "%ROOT%\bbxc.exe" del "%ROOT%\bbxc.exe"
-if exist "%ROOT%\bbx.exe" del "%ROOT%\bbx.exe" 
-
 SET ROOT=%CD%
 SET SRC=%ROOT%\src
+
+if /I "%~1"=="clean" (
+    echo Cleaning build artifacts...
+    if exist "%ROOT%\bbxc.exe" del /f /q "%ROOT%\bbxc.exe"
+    if exist "%ROOT%\bbx.exe" del /f /q "%ROOT%\bbx.exe"
+    rd /s /q "%SRC%\source\target" 2>nul
+    echo Clean complete.
+    exit /b 0
+)
 
 echo Building compiler...
 cd "%SRC%"
