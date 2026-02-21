@@ -5,7 +5,7 @@
 | |_) | | (_| | (__|   <| |_) | (_) >  <
 |____/|_|\__,_|\___|_|\_\_.__/ \___/_/\_\
 ```
-A small, Turing-complete bytecode virtual machine with a simple assembly language and assembler/interpreter.
+A small, Turing-complete bytecode virtual machine with a simple assembly language.
 
 ## Links
 - Docs: [docs/docs.md](docs/docs.md)
