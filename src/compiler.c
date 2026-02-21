@@ -6,6 +6,8 @@
 #include "tools.h"
 #include "assembler/asm.h" 
 
+extern int compile(const char *input, const char *output, int debug);
+
 int main(int argc, char *argv[])
 {
     if (argc > 1 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0))
@@ -96,6 +98,10 @@ int main(int argc, char *argv[])
             printf("[DEBUG] Pathway: source code\n");
         }
         fclose(in);
-        return 1;
+
+        int res = compile(input_file, output_file, debug);
+        if (res == 0)
+            printf("Compilation successful (bblang).\n");
+        return res;
     }
 }

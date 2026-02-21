@@ -1,4 +1,4 @@
-# Blackbox documentation
+# Blackbox assembly documentation
 ### Info
 - File magic: 3 bytes 0x62 0x63 0x78 ("bcx") at program start.
 - Syntax is Intel-assembly like: instructions use spaces and commas (e.g. MOV R01, 42). Labels start with a period and end with a colon (.label:).

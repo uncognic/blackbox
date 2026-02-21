@@ -7,7 +7,12 @@ SET SRC=%ROOT%\src
 
 echo Building compiler...
 cd "%SRC%"
-cl compiler.c assembler/asm.c tools.c bcrypt.lib /Fe:"%ROOT%\bbxc.exe"
+
+cd "%SRC%\source"
+cargo build
+for %%f in ("%SRC%\source\target\debug\*.lib") do set RUSTLIB=%%~ff
+cd "%SRC%"
+cl compiler.c assembler/asm.c tools.c "%RUSTLIB%" bcrypt.lib ws2_32.lib userenv.lib iphlpapi.lib advapi32.lib ntdll.lib ole32.lib shell32.lib kernel32.lib /Fe:"%ROOT%\bbxc.exe"
 if errorlevel 1 (
     echo Failed to build assembler
     exit /b 1
