@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "src/disassembler",
+    "src/source"
+]
+resolver = "3"

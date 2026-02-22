@@ -9,7 +9,7 @@ if /I "%~1"=="clean" (
     if exist "%SRC%\assembler\*.obj" del /f /q "%SRC%\assembler\*.obj"
     if exist "%SRC%\interpreter\*.obj" del /f /q "%SRC%\interpreter\*.obj"
     if exist "%SRC%\*.obj" del /f /q "%SRC%\*.obj"
-    rd /s /q "%SRC%\source\target" 2>nul
+    rd /s /q "target" 2>nul
     echo Clean complete.
     exit /b 0
 )
@@ -34,7 +34,7 @@ cd "%SRC%"
 
 cd "%SRC%\source"
 cargo build --release
-for %%f in ("%SRC%\source\target\release\*.lib") do set RUSTLIB=%%~ff
+for %%f in ("%ROOT%\target\release\*.lib") do set RUSTLIB=%%~ff
 cd "%SRC%"
 cl compiler.c assembler/asm.c tools.c "%RUSTLIB%" bcrypt.lib ws2_32.lib userenv.lib iphlpapi.lib advapi32.lib ntdll.lib ole32.lib shell32.lib kernel32.lib /Fe:"%ROOT%\bbxc.exe"
 if errorlevel 1 (

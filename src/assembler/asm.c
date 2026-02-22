@@ -349,14 +349,16 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             char name[32];
+            char value_str[64];
             uint64_t value;
-            if (sscanf(s + 6, " $%31[^,], %lu", name, &value) != 2)
+            if (sscanf(s + 6, " $%31[^,], %63s", name, value_str) != 2)
             {
                 fprintf(stderr, "Syntax error line %d: expected QWORD $name, value\n", lineno);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
+            value = (uint64_t)strtoull(value_str, NULL, 0);
 
             snprintf(data[data_count].name, sizeof(data[data_count].name), "%s", name);
             data[data_count].type = DATA_QWORD;
