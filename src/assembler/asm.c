@@ -122,7 +122,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             if (strncmp(t, "%macro", 6) == 0)
             {
                 size_t j = i + 1;
-                for (j; j < lines_count; j++)
+                for (; j < lines_count; j++)
                 {
                     char *c2 = strdup(lines[j]);
                     char *t2 = trim(c2);
@@ -350,7 +350,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             char name[32];
             uint64_t value;
-            if (sscanf(s + 6, " $%31[^,], %llu", name, &value) != 2)
+            if (sscanf(s + 6, " $%31[^,], %lu", name, &value) != 2)
             {
                 fprintf(stderr, "Syntax error line %d: expected QWORD $name, value\n", lineno);
                 fclose(in);

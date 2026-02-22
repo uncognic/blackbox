@@ -7,12 +7,15 @@ OBJ = $(SRC:.c=.o)
 HEADER = ../define.h ../tools.h asm.h
 TARGET = bbxc
 
+RUST_MANIFEST = ../source/Cargo.toml
+RUST_LIB = ../source/target/release/libbbx_source.a
+
 .PHONY: all clean
 
 all: $(TARGET)
 
-$(TARGET): $(OBJ)
-	$(CC) $(CFLAGS) $(INCLUDES) $(OBJ) -o $(TARGET)
+$(TARGET): $(OBJ) $(RUST_LIB)
+	$(CC) $(CFLAGS) $(INCLUDES) $(OBJ) $(RUST_LIB) -o $(TARGET)
 
 %.o: %.c $(HEADER)
 	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@

@@ -25,7 +25,7 @@ if /I "%~1"=="cargo" (
 if /I "%~1"=="rust" (
     echo Building Rust project...
     cd "%SRC%\source"
-    cargo build
+    cargo build --release
     exit /b %errorlevel%
 )
 
@@ -33,8 +33,8 @@ echo Building compiler...
 cd "%SRC%"
 
 cd "%SRC%\source"
-cargo build
-for %%f in ("%SRC%\source\target\debug\*.lib") do set RUSTLIB=%%~ff
+cargo build --release
+for %%f in ("%SRC%\source\target\release\*.lib") do set RUSTLIB=%%~ff
 cd "%SRC%"
 cl compiler.c assembler/asm.c tools.c "%RUSTLIB%" bcrypt.lib ws2_32.lib userenv.lib iphlpapi.lib advapi32.lib ntdll.lib ole32.lib shell32.lib kernel32.lib /Fe:"%ROOT%\bbxc.exe"
 if errorlevel 1 (
