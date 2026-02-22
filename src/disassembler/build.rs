@@ -12,7 +12,14 @@ fn main() {
         if let Some(rest) = line.strip_prefix("#define ") {
             let mut parts = rest.split_whitespace();
             if let (Some(name), Some(val)) = (parts.next(), parts.next()) {
-                out.push_str(&format!("pub const {}: u32 = {};//\n", name, val));
+                if name.starts_with("OPCODE_") {
+                    let v = if val.starts_with("0x") || val.starts_with("0X") {
+                        u32::from_str_radix(&val[2..], 16).unwrap_or(0)
+                    } else {
+                        val.parse::<u32>().unwrap_or(0)
+                    };
+                    out.push_str(&format!("pub const {}: u8 = 0x{:02x};\n", name, (v & 0xff) as u8));
+                }
             }
         }
     }
