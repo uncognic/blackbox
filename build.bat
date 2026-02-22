@@ -6,9 +6,27 @@ if /I "%~1"=="clean" (
     echo Cleaning build artifacts...
     if exist "%ROOT%\bbxc.exe" del /f /q "%ROOT%\bbxc.exe"
     if exist "%ROOT%\bbx.exe" del /f /q "%ROOT%\bbx.exe"
+    if exist "%SRC%\assembler\*.obj" del /f /q "%SRC%\assembler\*.obj"
+    if exist "%SRC%\interpreter\*.obj" del /f /q "%SRC%\interpreter\*.obj"
+    if exist "%SRC%\*.obj" del /f /q "%SRC%\*.obj"
     rd /s /q "%SRC%\source\target" 2>nul
     echo Clean complete.
     exit /b 0
+)
+
+if /I "%~1"=="cargo" (
+    shift
+    echo Running %*
+    cd "%SRC%\source"
+    %*
+    exit /b %errorlevel%
+)
+
+if /I "%~1"=="rust" (
+    echo Building Rust project...
+    cd "%SRC%\source"
+    cargo build
+    exit /b %errorlevel%
 )
 
 echo Building compiler...
