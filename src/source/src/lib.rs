@@ -5,7 +5,7 @@ mod parser;
 
 use std::ffi::{c_char, c_int};
 use std::fs::File;
-use std::io::{Read, Write};
+use std::io::Read;
 
 use crate::codegen::emit_program;
 use crate::lexer::Lexer;
