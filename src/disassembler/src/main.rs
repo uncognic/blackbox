@@ -97,17 +97,17 @@ fn main() {
             opcodes::OPCODE_PUSH_REG => {
                 let r = data.get(i).copied().unwrap_or(0);
                 i += 1.min(len - i);
-                println!("{:#06x}: PUSH_REG r{}", offset, r);
+                println!("{:#06x}: PUSH_REG R{}", offset, r);
             }
             opcodes::OPCODE_POP => {
                 let r = data.get(i).copied().unwrap_or(0);
                 i += 1.min(len - i);
-                println!("{:#06x}: POP r{}", offset, r);
+                println!("{:#06x}: POP R{}", offset, r);
             }
             opcodes::OPCODE_MOV_IMM => {
                 let dst = data.get(i).copied().unwrap_or(0);
                 if let Some(v) = read_i32_le(&data, i + 1) {
-                    println!("{:#06x}: MOV_IMM r{} {}", offset, dst, v);
+                    println!("{:#06x}: MOV_IMM R{}, {}", offset, dst, v);
                     i += 1 + 4.min(len - (i + 1));
                 } else {
                     println!("{:#06x}: MOV_IMM <truncated>", offset);
@@ -118,7 +118,7 @@ fn main() {
                 let dst = data.get(i).copied().unwrap_or(0);
                 let src = data.get(i + 1).copied().unwrap_or(0);
                 i += 2.min(len - i);
-                println!("{:#06x}: MOV_REG r{}, r{}", offset, dst, src);
+                println!("{:#06x}: MOV_REG R{}, R{}", offset, dst, src);
             }
             opcodes::OPCODE_ADD
             | opcodes::OPCODE_SUB
@@ -140,12 +140,12 @@ fn main() {
                 let dst = data.get(i).copied().unwrap_or(0);
                 let src = data.get(i + 1).copied().unwrap_or(0);
                 i += 2.min(len - i);
-                println!("{:#06x}: {} r{}, r{}", offset, op, dst, src);
+                println!("{:#06x}: {} R{}, R{}", offset, op, dst, src);
             }
             opcodes::OPCODE_PRINTREG => {
                 let r = data.get(i).copied().unwrap_or(0);
                 i += 1.min(len - i);
-                println!("{:#06x}: PRINTREG r{}", offset, r);
+                println!("{:#06x}: PRINTREG R{}", offset, r);
             }
             opcodes::OPCODE_JMP => {
                 if let Some(addr) = read_u32_le(&data, i) {
@@ -173,18 +173,18 @@ fn main() {
             opcodes::OPCODE_INC => {
                 let r = data.get(i).copied().unwrap_or(0);
                 i += 1.min(len - i);
-                println!("{:#06x}: INC r{}", offset, r);
+                println!("{:#06x}: INC R{}", offset, r);
             }
             opcodes::OPCODE_DEC => {
                 let r = data.get(i).copied().unwrap_or(0);
                 i += 1.min(len - i);
-                println!("{:#06x}: DEC r{}", offset, r);
+                println!("{:#06x}: DEC R{}", offset, r);
             }
             opcodes::OPCODE_CMP => {
                 let a = data.get(i).copied().unwrap_or(0);
                 let b = data.get(i + 1).copied().unwrap_or(0);
                 i += 2.min(len - i);
-                println!("{:#06x}: CMP r{}, r{}", offset, a, b);
+                println!("{:#06x}: CMP R{}, R{}", offset, a, b);
             }
             opcodes::OPCODE_ALLOC
             | opcodes::OPCODE_GROW
@@ -215,7 +215,7 @@ fn main() {
                     } else {
                         "STORE"
                     };
-                    println!("{:#06x}: {} r{}, {}", offset, name, reg, idx);
+                    println!("{:#06x}: {} R{}, {}", offset, name, reg, idx);
                     i += 1 + 4.min(len - (i + 1));
                 } else {
                     println!(
@@ -239,7 +239,7 @@ fn main() {
                 } else {
                     "STORE_REG"
                 };
-                println!("{:#06x}: {} r{}, r{}", offset, name, a, b);
+                println!("{:#06x}: {} R{}, R{}", offset, name, a, b);
             }
             opcodes::OPCODE_FOPEN => {
                 if i + 2 <= len {
@@ -267,13 +267,13 @@ fn main() {
                 let fd = data.get(i).copied().unwrap_or(0);
                 let reg = data.get(i + 1).copied().unwrap_or(0);
                 i += 2.min(len - i);
-                println!("{:#06x}: FREAD fd={}, r{}", offset, fd, reg);
+                println!("{:#06x}: FREAD fd={}, R{}", offset, fd, reg);
             }
             opcodes::OPCODE_FWRITE_REG => {
                 let fd = data.get(i).copied().unwrap_or(0);
                 let reg = data.get(i + 1).copied().unwrap_or(0);
                 i += 2.min(len - i);
-                println!("{:#06x}: FWRITE_REG fd={}, r{}", offset, fd, reg);
+                println!("{:#06x}: FWRITE_REG fd={}, R{}", offset, fd, reg);
             }
             opcodes::OPCODE_FWRITE_IMM => {
                 let fd = data.get(i).copied().unwrap_or(0);
@@ -287,7 +287,7 @@ fn main() {
             }
             opcodes::OPCODE_LOADSTR => {
                 if let Some(idx) = read_u32_le(&data, i) {
-                    println!("{:#06x}: LOADSTR r{}, idx={} (data)", offset, 0, idx);
+                    println!("{:#06x}: LOADSTR R{}, idx={} (data)", offset, 0, idx);
                     i += 4.min(len - i);
                 } else {
                     println!("{:#06x}: LOADSTR <truncated>", offset);
@@ -297,25 +297,25 @@ fn main() {
             opcodes::OPCODE_PRINTSTR => {
                 let r = data.get(i).copied().unwrap_or(0);
                 i += 1.min(len - i);
-                println!("{:#06x}: PRINTSTR r{}", offset, r);
+                println!("{:#06x}: PRINTSTR R{}", offset, r);
             }
             opcodes::OPCODE_READ => {
                 let r = data.get(i).copied().unwrap_or(0);
                 i += 1.min(len - i);
-                println!("{:#06x}: READ r{}", offset, r);
+                println!("{:#06x}: READ R{}", offset, r);
             }
             opcodes::OPCODE_CLRSCR => println!("{:#06x}: CLRSCR", offset),
             opcodes::OPCODE_RAND => println!("{:#06x}: RAND", offset),
             opcodes::OPCODE_GETKEY => {
                 let r = data.get(i).copied().unwrap_or(0);
                 i += 1.min(len - i);
-                println!("{:#06x}: GETKEY r{}", offset, r);
+                println!("{:#06x}: GETKEY R{}", offset, r);
             }
             opcodes::OPCODE_CONTINUE => println!("{:#06x}: CONTINUE", offset),
             opcodes::OPCODE_READCHAR => {
                 let r = data.get(i).copied().unwrap_or(0);
                 i += 1.min(len - i);
-                println!("{:#06x}: READCHAR r{}", offset, r);
+                println!("{:#06x}: READCHAR R{}", offset, r);
             }
             opcodes::OPCODE_JL => {
                 if let Some(addr) = read_u32_le(&data, i) {
@@ -381,7 +381,7 @@ fn main() {
                         x if x == opcodes::OPCODE_LOADQWORD => "LOADQWORD",
                         _ => "LOAD*",
                     };
-                    println!("{:#06x}: {} r{}, {}", offset, name, r, idx);
+                    println!("{:#06x}: {} R{}, {}", offset, name, r, idx);
                     i += 1 + 4.min(len - (i + 1));
                 } else {
                     println!("{:#06x}: LOAD* <truncated>", offset);
@@ -392,7 +392,7 @@ fn main() {
                 let dst = data.get(i).copied().unwrap_or(0);
                 let src = data.get(i + 1).copied().unwrap_or(0);
                 i += 2.min(len - i);
-                println!("{:#06x}: MOD r{}, r{}", offset, dst, src);
+                println!("{:#06x}: MOD R{}, R{}", offset, dst, src);
             }
             opcodes::OPCODE_HALT => {
                 println!("{:#06x}: HALT", offset);
