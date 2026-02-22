@@ -118,6 +118,33 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    size_t vars_sp = 0;
+    size_t vars_cap = VAR_CAPACITY;
+    int64_t *vars = NULL;
+    vars = malloc(vars_cap * sizeof *vars);
+    if (!vars)
+    {
+        perror("malloc");
+        free(program);
+        free(stack);
+        free(call_stack);
+        return 1;
+    }
+
+    size_t fsp = 0;
+    size_t frame_stack_cap = 1024;
+    size_t *frame_base_stack = NULL;
+    frame_base_stack = malloc(frame_stack_cap * sizeof *frame_base_stack);
+    if (!frame_base_stack)
+    {
+        perror("malloc");
+        free(program);
+        free(stack);
+        free(call_stack);
+        free(vars);
+        return 1;
+    }
+
     size_t pc = HEADER_FIXED_SIZE + data_table_size;
 
     FILE *fds[FILE_DESCRIPTORS];
@@ -610,6 +637,8 @@ int main(int argc, char *argv[])
             free(program);
             free(stack);
             free(call_stack);
+            free(vars);
+            free(frame_base_stack);
             return 0;
         }
         case OPCODE_PRINT:
@@ -770,6 +799,144 @@ int main(int argc, char *argv[])
                 return 1;
             }
             stack[(size_t)idx64] = registers[reg];
+            break;
+        }
+        case OPCODE_LOADVAR:
+        {
+            if (pc + 5 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADVAR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            uint32_t slot = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOADVAR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
+            size_t abs_idx = frame_base + (size_t)slot;
+            if (abs_idx >= vars_cap || abs_idx >= vars_sp)
+            {
+                fprintf(stderr, "LOADVAR slot out of bounds: %zu at pc=%zu\n", abs_idx, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            registers[reg] = vars[abs_idx];
+            break;
+        }
+        case OPCODE_LOADVAR_REG:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADVAR_REG at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            uint8_t idxreg = program[pc++];
+            if (reg >= REGISTERS || idxreg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOADVAR_REG at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            int64_t slot64 = registers[idxreg];
+            if (slot64 < 0)
+            {
+                fprintf(stderr, "LOADVAR_REG negative slot: %lld at pc=%zu\n", (long long)slot64, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
+            size_t abs_idx = frame_base + (size_t)slot64;
+            if (abs_idx >= vars_cap || abs_idx >= vars_sp)
+            {
+                fprintf(stderr, "LOADVAR_REG slot out of bounds: %zu at pc=%zu\n", abs_idx, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            registers[reg] = vars[abs_idx];
+            break;
+        }
+        case OPCODE_STOREVAR:
+        {
+            if (pc + 5 >= size)
+            {
+                fprintf(stderr, "Missing operands for STOREVAR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            uint32_t slot = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in STOREVAR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
+            size_t abs_idx = frame_base + (size_t)slot;
+            if (abs_idx >= vars_cap || abs_idx >= vars_sp)
+            {
+                fprintf(stderr, "STOREVAR slot out of bounds: %zu at pc=%zu\n", abs_idx, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            vars[abs_idx] = registers[reg];
+            break;
+        }
+        case OPCODE_STOREVAR_REG:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for STOREVAR_REG at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            uint8_t idxreg = program[pc++];
+            if (reg >= REGISTERS || idxreg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in STOREVAR_REG at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            int64_t slot64 = registers[idxreg];
+            if (slot64 < 0)
+            {
+                fprintf(stderr, "STOREVAR_REG negative slot: %lld at pc=%zu\n", (long long)slot64, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
+            size_t abs_idx = frame_base + (size_t)slot64;
+            if (abs_idx >= vars_cap || abs_idx >= vars_sp)
+            {
+                fprintf(stderr, "STOREVAR_REG slot out of bounds: %zu at pc=%zu\n", abs_idx, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            vars[abs_idx] = registers[reg];
             break;
         }
         case OPCODE_GROW:
@@ -936,7 +1103,6 @@ int main(int argc, char *argv[])
                 fds[fd] = NULL;
                 fds_owned[fd] = 0;
             }
-
 
             if (strcmp(fname, "/dev/stdout") == 0)
             {
@@ -1710,6 +1876,15 @@ int main(int argc, char *argv[])
             }
             uint32_t addr = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
+            if (pc + 3 >= size)
+            {
+                fprintf(stderr, "Missing frame size for CALL at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint32_t frame_size = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
             if (addr >= size)
             {
                 fprintf(stderr, "CALL addr out of bounds: %zu at pc=%u\n", pc, addr);
@@ -1732,28 +1907,74 @@ int main(int argc, char *argv[])
                 call_stack = tmp;
                 call_stack_cap = new_cap;
             }
+            if (fsp >= frame_stack_cap)
+            {
+                size_t new_cap = frame_stack_cap + frame_stack_cap / 2;
+                size_t *tmp = realloc(frame_base_stack, new_cap * sizeof *frame_base_stack);
+                if (!tmp)
+                {
+                    perror("realloc");
+                    free(program);
+                    free(stack);
+                    free(call_stack);
+                    free(vars);
+                    free(frame_base_stack);
+                    return 1;
+                }
+                frame_base_stack = tmp;
+                frame_stack_cap = new_cap;
+            }
+
             call_stack[csp++] = pc;
+            frame_base_stack[fsp++] = vars_sp;
+
+            if (vars_sp + (size_t)frame_size > vars_cap)
+            {
+                size_t new_cap = vars_cap + vars_cap / 2;
+                if (new_cap <= vars_sp + (size_t)frame_size)
+                    new_cap = vars_sp + (size_t)frame_size;
+                int64_t *tmp = realloc(vars, new_cap * sizeof *vars);
+                if (!tmp)
+                {
+                    perror("realloc");
+                    free(program);
+                    free(stack);
+                    free(call_stack);
+                    free(vars);
+                    free(frame_base_stack);
+                    return 1;
+                }
+                vars = tmp;
+                vars_cap = new_cap;
+            }
+
+            vars_sp += (size_t)frame_size;
             pc = addr;
             break;
         }
         case OPCODE_RET:
         {
-            if (csp == 0)
+            if (csp == 0 || fsp == 0)
             {
                 fprintf(stderr, "Stack underflow on RET at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 free(call_stack);
+                free(vars);
+                free(frame_base_stack);
                 return 1;
             }
             size_t old_pc = pc;
             pc = call_stack[--csp];
+            vars_sp = frame_base_stack[--fsp];
             if (pc >= size)
             {
                 fprintf(stderr, "Return address %zu out of bounds, popped at pc=%zu\n", pc, old_pc);
                 free(program);
                 free(stack);
                 free(call_stack);
+                free(vars);
+                free(frame_base_stack);
                 return 1;
             }
             break;
@@ -1890,7 +2111,8 @@ int main(int argc, char *argv[])
 
             break;
         }
-        case OPCODE_MOD: {
+        case OPCODE_MOD:
+        {
             if (pc + 1 >= size)
             {
                 fprintf(stderr, "Missing operands for MOD at pc=%zu\n", pc);
@@ -1934,5 +2156,7 @@ int main(int argc, char *argv[])
     free(program);
     free(stack);
     free(call_stack);
+    free(vars);
+    free(frame_base_stack);
     return 0;
 }

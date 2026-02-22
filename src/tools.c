@@ -219,8 +219,36 @@ size_t instr_size(const char *line)
             return 3;
         return 6;
     }
+
+    else if (strncmp(line, "LOADVAR", 7) == 0)
+    {
+        const char *p = line + 7;
+        const char *comma = strchr(p, ',');
+        if (!comma)
+            return 6;
+        const char *q = comma + 1;
+        while (*q && isspace(*q))
+            q++;
+        if (toupper((unsigned char)q[0]) == 'R')
+            return 3;
+        return 6;
+    }
     else if (strncmp(line, "GROW", 4) == 0)
         return 5;
+
+    else if (strncmp(line, "STOREVAR", 8) == 0)
+    {
+        const char *p = line + 8;
+        const char *comma = strchr(p, ',');
+        if (!comma)
+            return 6;
+        const char *q = comma + 1;
+        while (*q && isspace(*q))
+            q++;
+        if (toupper((unsigned char)q[0]) == 'R')
+            return 3;
+        return 6;
+    }
     else if (strncmp(line, "RESIZE", 6) == 0)
         return 5;
     else if (strncmp(line, "FREE", 4) == 0)
@@ -307,7 +335,7 @@ size_t instr_size(const char *line)
     else if (strncmp(line, "JAE", 3) == 0)
         return 5;
     else if (strncmp(line, "CALL", 4) == 0)
-        return 5;
+        return 9;
     else if (strncmp(line, "RET", 3) == 0)
         return 1;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);

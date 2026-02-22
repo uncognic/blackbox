@@ -481,11 +481,34 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             strncpy(labels[label_count].name, s + 1, sizeof(labels[label_count].name) - 1);
             labels[label_count].name[sizeof(labels[label_count].name) - 1] = '\0';
             labels[label_count].addr = pc;
+            labels[label_count].frame_size = 0;
             if (debug)
             {
                 printf("[DEBUG] Label %s at pc=%u\n", labels[label_count].name, (unsigned)labels[label_count].addr);
             }
             label_count++;
+            continue;
+        }
+
+        if (strncmp(s, "FRAME", 5) == 0)
+        {
+            if (label_count == 0)
+            {
+                fprintf(stderr, "Error on line %d: FRAME must follow a label\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            char framebuf[32];
+            if (sscanf(s + 5, " %31s", framebuf) != 1)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected FRAME <slots>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t fs = (uint32_t)strtoul(framebuf, NULL, 0);
+            labels[label_count - 1].frame_size = fs;
             continue;
         }
 
@@ -1197,6 +1220,41 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_ALLOC, out);
             write_u32(out, num);
         }
+        else if (strncmp(s, "FRAME", 5) == 0)
+        {
+            continue;
+        }
+        else if (strncmp(s, "LOADVAR", 7) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char regname[16];
+            char addrname[32];
+            if (sscanf(s + 7, " %3s, %31s", regname, addrname) != 2)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected LOADVAR <register>, <slot|Rxx>\nGot: %s\n", lineno, s);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t reg = parse_register(regname, lineno);
+            if (toupper((unsigned char)addrname[0]) == 'R')
+            {
+                uint8_t idx = parse_register(addrname, lineno);
+                fputc(OPCODE_LOADVAR_REG, out);
+                fputc(reg, out);
+                fputc(idx, out);
+            }
+            else
+            {
+                uint32_t slot = strtoul(addrname, NULL, 0);
+                fputc(OPCODE_LOADVAR, out);
+                fputc(reg, out);
+                write_u32(out, slot);
+            }
+        }
         else if (strncmp(s, "LOAD", 4) == 0)
         {
             if (debug)
@@ -1226,6 +1284,37 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fputc(OPCODE_LOAD, out);
                 fputc(reg, out);
                 write_u32(out, addr);
+            }
+        }
+        else if (strncmp(s, "STOREVAR", 8) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char regname[16];
+            char addrname[32];
+            if (sscanf(s + 8, " %3s, %31s", regname, addrname) != 2)
+            {
+                fprintf(stderr, "Syntax error on line %d: expected STOREVAR <register>, <slot|Rxx>\nGot: %s\n", lineno, s);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t reg = parse_register(regname, lineno);
+            if (toupper((unsigned char)addrname[0]) == 'R')
+            {
+                uint8_t idx = parse_register(addrname, lineno);
+                fputc(OPCODE_STOREVAR_REG, out);
+                fputc(reg, out);
+                fputc(idx, out);
+            }
+            else
+            {
+                uint32_t slot = strtoul(addrname, NULL, 0);
+                fputc(OPCODE_STOREVAR, out);
+                fputc(reg, out);
+                write_u32(out, slot);
             }
         }
         else if (strncmp(s, "STORE", 5) == 0)
@@ -1851,13 +1940,31 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
+            char *comma = strchr(s + 4, ',');
+            uint32_t frame_size = 0;
+            if (comma)
+            {
+                frame_size = (uint32_t)strtoul(comma + 1, NULL, 0);
+            }
             uint32_t addr = find_label(label, labels, label_count);
+            if (!comma)
+            {
+                for (size_t i = 0; i < label_count; i++)
+                {
+                    if (strcmp(labels[i].name, label) == 0)
+                    {
+                        frame_size = labels[i].frame_size;
+                        break;
+                    }
+                }
+            }
             if (debug)
             {
-                printf("[DEBUG] CALL to %s (addr=%u)\n", label, (unsigned)addr);
+                printf("[DEBUG] CALL to %s (addr=%u frame=%u)\n", label, (unsigned)addr, (unsigned)frame_size);
             }
             fputc(OPCODE_CALL, out);
             write_u32(out, addr);
+            write_u32(out, frame_size);
         }
         else if (strncmp(s, "RET", 3) == 0)
         {

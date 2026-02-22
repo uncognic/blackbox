@@ -31,6 +31,7 @@ typedef struct
 {
     char name[32];
     uint32_t addr;
+    uint32_t frame_size;
 } Label;
 
 uint32_t find_label(const char *name, Label *labels, size_t count);

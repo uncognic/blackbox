@@ -48,6 +48,11 @@
   - Syntax: LOAD <register>, <index>  /  STORE <register>, <index> or LOAD <reg>, <reg> / STORE <reg>, <reg> (register form uses the register value as the index)
   - Encoding: OPCODE_LOAD / OPCODE_STORE or OPCODE_LOAD_REG / OPCODE_STORE_REG, 1 byte register, 4-byte index or 1 byte register, 1 byte register
   - Bounds: index must be < stack capacity. LOAD reads an int64_t into the register; STORE writes a register's int64_t to the stack index.  
+
+- LOADVAR / STOREVAR: Access the separate variables region (locals)
+  - Syntax: LOADVAR <dst>, <slot>  /  STOREVAR <src>, <slot>
+    or LOADVAR_REG <dst>, <idx_reg> / STOREVAR_REG <src>, <idx_reg>
+  - Encoding: OPCODE_LOADVAR / OPCODE_STOREVAR: 1 byte reg, 4-byte slot (u32). OPCODE_LOADVAR_REG / OPCODE_STOREVAR_REG: 1 byte reg, 1 byte index-reg.
 - GROW: Increase stack capacity by additional elements  
   - Syntax: GROW <elements>  
   - Encoding: OPCODE_GROW, 4-byte unsigned count  
@@ -184,15 +189,18 @@
       JB: jump if reg1 < reg2, checks if CF == 1
       JAE: jump if reg1 >= reg2, checks if CF == 0
 
-- CALL: Call subroutine
-  - Syntax: `CALL <label>`
-  - Encoding: `OPCODE_CALL`, 4-byte address
-  - Behavior: Pushes the return address onto the call stack and jumps to the specified label
-- RET: Return from subroutine
-  - Syntax: `RET`
-  - Encoding: `OPCODE_RET`
-  - Behavior: Pops the return address from the call stack and jumps back to it
-
+ - CALL: Call subroutine
+   - Syntax: `CALL <label>`
+   - Encoding: `OPCODE_CALL`, 4-byte address, 4-byte frame_size (u32)
+   - Behavior: pushes the return address onto the call stack, then the interpreter reads the following `frame_size` and allocates that many slots in the separate `vars` region for the callee. Finally execution jumps to the target address.
+ - RET: Return from subroutine
+   - Syntax: `RET`
+   - Encoding: `OPCODE_RET`
+   - Behavior: Pops the return address from the call stack, releases the callee's `vars` frame (restores the previous vars_sp), and jumps back to the return address.
+ - FRAME: Assembler-only directive to declare a label's frame size
+   - Syntax: `FRAME <elements>` (placed immediately after a label)
+   - Encoding: none (assembler-only)
+   - Behavior: Records the number of `vars` slots the label requires. The assembler uses this value when emitting `CALL <label>` (if the CALL omits an explicit size) and writes the 4-byte `frame_size` after the CALL instruction in the bytecode. 
 ## Macros
 - %macro / %endmacro: Define compiler macro
   - Syntax: `%macro <name> [param1 param2 ...]` ... `%endmacro`
