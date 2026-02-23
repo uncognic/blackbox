@@ -1,5 +1,4 @@
 %asm
-;Tests CMP and conditional jump instructions (JE/JNE, JL/JGE, JB/JAE)
 %main
 .start:
     WRITE 1 "Which function to test? (1 for JE/JNE, 2 for JL/JGE, 3 for JB/JAE): "
@@ -20,9 +19,6 @@
     NEWLINE
     JMP start
 
-; ======================
-; JE / JNE TEST
-; ======================
 .jejne:
     WRITE 1 "JE/JNE pass 1"
     NEWLINE
@@ -52,9 +48,6 @@
     NEWLINE
     HALT
 
-; ======================
-; JL / JGE TEST
-; ======================
 .jljge:
     WRITE 1 "JL/JGE pass 1"
     NEWLINE
@@ -87,9 +80,6 @@
     NEWLINE
     HALT
 
-; ======================
-; JB / JAE TEST 
-; ======================
 .jbjae:
     WRITE 1 "JB/JAE pass 1"
     NEWLINE
