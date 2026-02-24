@@ -5,12 +5,13 @@
 | |_) | | (_| | (__|   <| |_) | (_) >  <
 |____/|_|\__,_|\___|_|\_\_.__/ \___/_/\_\
 ```
-A small, Turing-complete bytecode virtual machine with a simple assembly language.
+A small, Turing-complete bytecode virtual machine with an assembly language. It also features a disassembler and debugger.
 
 ## Links
 - Docs (assembly): [docs/assembly/docs.md](docs/assembly/docs.md)
 - ISA reference (assembly): [docs/assembly/isa.md](docs/assembly/isa.md)  
-- Examples: [examples/](examples/)  
+- Debugger [docs/debugger.md](docs/debugger.md)
+- Examples: [examples/](examples/)
 - License: [LICENSE](LICENSE)
 
 ## Build
