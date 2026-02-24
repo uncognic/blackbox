@@ -1,6 +1,6 @@
-.PHONY: all clean copy compiler assembler interpreter rust
+.PHONY: all clean copy compiler assembler interpreter rust disassembler
 
-all: rust compiler interpreter copy
+all: rust compiler interpreter disassembler copy
 
 compiler:
 	$(MAKE) -C src/assembler
@@ -13,9 +13,13 @@ interpreter:
 rust:
 	cargo build --release --manifest-path=src/source/Cargo.toml
 
+disassembler:
+	cargo build --release --manifest-path=src/disassembler/Cargo.toml
+
 copy:
 	cp src/interpreter/bbx .
 	cp src/assembler/bbxc .
+	cp target/release/bbx-disassembler .
 
 clean:
 	$(MAKE) -C src/interpreter clean || true

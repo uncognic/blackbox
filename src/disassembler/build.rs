@@ -12,18 +12,25 @@ fn main() {
         if let Some(rest) = line.strip_prefix("#define ") {
             let mut parts = rest.split_whitespace();
             if let (Some(name), Some(val)) = (parts.next(), parts.next()) {
-                if name.starts_with("OPCODE_") {
-                    let v = if val.starts_with("0x") || val.starts_with("0X") {
-                        u32::from_str_radix(&val[2..], 16).unwrap_or(0)
+                let ty = if let Some(stripped) = val.strip_prefix("0x") {
+                    if let Ok(num) = u32::from_str_radix(stripped, 16) {
+                        if num <= 0xff { "u8" } else { "u32" }
                     } else {
-                        val.parse::<u32>().unwrap_or(0)
-                    };
-                    out.push_str(&format!("pub const {}: u8 = 0x{:02x};\n", name, (v & 0xff) as u8));
-                }
+                        "u32"
+                    }
+                } else if let Ok(num) = val.parse::<u32>() {
+                    if num <= 0xff { "u8" } else { "u32" }
+                } else {
+                    "u32"
+                };
+
+                out.push_str(&format!(
+                    "#[allow(dead_code)]\npub const {}: {} = {};//\n",
+                    name, ty, val
+                ));
             }
         }
     }
-
     let out_dir = env::var("OUT_DIR").unwrap();
     let dst = Path::new(&out_dir).join("opcodes.rs");
     fs::write(dst, out).expect("Failed to write opcodes.rs");

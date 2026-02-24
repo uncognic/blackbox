@@ -38,3 +38,4 @@ src/compiler.o
 src/tools.o
 *.exe
 *.obj
+bbx-disassembler

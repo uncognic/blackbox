@@ -12,7 +12,10 @@ fn main() {
         if let Some(rest) = line.strip_prefix("#define ") {
             let mut parts = rest.split_whitespace();
             if let (Some(name), Some(val)) = (parts.next(), parts.next()) {
-                out.push_str(&format!("pub const {}: u32 = {};//\n", name, val));
+                out.push_str(&format!(
+                    "#[allow(dead_code)]\npub const {}: u32 = {};//\n",
+                    name, val
+                ));
             }
         }
     }

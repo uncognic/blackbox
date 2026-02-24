@@ -407,6 +407,8 @@ fn main() {
                     println!("{:#06x}: HALT", offset);
                 }
             }
+            opcodes::OPCODE_BREAK => println!("{:#06x}: BREAK", offset),
+
             other => {
                 println!("{:#06x}: UNKNOWN 0x{:02x}", offset, other);
             }
