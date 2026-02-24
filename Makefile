@@ -19,10 +19,11 @@ disassembler:
 copy:
 	cp src/interpreter/bbx .
 	cp src/assembler/bbxc .
-	cp target/release/bbx-disassembler .
+	cp target/release/bbxd .
 
 clean:
 	$(MAKE) -C src/interpreter clean || true
 	$(MAKE) -C src/assembler clean || true
 	cargo clean --manifest-path=src/source/Cargo.toml || true
-	rm -f bbx bbxc
+	cargo clean --manifest-path=src/disassembler/Cargo.toml || true
+	rm -f bbx bbxc bbxd

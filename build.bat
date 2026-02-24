@@ -6,6 +6,7 @@ if /I "%~1"=="clean" (
     echo Cleaning build artifacts...
     if exist "%ROOT%\bbxc.exe" del /f /q "%ROOT%\bbxc.exe"
     if exist "%ROOT%\bbx.exe" del /f /q "%ROOT%\bbx.exe"
+    if exist "%ROOT%\bbxd.exe" del /f /q "%ROOT%\bbxd.exe"
     if exist "%SRC%\assembler\*.obj" del /f /q "%SRC%\assembler\*.obj"
     if exist "%SRC%\interpreter\*.obj" del /f /q "%SRC%\interpreter\*.obj"
     if exist "%SRC%\*.obj" del /f /q "%SRC%\*.obj"
@@ -41,7 +42,17 @@ if errorlevel 1 (
     echo Failed to build assembler
     exit /b 1
 )
-
+echo Building disassembler...
+cargo build --release --manifest-path=%SRC%\disassembler\Cargo.toml
+if errorlevel 1 (
+    echo Failed to build disassembler
+    exit /b 1
+)
+copy %ROOT%\target\release\bbxd.exe "%ROOT%\bbxd.exe" >nul
+if errorlevel 1 (
+    echo Failed to copy disassembler
+    exit /b 1
+)
 echo Building interpreter...
 cd "%SRC%\interpreter"
 cl *.c ../tools.c bcrypt.lib /Fe:"%ROOT%\bbx.exe"
