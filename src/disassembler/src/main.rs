@@ -395,7 +395,17 @@ fn main() {
                 println!("{:#06x}: MOD R{}, R{}", offset, dst, src);
             }
             opcodes::OPCODE_HALT => {
-                println!("{:#06x}: HALT", offset);
+                if i < len {
+                    let code = data.get(i).copied().unwrap_or(0);
+                    i += 1.min(len - i);
+                    match code {
+                        0 => println!("{:#06x}: HALT OK ({})", offset, code),
+                        1 => println!("{:#06x}: HALT BAD ({})", offset, code),
+                        _ => println!("{:#06x}: HALT {}", offset, code),
+                    }
+                } else {
+                    println!("{:#06x}: HALT", offset);
+                }
             }
             other => {
                 println!("{:#06x}: UNKNOWN 0x{:02x}", offset, other);

@@ -634,12 +634,17 @@ int main(int argc, char *argv[])
         }
         case OPCODE_HALT:
         {
+            uint8_t code = 0;
+            if (pc < size)
+            {
+                code = program[pc++];
+            }
             free(program);
             free(stack);
             free(call_stack);
             free(vars);
             free(frame_base_stack);
-            return 0;
+            return (int)code;
         }
         case OPCODE_PRINT:
         {

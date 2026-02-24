@@ -66,7 +66,7 @@
   - Encoding: OPCODE_FREE, 4-byte unsigned count
   - Behavior: Decreases the stack capacity by the specified amount (interpreter adjusts backing buffer accordingly).
 - HALT: Stop program execution  
-  - Syntax: HALT  
+  - Syntax: HALT or HALT <OK|BAD|0...>
   - Encoding: OPCODE_HALT
 - FOPEN: Open a file into a descriptor
   - Syntax: FOPEN <mode>, F<fd>, "<filename>"  (mode typically ''r' or 'w'')

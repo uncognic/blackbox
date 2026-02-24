@@ -862,13 +862,41 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             write_u32(out, addr);
         }
 
-        else if (strcmp(s, "HALT") == 0)
+        else if (strncmp(s, "HALT", 4) == 0)
         {
             if (debug)
             {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            fputc(OPCODE_HALT, out);
+            char token[32];
+            if (sscanf(s + 4, " %31s", token) == 1)
+            {
+                for (int t = 0; token[t]; t++) {
+                    if (token[t] == '\r' || token[t] == '\n') { token[t] = '\0'; break; }
+                }
+                uint8_t val = 0;
+                if (strcmp(token, "OK") == 0) {
+                    val = 0;
+                } else if (strcmp(token, "BAD") == 0) {
+                    val = 1;
+                } else {
+                    char *endp = NULL;
+                    unsigned long v = strtoul(token, &endp, 0);
+                    if (endp == NULL || *endp != '\0') {
+                        fprintf(stderr, "Syntax error on line %d: invalid HALT operand '%s'\nGot: %s\n", lineno, token, s);
+                        fclose(in);
+                        fclose(out);
+                        return 1;
+                    }
+                    val = (uint8_t)v;
+                }
+                fputc(OPCODE_HALT, out);
+                fputc(val, out);
+            }
+            else
+            {
+                fputc(OPCODE_HALT, out);
+            }
         }
         else if (strncmp(s, "INC", 3) == 0)
         {

@@ -300,8 +300,13 @@ size_t instr_size(const char *line)
     }
     else if (strncmp(line, "PRINTSTR", 8) == 0)
         return 2;
-    else if (strncmp(line, "HALT", 4) == 0)
-        return 1;
+    else if (strncmp(line, "HALT", 4) == 0) {
+        char operand[32];
+        if (sscanf(line + 4, " %31s", operand) == 1)
+            return 2;
+        else
+            return 1;
+    }
     else if (strncmp(line, "NOT", 3) == 0)
         return 2;
     else if (strncmp(line, "AND", 3) == 0)
