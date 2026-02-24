@@ -133,6 +133,8 @@ const char *opcode_name(uint8_t op) {
     return "LOADQWORD";
   case OPCODE_MOD:
     return "MOD";
+  case OPCODE_BREAK:
+    return "BREAK";
   case OPCODE_HALT:
     return "HALT";
   default:

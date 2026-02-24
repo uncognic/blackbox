@@ -2025,6 +2025,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(dst, out);
             fputc(src, out);
         }
+        else if (strncmp(s, "BREAK", 5) == 0)
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            fputc(OPCODE_BREAK, out);
+        }
         else
         {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);

@@ -158,9 +158,29 @@ int main(int argc, char *argv[]) {
     fds[i] = NULL;
     fds_owned[i] = 0;
   }
+  bool breakpoints_enabled = false;
+  bool debug_step = false;
+  if (debug) {
+    printf("Debugger mode: (s)tep or (b)reakpoint? ");
+    fflush(stdout);
+    char modebuf[16];
+    if (fgets(modebuf, sizeof(modebuf), stdin)) {
+      if (modebuf[0] == 's' || modebuf[0] == 'S' || modebuf[0] == '\n') {
+        debug_step = true;
+      } else if (modebuf[0] == 'b' || modebuf[0] == 'B') {
+        breakpoints_enabled = true;
+      } else {
+        debug_step = true;
+      }
+    } else {
+      debug_step = true;
+    }
+    debug = debug_step;
+    dbg_instructions_shown = false;
+  }
 
   while (pc < size) {
-    if (debug) {
+    if (debug && debug_step) {
       uint8_t nxt = program[pc];
       printf("[DEBUG] pc=%zu opcode=0x%02X %s\n", pc, nxt, opcode_name(nxt));
       if (!dbg_instructions_shown) {
@@ -247,7 +267,7 @@ int main(int argc, char *argv[]) {
       uint8_t fd = program[pc++];
       uint8_t len = program[pc++];
       if (fd != 1 && fd != 2) {
-        fprintf(stderr, "Error: invalid fd %zu at pc=%u\n", pc, fd);
+        fprintf(stderr, "Error: invalid fd %hhu at pc=%zu\n", fd, pc);
         free(program);
         free(stack);
         return 1;
@@ -509,7 +529,7 @@ int main(int argc, char *argv[]) {
     }
     case OPCODE_SUB: {
       if (pc + 2 >= size) {
-        fprintf(stderr, "Missing operands for ADD at pc=%zu\n", pc);
+        fprintf(stderr, "Missing operands for SUB at pc=%zu\n", pc);
         free(program);
         free(stack);
         return 1;
@@ -517,7 +537,7 @@ int main(int argc, char *argv[]) {
       uint8_t dst = program[pc++];
       uint8_t src = program[pc++];
       if (src >= REGISTERS || dst >= REGISTERS) {
-        fprintf(stderr, "Invalid register in ADD at pc=%zu\n", pc);
+        fprintf(stderr, "Invalid register in SUB at pc=%zu\n", pc);
         free(program);
         free(stack);
         return 1;
@@ -606,7 +626,7 @@ int main(int argc, char *argv[]) {
       break;
     }
     case OPCODE_MOV_IMM: {
-      if (pc + 5 >= size) {
+      if (pc + 4 >= size) {
         fprintf(stderr, "Missing operands for MOV_IMM at pc=%zu\n", pc);
         free(program);
         free(stack);
@@ -1646,12 +1666,101 @@ int main(int argc, char *argv[]) {
       }
       break;
     }
+    case OPCODE_BREAK: {
+      if (breakpoints_enabled) {
+        printf("[BREAK] pc=%zu opcode=0x%02X %s\n", pc - 1,
+               (unsigned int)program[pc - 1], opcode_name(program[pc - 1]));
+        if (!dbg_instructions_shown) {
+          printf("Debugger commands:\n");
+          printf("Enter - step one instruction\n");
+          printf("c - continue (disable debugger)\n");
+          printf("q - quit interpreter\n");
+          printf("rN - show first N registers (e.g. r20)\n");
+          printf("s - show top 8 stack entries\n");
+          printf("sN - show top N stack entries (e.g. s10)\n");
+          printf("sM-N - show stack entries from index M to N (inclusive)\n");
+          dbg_instructions_shown = true;
+        }
+        for (;;) {
+          printf("> ");
+          fflush(stdout);
+          char cmdb[128];
+          if (!fgets(cmdb, sizeof(cmdb), stdin))
+            break;
+          char *p = cmdb;
+          while (*p == ' ' || *p == '\t')
+            p++;
+          if (p[0] == 'c') {
+            break;
+          } else if (p[0] == 'q') {
+            free(program);
+            free(stack);
+            free(call_stack);
+            free(vars);
+            free(frame_base_stack);
+            return 0;
+          } else if (p[0] == 'r') {
+            int n = 0;
+            if (p[1] != '\0' && (p[1] >= '0' && p[1] <= '9'))
+              n = atoi(p + 1);
+            if (n <= 0)
+              n = 16;
+            print_regs(registers, n);
+            continue;
+          } else if (p[0] == 's') {
+            char *q = p + 1;
+            while (*q == ' ' || *q == '\t')
+              q++;
+            if (*q == '\0' || *q == '\n') {
+              print_stack(stack, sp);
+            } else {
+              char *dash = strchr(q, '-');
+              if (dash) {
+                *dash = '\0';
+                int a = atoi(q);
+                int b = atoi(dash + 1);
+                if (a < 0)
+                  a = 0;
+                if (b < 0)
+                  b = 0;
+                if ((size_t)a >= sp || (size_t)b >= sp || a > b) {
+                  printf("Invalid stack range %d-%d (stack size=%zu)\n", a, b,
+                         sp);
+                } else {
+                  printf("Stack entries %d..%d:\n", a, b);
+                  for (int i = a; i <= b; i++)
+                    printf(" [%d]=%lld", i, (long long)stack[i]);
+                  printf("\n");
+                }
+              } else if (q[0] >= '0' && q[0] <= '9') {
+                int n = atoi(q);
+                if (n <= 0)
+                  n = 8;
+                size_t show = (size_t)n < sp ? (size_t)n : sp;
+                printf("Stack size=%zu, top %zu entries:\n", sp, show);
+                for (size_t i = 0; i < show; i++) {
+                  size_t idx = (sp == 0) ? 0 : sp - 1 - i;
+                  printf(" [%zu]=%lld", idx, (long long)stack[idx]);
+                }
+                printf("\n");
+              }
+            }
+            continue;
+          } else {
+            continue;
+          }
+        }
+      } else {
+        break;
+      }
+      break;
+    }
     case OPCODE_CONTINUE: {
       break;
     }
     case OPCODE_JL: {
       if (pc + 3 >= size) {
-        fprintf(stderr, "Missing operands for JE at pc=%zu\n", pc);
+        fprintf(stderr, "Missing operands for JL at pc=%zu\n", pc);
         free(program);
         free(stack);
         return 1;
@@ -1950,7 +2059,6 @@ int main(int argc, char *argv[]) {
       for (int i = 0; i < 8; i++)
         val |= ((uint64_t)data_table[offset + i]) << (8 * i);
       registers[reg] = val;
-      registers[reg] = (int64_t)val;
 
       break;
     }

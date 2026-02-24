@@ -343,6 +343,8 @@ size_t instr_size(const char *line)
         return 9;
     else if (strncmp(line, "RET", 3) == 0)
         return 1;
+    else if (strncmp(line, "BREAK", 5) == 0)
+        return 1;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }

@@ -201,6 +201,7 @@
    - Syntax: `FRAME <elements>` (placed immediately after a label)
    - Encoding: none (assembler-only)
    - Behavior: Records the number of `vars` slots the label requires. The assembler uses this value when emitting `CALL <label>` (if the CALL omits an explicit size) and writes the 4-byte `frame_size` after the CALL instruction in the bytecode. 
+ - BREAK: see [debugger.md](../debugger.md)
 ## Macros
 - %macro / %endmacro: Define compiler macro
   - Syntax: `%macro <name> [param1 param2 ...]` ... `%endmacro`
