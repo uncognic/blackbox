@@ -64,7 +64,7 @@ int main(int argc, char *argv[])
         s = trim(s);
         if (*s == '\0')
             continue;
-        if (strncmp(s, "%asm", 4) == 0)
+        if (starts_with_ci(s, "%asm"))
         {
             is_asm = 1;
         }

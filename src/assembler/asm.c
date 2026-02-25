@@ -42,7 +42,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
     for (size_t i = 0; i < lines_count; i++) {
         char *copy = strdup(lines[i]);
         char *t = trim(copy);
-        if (strncmp(t, "%macro", 6) == 0 &&
+        if (starts_with_ci(t, "%macro") &&
             (t[6] == ' ' || t[6] == '\t' || t[6] == '\0')) {
             char *p = t + 6;
             while (*p == ' ' || *p == '\t')
@@ -71,7 +71,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             for (; j < lines_count; j++) {
                 char *c2 = strdup(lines[j]);
                 char *t2 = trim(c2);
-                if (strcmp(t2, "%endmacro") == 0) {
+                if (equals_ci(t2, "%endmacro")) {
                     free(c2);
                     break;
                 }
@@ -104,12 +104,12 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
     for (size_t i = 0; i < lines_count; i++) {
         char *copy = strdup(lines[i]);
         char *t = trim(copy);
-        if (strncmp(t, "%macro", 6) == 0) {
+        if (starts_with_ci(t, "%macro")) {
             size_t j = i + 1;
             for (; j < lines_count; j++) {
                 char *c2 = strdup(lines[j]);
                 char *t2 = trim(c2);
-                if (strcmp(t2, "%endmacro") == 0) {
+                if (equals_ci(t2, "%endmacro")) {
                     free(c2);
                     break;
                 }
@@ -120,9 +120,9 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             continue;
         }
         if (t[0] == '%') {
-            if (strcmp(t, "%asm") == 0 || strcmp(t, "%data") == 0 ||
-                strcmp(t, "%main") == 0 || strcmp(t, "%entry") == 0 ||
-                strcmp(t, "%endmacro") == 0) {
+            if (equals_ci(t, "%asm") || equals_ci(t, "%data") ||
+                equals_ci(t, "%main") || equals_ci(t, "%entry") ||
+                equals_ci(t, "%endmacro")) {
                 fputs(lines[i], tmp);
                 free(copy);
                 continue;
@@ -175,7 +175,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
         if (*s == '\0')
             continue;
 
-        if (strcmp(s, "%asm") == 0) {
+        if (equals_ci(s, "%asm")) {
             break;
         } else {
             fprintf(stderr, "Error: file must start with %%asm (line %d)\n",
@@ -209,7 +209,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
         if (*s == '\0' || *s == ';')
             continue;
 
-        if (strcmp(s, "%data") == 0) {
+        if (equals_ci(s, "%data")) {
             if (found_code_section) {
                 fprintf(stderr,
                         "Error on line %d: %%data section must come before "
@@ -224,7 +224,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 printf("[DEBUG] Entering data section at line %d\n", lineno);
             continue;
         }
-        if (strcmp(s, "%main") == 0 || strcmp(s, "%entry") == 0) {
+        if (equals_ci(s, "%main") || equals_ci(s, "%entry")) {
             current_section = 2;
             found_code_section = 1;
             if (debug)
@@ -232,7 +232,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             continue;
         }
 
-        if (strncmp(s, "STR ", 4) == 0) {
+        if (starts_with_ci(s, "STR ")) {
             if (current_section != 1) {
                 fprintf(stderr,
                         "Error on line %d: STR must be inside %%data section\n",
@@ -278,7 +278,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 printf("[DEBUG] String $%s at offset %u\n", name,
                        data[data_count - 1].offset);
             continue;
-        } else if (strncmp(s, "DWORD ", 6) == 0) {
+        } else if (starts_with_ci(s, "DWORD ")) {
             if (current_section != 1) {
                 fprintf(
                     stderr,
@@ -316,7 +316,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 printf("[DEBUG] DWORD $%s at offset %u\n", name,
                        data[data_count - 1].offset);
             continue;
-        } else if (strncmp(s, "QWORD ", 6) == 0) {
+        } else if (starts_with_ci(s, "QWORD ")) {
             if (current_section != 1) {
                 fprintf(
                     stderr,
@@ -361,7 +361,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 printf("[DEBUG] QWORD $%s at offset %u\n", name,
                        data[data_count - 1].offset);
             continue;
-        } else if (strncmp(s, "WORD ", 5) == 0) {
+        } else if (starts_with_ci(s, "WORD ")) {
             if (current_section != 1) {
                 fprintf(
                     stderr,
@@ -398,7 +398,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 printf("[DEBUG] WORD $%s at offset %u\n", name,
                        data[data_count - 1].offset);
             continue;
-        } else if (strncmp(s, "BYTE ", 5) == 0) {
+        } else if (starts_with_ci(s, "BYTE ")) {
             if (current_section != 1) {
                 fprintf(
                     stderr,
@@ -483,7 +483,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             continue;
         }
 
-        if (strncmp(s, "FRAME", 5) == 0) {
+        if (starts_with_ci(s, "FRAME")) {
             if (label_count == 0) {
                 fprintf(stderr, "Error on line %d: FRAME must follow a label\n",
                         lineno);
@@ -541,11 +541,11 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
         }
         if (*s == '\0' || *s == ';')
             continue;
-        if (strcmp(s, "%data") == 0) {
+        if (equals_ci(s, "%data")) {
             current_section = 1;
             continue;
         }
-        if (strcmp(s, "%main") == 0 || strcmp(s, "%entry") == 0) {
+        if (equals_ci(s, "%main") || equals_ci(s, "%entry")) {
             current_section = 2;
             continue;
         }
@@ -556,7 +556,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
         if (current_section != 2)
             continue;
 
-        if (strncmp(s, "STR ", 4) == 0) {
+        if (starts_with_ci(s, "STR ")) {
             fprintf(
                 stderr,
                 "Syntax error on line %d: STR directive not allowed in code "
@@ -566,7 +566,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fclose(out);
             return 1;
         }
-        if (strncmp(s, "DWORD ", 6) == 0) {
+        if (starts_with_ci(s, "DWORD ")) {
             fprintf(
                 stderr,
                 "Syntax error on line %d: DWORD directive not allowed in code "
@@ -577,7 +577,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             return 1;
         }
 
-        if (strncmp(s, "QWORD ", 6) == 0) {
+        if (starts_with_ci(s, "QWORD ")) {
             fprintf(
                 stderr,
                 "Syntax error on line %d: QWORD directive not allowed in code "
@@ -587,7 +587,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fclose(out);
             return 1;
         }
-        if (strncmp(s, "WORD ", 5) == 0) {
+        if (starts_with_ci(s, "WORD ")) {
             fprintf(
                 stderr,
                 "Syntax error on line %d: WORD directive not allowed in code "
@@ -597,7 +597,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fclose(out);
             return 1;
         }
-        if (strncmp(s, "BYTE ", 5) == 0) {
+        if (starts_with_ci(s, "BYTE ")) {
             fprintf(
                 stderr,
                 "Syntax error on line %d: BYTE directive not allowed in code "
@@ -606,7 +606,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fclose(in);
             fclose(out);
             return 1;
-        } else if (strncmp(s, "WRITE", 5) == 0) {
+        } else if (starts_with_ci(s, "WRITE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -665,7 +665,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             for (size_t i = 0; i < len; i++) {
                 fputc((uint8_t)str_start[i], out);
             }
-        } else if (strncmp(s, "LOADSTR", 7) == 0) {
+        } else if (starts_with_ci(s, "LOADSTR")) {
             char name[32];
             char regname[16];
             if (sscanf(s + 7, " $%31[^,], %15s", name, regname) != 2) {
@@ -686,7 +686,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             if (debug)
                 printf("[DEBUG] LOADSTR $%s (offset=%u) -> %s\n", name, offset,
                        regname);
-        } else if (strncmp(s, "PRINTSTR", 8) == 0) {
+        } else if (starts_with_ci(s, "PRINTSTR")) {
             if (debug)
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -701,7 +701,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_PRINTSTR, out);
             fputc(reg, out);
-        } else if (strncmp(s, "LOADBYTE", 8) == 0) {
+        } else if (starts_with_ci(s, "LOADBYTE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -726,7 +726,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             if (debug)
                 printf("[DEBUG] LOADBYTE $%s (offset=%u) -> %s\n", name, offset,
                        regname);
-        } else if (strncmp(s, "LOADWORD", 8) == 0) {
+        } else if (starts_with_ci(s, "LOADWORD")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -751,7 +751,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             if (debug)
                 printf("[DEBUG] LOADWORD $%s (offset=%u) -> %s\n", name, offset,
                        regname);
-        } else if (strncmp(s, "LOADDWORD", 9) == 0) {
+        } else if (starts_with_ci(s, "LOADDWORD")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -776,7 +776,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             if (debug)
                 printf("[DEBUG] LOADDWORD $%s (offset=%u) -> %s\n", name,
                        offset, regname);
-        } else if (strncmp(s, "LOADQWORD", 9) == 0) {
+        } else if (starts_with_ci(s, "LOADQWORD")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -801,19 +801,19 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             if (debug)
                 printf("[DEBUG] LOADQWORD $%s (offset=%u) -> %s\n", name,
                        offset, regname);
-        } else if (strncmp(s, "CONTINUE", 8) == 0) {
+        } else if (starts_with_ci(s, "CONTINUE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_CONTINUE, out);
-        } else if (strcmp(s, "NEWLINE") == 0) {
+        } else if (equals_ci(s, "NEWLINE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_NEWLINE, out);
         } else if (s[0] == '.') {
             continue;
-        } else if (strncmp(s, "JE", 2) == 0) {
+        } else if (starts_with_ci(s, "JE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -833,7 +833,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             fputc(OPCODE_JE, out);
             write_u32(out, addr);
-        } else if (strncmp(s, "JNE", 3) == 0) {
+        } else if (starts_with_ci(s, "JNE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -855,7 +855,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             write_u32(out, addr);
         }
 
-        else if (strncmp(s, "HALT", 4) == 0) {
+        else if (starts_with_ci(s, "HALT")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -868,9 +868,9 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                     }
                 }
                 uint8_t val = 0;
-                if (strcmp(token, "OK") == 0) {
+                if (equals_ci(token, "OK")) {
                     val = 0;
-                } else if (strcmp(token, "BAD") == 0) {
+                } else if (equals_ci(token, "BAD")) {
                     val = 1;
                 } else {
                     char *endp = NULL;
@@ -891,7 +891,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             } else {
                 fputc(OPCODE_HALT, out);
             }
-        } else if (strncmp(s, "INC", 3) == 0) {
+        } else if (starts_with_ci(s, "INC")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -915,7 +915,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_INC, out);
             fputc(reg, out);
-        } else if (strncmp(s, "DEC", 3) == 0) {
+        } else if (starts_with_ci(s, "DEC")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -939,7 +939,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_DEC, out);
             fputc(reg, out);
-        } else if (strncmp(s, "PRINTREG", 8) == 0) {
+        } else if (starts_with_ci(s, "PRINTREG")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -964,12 +964,12 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             fputc(OPCODE_PRINTREG, out);
             fputc(reg, out);
-        } else if (strncmp(s, "PRINT_STACKSIZE", 15) == 0) {
+        } else if (starts_with_ci(s, "PRINT_STACKSIZE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_PRINT_STACKSIZE, out);
-        } else if (strncmp(s, "PRINT", 5) == 0) {
+        } else if (starts_with_ci(s, "PRINT")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -983,7 +983,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             fputc(OPCODE_PRINT, out);
             fputc((uint8_t)c, out);
-        } else if (strncmp(s, "JMP", 3) == 0) {
+        } else if (starts_with_ci(s, "JMP")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1013,7 +1013,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             fputc(OPCODE_JMP, out);
             write_u32(out, addr);
-        } else if (strncmp(s, "POP", 3) == 0) {
+        } else if (starts_with_ci(s, "POP")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1030,7 +1030,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_POP, out);
             fputc(reg, out);
-        } else if (strncmp(s, "ADD", 3) == 0) {
+        } else if (starts_with_ci(s, "ADD")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1050,7 +1050,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_ADD, out);
             fputc(dst, out);
             fputc(src, out);
-        } else if (strncmp(s, "SUB", 3) == 0) {
+        } else if (starts_with_ci(s, "SUB")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1070,7 +1070,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_SUB, out);
             fputc(dst, out);
             fputc(src, out);
-        } else if (strncmp(s, "MUL", 3) == 0) {
+        } else if (starts_with_ci(s, "MUL")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1090,7 +1090,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_MUL, out);
             fputc(dst, out);
             fputc(src, out);
-        } else if (strncmp(s, "DIV", 3) == 0) {
+        } else if (starts_with_ci(s, "DIV")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1110,7 +1110,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_DIV, out);
             fputc(dst, out);
             fputc(src, out);
-        } else if (strncmp(s, "MOV", 3) == 0) {
+        } else if (starts_with_ci(s, "MOV")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1147,7 +1147,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(dst, out);
                 write_u32(out, imm);
             }
-        } else if (strncmp(s, "PUSH", 4) == 0) {
+        } else if (starts_with_ci(s, "PUSH")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1185,7 +1185,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(OPCODE_PUSH_IMM, out);
                 write_u32(out, imm);
             }
-        } else if (strncmp(s, "CMP", 3) == 0) {
+        } else if (starts_with_ci(s, "CMP")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1205,7 +1205,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_CMP, out);
             fputc(r1, out);
             fputc(r2, out);
-        } else if (strncmp(s, "ALLOC", 5) == 0) {
+        } else if (starts_with_ci(s, "ALLOC")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1222,9 +1222,9 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_ALLOC, out);
             write_u32(out, num);
-        } else if (strncmp(s, "FRAME", 5) == 0) {
+        } else if (starts_with_ci(s, "FRAME")) {
             continue;
-        } else if (strncmp(s, "LOADVAR", 7) == 0) {
+        } else if (starts_with_ci(s, "LOADVAR")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1251,7 +1251,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(reg, out);
                 write_u32(out, slot);
             }
-        } else if (strncmp(s, "LOAD", 4) == 0) {
+        } else if (starts_with_ci(s, "LOAD")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1279,7 +1279,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(reg, out);
                 write_u32(out, addr);
             }
-        } else if (strncmp(s, "STOREVAR", 8) == 0) {
+        } else if (starts_with_ci(s, "STOREVAR")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1307,7 +1307,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(reg, out);
                 write_u32(out, slot);
             }
-        } else if (strncmp(s, "STORE", 5) == 0) {
+        } else if (starts_with_ci(s, "STORE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1335,7 +1335,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(reg, out);
                 write_u32(out, addr);
             }
-        } else if (strncmp(s, "GROW", 4) == 0) {
+        } else if (starts_with_ci(s, "GROW")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1352,7 +1352,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_GROW, out);
             write_u32(out, num);
-        } else if (strncmp(s, "RESIZE", 6) == 0) {
+        } else if (starts_with_ci(s, "RESIZE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1369,7 +1369,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_RESIZE, out);
             write_u32(out, num);
-        } else if (strncmp(s, "FREE", 4) == 0) {
+        } else if (starts_with_ci(s, "FREE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1386,7 +1386,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_FREE, out);
             write_u32(out, num);
-        } else if (strncmp(s, "FOPEN", 5) == 0) {
+        } else if (starts_with_ci(s, "FOPEN")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1406,11 +1406,11 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             char *mode = trim(mode_raw);
             char *fid = trim(fid_raw);
             uint8_t mode_flag;
-            if (strcmp(mode, "r") == 0) {
+            if (equals_ci(mode, "r")) {
                 mode_flag = 0;
-            } else if (strcmp(mode, "w") == 0) {
+            } else if (equals_ci(mode, "w")) {
                 mode_flag = 1;
-            } else if (strcmp(mode, "a") == 0) {
+            } else if (equals_ci(mode, "a")) {
                 mode_flag = 2;
             } else {
                 fprintf(stderr,
@@ -1429,7 +1429,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             for (uint8_t i = 0; i < fname_len; i++) {
                 fputc((uint8_t)filename[i], out);
             }
-        } else if (strncmp(s, "FCLOSE", 6) == 0) {
+        } else if (starts_with_ci(s, "FCLOSE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1446,7 +1446,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t fd = parse_file(fid, lineno);
             fputc(OPCODE_FCLOSE, out);
             fputc(fd, out);
-        } else if (strncmp(s, "FREAD", 5) == 0) {
+        } else if (starts_with_ci(s, "FREAD")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1469,7 +1469,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_FREAD, out);
             fputc(fd, out);
             fputc(reg, out);
-        } else if (strncmp(s, "FSEEK", 5) == 0) {
+        } else if (starts_with_ci(s, "FSEEK")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1514,7 +1514,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(fd, out);
                 write_u32(out, offset_imm);
             }
-        } else if (strncmp(s, "FWRITE", 6) == 0) {
+        } else if (starts_with_ci(s, "FWRITE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1559,7 +1559,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(fd, out);
                 write_u32(out, size_imm);
             }
-        } else if (strncmp(s, "NOT", 3) == 0) {
+        } else if (starts_with_ci(s, "NOT")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1576,7 +1576,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_NOT, out);
             fputc(reg, out);
-        } else if (strncmp(s, "AND", 3) == 0) {
+        } else if (starts_with_ci(s, "AND")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1596,7 +1596,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_AND, out);
             fputc(r1, out);
             fputc(r2, out);
-        } else if (strncmp(s, "OR", 2) == 0) {
+        } else if (starts_with_ci(s, "OR")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1616,7 +1616,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_OR, out);
             fputc(r1, out);
             fputc(r2, out);
-        } else if (strncmp(s, "XOR", 3) == 0) {
+        } else if (starts_with_ci(s, "XOR")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1636,7 +1636,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_XOR, out);
             fputc(r1, out);
             fputc(r2, out);
-        } else if (strncmp(s, "READCHAR", 8) == 0) {
+        } else if (starts_with_ci(s, "READCHAR")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1661,7 +1661,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             fputc(OPCODE_READCHAR, out);
             fputc(reg, out);
-        } else if (strncmp(s, "READSTR", 7) == 0) {
+        } else if (starts_with_ci(s, "READSTR")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1686,7 +1686,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             fputc(OPCODE_READSTR, out);
             fputc(reg, out);
-        } else if (strncmp(s, "SLEEP", 5) == 0) {
+        } else if (starts_with_ci(s, "SLEEP")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1703,12 +1703,12 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint32_t ms = strtoul(operand, NULL, 0);
             fputc(OPCODE_SLEEP, out);
             write_u32(out, ms);
-        } else if (strncmp(s, "CLRSCR", 6) == 0) {
+        } else if (starts_with_ci(s, "CLRSCR")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_CLRSCR, out);
-        } else if (strncmp(s, "RAND", 4) == 0) {
+        } else if (starts_with_ci(s, "RAND")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1749,7 +1749,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 write_u64(out, (uint64_t)INT64_MIN);
                 write_u64(out, (uint64_t)INT64_MAX);
             }
-        } else if (strncmp(s, "GETKEY", 6) == 0) {
+        } else if (starts_with_ci(s, "GETKEY")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1768,7 +1768,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             fputc(OPCODE_GETKEY, out);
             fputc(reg, out);
-        } else if (strncmp(s, "READ", 4) == 0) {
+        } else if (starts_with_ci(s, "READ")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1787,7 +1787,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             fputc(OPCODE_READ, out);
             fputc(reg, out);
-        } else if (strncmp(s, "JL", 2) == 0) {
+        } else if (starts_with_ci(s, "JL")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1807,7 +1807,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             fputc(OPCODE_JL, out);
             write_u32(out, addr);
-        } else if (strncmp(s, "JGE", 3) == 0) {
+        } else if (starts_with_ci(s, "JGE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1827,7 +1827,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             fputc(OPCODE_JGE, out);
             write_u32(out, addr);
-        } else if (strncmp(s, "JB", 2) == 0) {
+        } else if (starts_with_ci(s, "JB")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1847,7 +1847,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             fputc(OPCODE_JB, out);
             write_u32(out, addr);
-        } else if (strncmp(s, "JAE", 3) == 0) {
+        } else if (starts_with_ci(s, "JAE")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1867,7 +1867,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             fputc(OPCODE_JAE, out);
             write_u32(out, addr);
-        } else if (strncmp(s, "CALL", 4) == 0) {
+        } else if (starts_with_ci(s, "CALL")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1902,12 +1902,12 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_CALL, out);
             write_u32(out, addr);
             write_u32(out, frame_size);
-        } else if (strncmp(s, "RET", 3) == 0) {
+        } else if (starts_with_ci(s, "RET")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_RET, out);
-        } else if (strncmp(s, "MOD", 3) == 0) {
+        } else if (starts_with_ci(s, "MOD")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
@@ -1927,7 +1927,7 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_MOD, out);
             fputc(dst, out);
             fputc(src, out);
-        } else if (strncmp(s, "BREAK", 5) == 0) {
+        } else if (starts_with_ci(s, "BREAK")) {
             if (debug) {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }

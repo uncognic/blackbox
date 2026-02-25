@@ -58,3 +58,5 @@ typedef struct
 Macro *find_macro(Macro *macros, size_t macro_count, const char *name);
 char *replace_all(const char *src, const char *find, const char *repl);
 int expand_invocation(const char *invocation_line, FILE *dest, int depth, Macro *macros, size_t macro_count, unsigned long *expand_id);
+int equals_ci(const char *a, const char *b);
+int starts_with_ci(const char *s, const char *prefix);

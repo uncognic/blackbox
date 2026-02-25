@@ -30,7 +30,7 @@ uint32_t find_data(const char *name, Data *data, size_t count)
 {
     for (size_t i = 0; i < count; i++)
     {
-        if (strcmp(data[i].name, name) == 0)
+        if (equals_ci(data[i].name, name))
             return i;
     }
     fprintf(stderr, "Error: undefined string constant '%s'\n", name);
@@ -92,7 +92,7 @@ uint64_t read_u64(const uint8_t *data, size_t *pc)
 }
 size_t instr_size(const char *line)
 {
-    if (strncmp(line, "MOV", 3) == 0)
+    if (starts_with_ci(line, "MOV"))
     {
         char dst[8], src[32];
 
@@ -125,7 +125,7 @@ size_t instr_size(const char *line)
         else
             return 6;
     }
-    else if (strncmp(line, "PUSH", 4) == 0)
+    else if (starts_with_ci(line, "PUSH"))
     {
         char operand[32];
         sscanf(line + 4, " %31s", operand);
@@ -138,23 +138,23 @@ size_t instr_size(const char *line)
             return 5;
         }
     }
-    else if (strncmp(line, "POP", 3) == 0)
+    else if (starts_with_ci(line, "POP"))
         return 2;
-    else if (strncmp(line, "ADD", 3) == 0)
+    else if (starts_with_ci(line, "ADD"))
         return 3;
-    else if (strncmp(line, "SUB", 3) == 0)
+    else if (starts_with_ci(line, "SUB"))
         return 3;
-    else if (strncmp(line, "MUL", 3) == 0)
+    else if (starts_with_ci(line, "MUL"))
         return 3;
-    else if (strncmp(line, "DIV", 3) == 0)
+    else if (starts_with_ci(line, "DIV"))
         return 3;
-    else if (strcmp(line, "PRINT_STACKSIZE") == 0)
+    else if (equals_ci(line, "PRINT_STACKSIZE"))
         return 1;
-    else if (strncmp(line, "PRINTREG", 8) == 0)
+    else if (starts_with_ci(line, "PRINTREG"))
         return 2;
-    else if (strncmp(line, "PRINT", 5) == 0)
+    else if (starts_with_ci(line, "PRINT"))
         return 2;
-    else if (strncmp(line, "WRITE", 5) == 0)
+    else if (starts_with_ci(line, "WRITE"))
     {
         char *quote = strchr(line, '"');
         if (!quote)
@@ -167,23 +167,23 @@ size_t instr_size(const char *line)
             str_len = 255;
         return 3 + str_len;
     }
-    else if (strncmp(line, "JMP", 3) == 0)
+    else if (starts_with_ci(line, "JMP"))
         return 5;
-    else if (strncmp(line, "ALLOC", 5) == 0)
+    else if (starts_with_ci(line, "ALLOC"))
         return 5;
-    else if (strncmp(line, "NEWLINE", 7) == 0)
+    else if (starts_with_ci(line, "NEWLINE"))
         return 1;
-    else if (strncmp(line, "JE", 2) == 0)
+    else if (starts_with_ci(line, "JE"))
         return 5;
-    else if (strncmp(line, "JNE", 3) == 0)
+    else if (starts_with_ci(line, "JNE"))
         return 5;
-    else if (strncmp(line, "INC", 3) == 0)
+    else if (starts_with_ci(line, "INC"))
         return 2;
-    else if (strncmp(line, "DEC", 3) == 0)
+    else if (starts_with_ci(line, "DEC"))
         return 2;
-    else if (strncmp(line, "CMP", 3) == 0)
+    else if (starts_with_ci(line, "CMP"))
         return 3;
-    else if (strncmp(line, "STORE", 5) == 0)
+    else if (starts_with_ci(line, "STORE"))
     {
         const char *p = line + 5;
         const char *comma = strchr(p, ',');
@@ -196,17 +196,17 @@ size_t instr_size(const char *line)
             return 3;
         return 6;
     }
-    else if (strncmp(line, "LOADSTR", 7) == 0)
+    else if (starts_with_ci(line, "LOADSTR"))
         return 6;
-    else if (strncmp(line, "LOADBYTE", 8) == 0)
+    else if (starts_with_ci(line, "LOADBYTE"))
         return 6;
-    else if (strncmp(line, "LOADWORD", 8) == 0)
+    else if (starts_with_ci(line, "LOADWORD"))
         return 6;
-    else if (strncmp(line, "LOADDWORD", 9) == 0)
+    else if (starts_with_ci(line, "LOADDWORD"))
         return 6;
-    else if (strncmp(line, "LOADQWORD", 9) == 0)
+    else if (starts_with_ci(line, "LOADQWORD"))
         return 6;
-    else if (strncmp(line, "LOAD", 4) == 0)
+    else if (starts_with_ci(line, "LOAD"))
     {
         const char *p = line + 4;
         const char *comma = strchr(p, ',');
@@ -220,7 +220,7 @@ size_t instr_size(const char *line)
         return 6;
     }
 
-    else if (strncmp(line, "LOADVAR", 7) == 0)
+    else if (starts_with_ci(line, "LOADVAR"))
     {
         const char *p = line + 7;
         const char *comma = strchr(p, ',');
@@ -233,10 +233,10 @@ size_t instr_size(const char *line)
             return 3;
         return 6;
     }
-    else if (strncmp(line, "GROW", 4) == 0)
+    else if (starts_with_ci(line, "GROW"))
         return 5;
 
-    else if (strncmp(line, "STOREVAR", 8) == 0)
+    else if (starts_with_ci(line, "STOREVAR"))
     {
         const char *p = line + 8;
         const char *comma = strchr(p, ',');
@@ -249,13 +249,13 @@ size_t instr_size(const char *line)
             return 3;
         return 6;
     }
-    else if (strncmp(line, "RESIZE", 6) == 0)
+    else if (starts_with_ci(line, "RESIZE"))
         return 5;
-    else if (strncmp(line, "FREE", 4) == 0)
+    else if (starts_with_ci(line, "FREE"))
         return 5;
-    else if (strncmp(line, "MOD", 3) == 0)
+    else if (starts_with_ci(line, "MOD"))
         return 3;
-    else if (strncmp(line, "FOPEN", 5) == 0)
+    else if (starts_with_ci(line, "FOPEN"))
     {
         const char *quote = strchr(line, '"');
         if (!quote)
@@ -268,11 +268,11 @@ size_t instr_size(const char *line)
             str_len = 255;
         return 4 + str_len;
     }
-    else if (strncmp(line, "FCLOSE", 6) == 0)
+    else if (starts_with_ci(line, "FCLOSE"))
         return 2;
-    else if (strncmp(line, "FREAD", 5) == 0)
+    else if (starts_with_ci(line, "FREAD"))
         return 3;
-    else if (strncmp(line, "FWRITE", 6) == 0)
+    else if (starts_with_ci(line, "FWRITE"))
     {
         const char *comma = strchr(line + 6, ',');
         if (!comma)
@@ -285,7 +285,7 @@ size_t instr_size(const char *line)
         else
             return 6;
     }
-    else if (strncmp(line, "FSEEK", 5) == 0)
+    else if (starts_with_ci(line, "FSEEK"))
     {
         const char *comma = strchr(line + 5, ',');
         if (!comma)
@@ -298,59 +298,59 @@ size_t instr_size(const char *line)
         else
             return 6;
     }
-    else if (strncmp(line, "PRINTSTR", 8) == 0)
+    else if (starts_with_ci(line, "PRINTSTR"))
         return 2;
-    else if (strncmp(line, "HALT", 4) == 0) {
+    else if (starts_with_ci(line, "HALT")) {
         char operand[32];
         if (sscanf(line + 4, " %31s", operand) == 1)
             return 2;
         else
             return 1;
     }
-    else if (strncmp(line, "NOT", 3) == 0)
+    else if (starts_with_ci(line, "NOT"))
         return 2;
-    else if (strncmp(line, "AND", 3) == 0)
+    else if (starts_with_ci(line, "AND"))
         return 3;
-    else if (strncmp(line, "OR", 2) == 0)
+    else if (starts_with_ci(line, "OR"))
         return 3;
-    else if (strncmp(line, "XOR", 3) == 0)
+    else if (starts_with_ci(line, "XOR"))
         return 3;
-    else if (strncmp(line, "READSTR", 7) == 0)
+    else if (starts_with_ci(line, "READSTR"))
         return 2;
-    else if (strncmp(line, "READCHAR", 8) == 0)
+    else if (starts_with_ci(line, "READCHAR"))
         return 2;
-    else if (strncmp(line, "SLEEP", 5) == 0)
+    else if (starts_with_ci(line, "SLEEP"))
         return 5;
-    else if (strncmp(line, "CLRSCR", 6) == 0)
+    else if (starts_with_ci(line, "CLRSCR"))
         return 1;
-    else if (strncmp(line, "RAND", 4) == 0)
+    else if (starts_with_ci(line, "RAND"))
         return 18;
-    else if (strncmp(line, "GETKEY", 6) == 0)
+    else if (starts_with_ci(line, "GETKEY"))
         return 2;
-    else if (strncmp(line, "READ", 4) == 0)
+    else if (starts_with_ci(line, "READ"))
         return 2;
-    else if (strcmp(line, "CONTINUE") == 0)
+    else if (equals_ci(line, "CONTINUE"))
         return 1;
-    else if (strncmp(line, "JL", 2) == 0)
+    else if (starts_with_ci(line, "JL"))
         return 5;
-    else if (strncmp(line, "JGE", 3) == 0)
+    else if (starts_with_ci(line, "JGE"))
         return 5;
-    else if (strncmp(line, "JB", 2) == 0)
+    else if (starts_with_ci(line, "JB"))
         return 5;
-    else if (strncmp(line, "JAE", 3) == 0)
+    else if (starts_with_ci(line, "JAE"))
         return 5;
-    else if (strncmp(line, "CALL", 4) == 0)
+    else if (starts_with_ci(line, "CALL"))
         return 9;
-    else if (strncmp(line, "RET", 3) == 0)
+    else if (starts_with_ci(line, "RET"))
         return 1;
-    else if (strncmp(line, "BREAK", 5) == 0)
+    else if (starts_with_ci(line, "BREAK"))
         return 1;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }
 uint8_t parse_register(const char *r, int lineno)
 {
-    if (r[0] != 'R')
+    if (toupper((unsigned char)r[0]) != 'R')
     {
         fprintf(stderr, "Invalid register on line %d\n", lineno);
         exit(1);
@@ -366,7 +366,7 @@ uint8_t parse_register(const char *r, int lineno)
 }
 uint8_t parse_file(const char *r, int lineno)
 {
-    if (r[0] != 'F')
+    if (toupper((unsigned char)r[0]) != 'F')
     {
         fprintf(stderr, "Invalid file descriptor on line %d\n", lineno);
         exit(1);
@@ -610,5 +610,32 @@ int expand_invocation(const char *invocation_line, FILE *dest, int depth, Macro 
     }
 
     free(copy);
+    return 1;
+}
+int equals_ci(const char *a, const char *b)
+{
+    if (!a || !b)
+        return 0;
+    while (*a && *b) {
+        if (toupper((unsigned char)*a) != toupper((unsigned char)*b))
+            return 0;
+        a++;
+        b++;
+    }
+    return *a == *b;
+}
+
+int starts_with_ci(const char *s, const char *prefix)
+{
+    if (!s || !prefix)
+        return 0;
+    size_t i = 0;
+    while (prefix[i]) {
+        if (s[i] == '\0')
+            return 0;
+        if (toupper((unsigned char)s[i]) != toupper((unsigned char)prefix[i]))
+            return 0;
+        i++;
+    }
     return 1;
 }
