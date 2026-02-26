@@ -18,7 +18,7 @@ uint32_t find_label(const char *name, Label *labels, size_t count)
 {
     for (size_t i = 0; i < count; i++)
     {
-        if (strcmp(labels[i].name, name) == 0)
+        if (equals_ci(labels[i].name, name))
         {
             return labels[i].addr;
         }
@@ -425,7 +425,7 @@ Macro *find_macro(Macro *macros, size_t macro_count, const char *name)
 {
     for (size_t m = 0; m < macro_count; m++)
     {
-        if (strcmp(macros[m].name, name) == 0)
+        if (equals_ci(macros[m].name, name))
             return &macros[m];
     }
     return NULL;
