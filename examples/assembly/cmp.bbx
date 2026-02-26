@@ -1,7 +1,7 @@
 %asm
 %main
 .start:
-    WRITE 1 "Which function to test? (1 for JE/JNE, 2 for JL/JGE, 3 for JB/JAE): "
+    write stdout "Which function to test? (1 for JE/JNE, 2 for JL/JGE, 3 for JB/JAE): "
     READ R00
 
     MOV R95, 1
@@ -15,12 +15,12 @@
     CMP R00, R97
     JE jbjae
 
-    WRITE 1 "Invalid choice"
+    write stdout "Invalid choice"
     NEWLINE
     JMP start
 
 .jejne:
-    WRITE 1 "JE/JNE pass 1"
+    write stdout "JE/JNE pass 1"
     NEWLINE
 
     MOV R01, 0
@@ -30,7 +30,7 @@
     JMP jejnefail
 
 .jejne2:
-    WRITE 1 "JE/JNE pass 2"
+    write stdout "JE/JNE pass 2"
     NEWLINE
 
     MOV R03, 1
@@ -39,17 +39,17 @@
     JMP jejnefail
 
 .jejnesuccess:
-    WRITE 1 "JE and JNE Success"
+    write stdout "JE and JNE Success"
     NEWLINE
     HALT OK
 
 .jejnefail:
-    WRITE 1 "JE/JNE Fail"
+    write stdout "JE/JNE Fail"
     NEWLINE
     HALT BAD
 
 .jljge:
-    WRITE 1 "JL/JGE pass 1"
+    write stdout "JL/JGE pass 1"
     NEWLINE
 
     ; -1 < 1  (signed)
@@ -60,7 +60,7 @@
     JMP jljgefail
 
 .jljge2:
-    WRITE 1 "JL/JGE pass 2"
+    write stdout "JL/JGE pass 2"
     NEWLINE
 
     ; 5 >= 5 (signed)
@@ -71,17 +71,17 @@
     JMP jljgefail
 
 .jljgesuccess:
-    WRITE 1 "JL and JGE Success"
+    write stdout "JL and JGE Success"
     NEWLINE
     HALT OK
 
 .jljgefail:
-    WRITE 1 "JL/JGE Fail"
+    write stdout "JL/JGE Fail"
     NEWLINE
     HALT BAD
 
 .jbjae:
-    WRITE 1 "JB/JAE pass 1"
+    write stdout "JB/JAE pass 1"
     NEWLINE
 
     ; 1 < 2 (unsigned)
@@ -92,7 +92,7 @@
     JMP jbjaefail
 
 .jbjae2:
-    WRITE 1 "JB/JAE pass 2"
+    write stdout "JB/JAE pass 2"
     NEWLINE
 
     ; 255 >= 1 (unsigned)
@@ -103,11 +103,11 @@
     JMP jbjaefail
 
 .jbjaesuccess:
-    WRITE 1 "JB and JAE Success"
+    write stdout "JB and JAE Success"
     NEWLINE
     HALT OK
 
 .jbjaefail:
-    WRITE 1 "JB/JAE Fail"
+    write stdout "JB/JAE Fail"
     NEWLINE
     HALT BAD

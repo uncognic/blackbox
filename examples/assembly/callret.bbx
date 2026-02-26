@@ -1,15 +1,15 @@
 %asm
 %main
-    WRITE 1 "Calling function..."
+    write stdout "Calling function..."
     NEWLINE
     CALL func
-    WRITE 1 "Back in main"
+    write stdout "Back in main"
     NEWLINE
-    WRITE 1 "Success"
+    write stdout "Success"
     HALT OK
 .func:
-    WRITE 1 "In function"
+    write stdout "In function"
     NEWLINE
-    WRITE 1 "Calling RET"
+    write stdout "Calling RET"
     NEWLINE
     RET

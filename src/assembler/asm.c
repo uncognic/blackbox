@@ -683,25 +683,34 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            int fd;
+            char fd_str[16];
             char *str_start;
 
-            if (sscanf(s + 5, " %d", &fd) != 1)
+            if (sscanf(s + 5, " %15s", fd_str) != 1)
             {
                 fprintf(stderr,
-                        "Syntax error on line %d: expected WRITE <fd> "
+                        "Syntax error on line %d: expected WRITE <stdout|stderr> "
                         "\"<string>\"\n",
                         lineno);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
-            if (fd != 1 && fd != 2)
+            uint8_t fd;
+            if (equals_ci(fd_str, "stdout"))
+            {
+                fd = 1;
+            }
+            else if (equals_ci(fd_str, "stderr"))
+            {
+                fd = 2;
+            }
+            else
             {
                 fprintf(stderr,
-                        "Invalid file descriptor on line %d: %d (only "
-                        "1=stdout, 2=stderr allowed)\n",
-                        lineno, fd);
+                        "Invalid file descriptor on line %d: %s (expected "
+                        "stdout or stderr)\n",
+                        lineno, fd_str);
                 fclose(in);
                 fclose(out);
                 return 1;
@@ -735,7 +744,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 len = 255;
 
             fputc(OPCODE_WRITE, out);
-            fputc((uint8_t)fd, out);
+            fputc(fd, out);
             fputc((uint8_t)len, out);
 
             for (size_t i = 0; i < len; i++)
@@ -2240,7 +2249,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 for (size_t i = 0; i < label_count; i++)
                 {
-                    if (equals_ci(labels[i].name, label))
+                    if (strcmp(labels[i].name, label) == 0)
                     {
                         frame_size = labels[i].frame_size;
                         break;

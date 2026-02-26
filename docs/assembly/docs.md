@@ -13,5 +13,6 @@
 - The assembler enforces register names as R followed by a decimal index (00–98). Use zero-padded forms like R01 for single-digit registers when needed.
 - File descriptors in assembler are specified as F<n> (e.g. F1). The assembler validates descriptor numbers.
 - Immediate parsing supports C-style numeric literals (decimal, hex 0x, etc.).
+- The assembly is case-insensitive for everything except label names and macro names
 ### Instruction set
 See [isa.md](isa.md)

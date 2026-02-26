@@ -1,23 +1,23 @@
 %asm
 ;Simple guessing game
 %main
-    WRITE 1 "Welcome to the Guessing Game!"
+    write stdout "Welcome to the Guessing Game!"
     NEWLINE
-    WRITE 1 "Try to guess a number between 1 and 100."
+    write stdout "Try to guess a number between 1 and 100."
     NEWLINE
 
     RAND R00, 1, 100 ; Generate a random number between 1 and 100
 .guess:
-    WRITE 1 "Enter your guess: "
+    write stdout "Enter your guess: "
     READ R01
     CMP R01, R00
     JE correct
     JMP wrong
 .correct:
-    WRITE 1 "Congratulations! You guessed the number!"
+    write stdout "Congratulations! You guessed the number!"
     NEWLINE
     HALT OK
 .wrong:
-    WRITE 1 "Wrong guess. Try again!"
+    write stdout "Wrong guess. Try again!"
     NEWLINE
     JMP guess

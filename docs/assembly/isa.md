@@ -1,7 +1,7 @@
 # Blackbox VM Instruction Set Architecture
 - WRITE: Write a string to a stream  
-  - Syntax: WRITE <fd> "<string>"  
-  - Encoding: OPCODE_WRITE, 1 byte fd (1=stdout, 2=stderr), 1 byte length (max 255), then string bytes.  
+  - Syntax: WRITE <stream> "<string>"  
+  - Encoding: OPCODE_WRITE, 1 byte fd (stdout or stderr), 1 byte length (max 255), then string bytes.  
 - NEWLINE: Print newline  
   - Syntax: NEWLINE  
   - Encoding: OPCODE_NEWLINE  
