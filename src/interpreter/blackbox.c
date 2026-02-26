@@ -16,20 +16,24 @@
 #endif
 #include "debug.h"
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     const char *prog_path = NULL;
     bool debug = false;
-    if (argc < 2) {
+    if (argc < 2)
+    {
         printf("Usage: bbx [--debug|-d] program.bcx\n");
         return 1;
     }
-    for (int i = 1; i < argc; i++) {
+    for (int i = 1; i < argc; i++)
+    {
         if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--debug") == 0)
             debug = true;
         else if (!prog_path)
             prog_path = argv[i];
     }
-    if (!prog_path) {
+    if (!prog_path)
+    {
         printf("Usage: bbx [--debug|-d] program.bcx\n");
         return 1;
     }
@@ -44,7 +48,8 @@ int main(int argc, char *argv[]) {
     bool dbg_instructions_shown = false;
 
     FILE *f = fopen(prog_path, "rb");
-    if (!f) {
+    if (!f)
+    {
         perror("fopen");
         return 1;
     }
@@ -54,19 +59,22 @@ int main(int argc, char *argv[]) {
     fseek(f, 0, SEEK_SET);
 
     uint8_t *program = malloc(size);
-    if (!program) {
+    if (!program)
+    {
         perror("malloc");
         fclose(f);
         return 1;
     }
     size_t n = fread(program, 1, size, f);
-    if (n != size) {
+    if (n != size)
+    {
         perror("fread");
         free(program);
         fclose(f);
         return 1;
     }
-    if (size < 3) {
+    if (size < 3)
+    {
         fprintf(stderr, "Error: program too small (missing magic)\n");
         free(program);
         fclose(f);
@@ -75,17 +83,17 @@ int main(int argc, char *argv[]) {
     uint8_t m0 = (MAGIC >> 16) & 0xFF;
     uint8_t m1 = (MAGIC >> 8) & 0xFF;
     uint8_t m2 = (MAGIC) & 0xFF;
-    if (program[0] != m0 || program[1] != m1 || program[2] != m2) {
-        fprintf(stderr, "Error: invalid magic (expected '%c%c%c')\n", m0, m1,
-                m2);
+    if (program[0] != m0 || program[1] != m1 || program[2] != m2)
+    {
+        fprintf(stderr, "Error: invalid magic (expected '%c%c%c')\n", m0, m1, m2);
         free(program);
         fclose(f);
         return 1;
     }
 
-    if (size < HEADER_FIXED_SIZE) {
-        fprintf(stderr,
-                "Error: program too small (missing data table header)\n");
+    if (size < HEADER_FIXED_SIZE)
+    {
+        fprintf(stderr, "Error: program too small (missing data table header)\n");
         free(program);
         fclose(f);
         return 1;
@@ -97,7 +105,8 @@ int main(int argc, char *argv[]) {
                                ((uint32_t)program[MAGIC_SIZE + 4] << 24);
     uint8_t *data_table = &program[HEADER_FIXED_SIZE];
 
-    if (size < HEADER_FIXED_SIZE + data_table_size) {
+    if (size < HEADER_FIXED_SIZE + data_table_size)
+    {
         fprintf(stderr, "Error: program too small for declared data table\n");
         free(program);
         fclose(f);
@@ -110,7 +119,8 @@ int main(int argc, char *argv[]) {
     size_t stack_cap = STACK_SIZE;
     int64_t *stack = NULL;
     stack = malloc(stack_cap * sizeof *stack);
-    if (!stack) {
+    if (!stack)
+    {
         perror("malloc");
         free(program);
         return 1;
@@ -120,7 +130,8 @@ int main(int argc, char *argv[]) {
     size_t call_stack_cap = 1024;
     size_t *call_stack = NULL;
     call_stack = malloc(call_stack_cap * sizeof *call_stack);
-    if (!call_stack) {
+    if (!call_stack)
+    {
         perror("malloc");
         free(program);
         free(stack);
@@ -131,7 +142,8 @@ int main(int argc, char *argv[]) {
     size_t vars_cap = VAR_CAPACITY;
     int64_t *vars = NULL;
     vars = malloc(vars_cap * sizeof *vars);
-    if (!vars) {
+    if (!vars)
+    {
         perror("malloc");
         free(program);
         free(stack);
@@ -143,7 +155,8 @@ int main(int argc, char *argv[]) {
     size_t frame_stack_cap = 1024;
     size_t *frame_base_stack = NULL;
     frame_base_stack = malloc(frame_stack_cap * sizeof *frame_base_stack);
-    if (!frame_base_stack) {
+    if (!frame_base_stack)
+    {
         perror("malloc");
         free(program);
         free(stack);
@@ -156,37 +169,49 @@ int main(int argc, char *argv[]) {
 
     FILE *fds[FILE_DESCRIPTORS];
     uint8_t fds_owned[FILE_DESCRIPTORS];
-    for (size_t i = 0; i < FILE_DESCRIPTORS; i++) {
+    for (size_t i = 0; i < FILE_DESCRIPTORS; i++)
+    {
         fds[i] = NULL;
         fds_owned[i] = 0;
     }
     bool breakpoints_enabled = false;
     bool debug_step = false;
-    if (debug) {
+    if (debug)
+    {
         printf("Debugger mode: (s)tep or (b)reakpoint? ");
         fflush(stdout);
         char modebuf[16];
-        if (fgets(modebuf, sizeof(modebuf), stdin)) {
-            if (modebuf[0] == 's' || modebuf[0] == 'S' || modebuf[0] == '\n') {
-                debug_step = true;
-            } else if (modebuf[0] == 'b' || modebuf[0] == 'B') {
-                breakpoints_enabled = true;
-            } else {
+        if (fgets(modebuf, sizeof(modebuf), stdin))
+        {
+            if (modebuf[0] == 's' || modebuf[0] == 'S' || modebuf[0] == '\n')
+            {
                 debug_step = true;
             }
-        } else {
+            else if (modebuf[0] == 'b' || modebuf[0] == 'B')
+            {
+                breakpoints_enabled = true;
+            }
+            else
+            {
+                debug_step = true;
+            }
+        }
+        else
+        {
             debug_step = true;
         }
         debug = debug_step;
         dbg_instructions_shown = false;
     }
 
-    while (pc < size) {
-        if (debug && debug_step) {
+    while (pc < size)
+    {
+        if (debug && debug_step)
+        {
             uint8_t nxt = program[pc];
-            printf("[DEBUG] pc=%zu opcode=0x%02X %s\n", pc, nxt,
-                   opcode_name(nxt));
-            if (!dbg_instructions_shown) {
+            printf("[DEBUG] pc=%zu opcode=0x%02X %s\n", pc, nxt, opcode_name(nxt));
+            if (!dbg_instructions_shown)
+            {
                 printf("Debugger commands:\n");
                 printf("  Enter - step one instruction\n");
                 printf("  c - continue (disable debugger)\n");
@@ -194,27 +219,32 @@ int main(int argc, char *argv[]) {
                 printf("  rN - show first N registers (e.g. r20)\n");
                 printf("  s - show top 8 stack entries\n");
                 printf("  sN - show top N stack entries (e.g. s10)\n");
-                printf("  sM-N - show stack entries from index M to N "
-                       "(inclusive)\n");
+                printf("  sM-N - show stack entries from index M to N (inclusive)\n");
                 dbg_instructions_shown = true;
             }
             printf("> ");
             fflush(stdout);
             char cmd[128];
-            if (fgets(cmd, sizeof(cmd), stdin)) {
+            if (fgets(cmd, sizeof(cmd), stdin))
+            {
                 char *p = cmd;
                 while (*p == ' ' || *p == '\t')
                     p++;
-                if (p[0] == 'c') {
+                if (p[0] == 'c')
+                {
                     debug = false;
-                } else if (p[0] == 'q') {
+                }
+                else if (p[0] == 'q')
+                {
                     free(program);
                     free(stack);
                     free(call_stack);
                     free(vars);
                     free(frame_base_stack);
                     return 0;
-                } else if (p[0] == 'r') {
+                }
+                else if (p[0] == 'r')
+                {
                     int n = 0;
                     if (p[1] != '\0' && (p[1] >= '0' && p[1] <= '9'))
                         n = atoi(p + 1);
@@ -222,16 +252,20 @@ int main(int argc, char *argv[]) {
                         n = 16;
                     print_regs(registers, n);
                     continue;
-                } else if (p[0] == 's') {
+                }
+                else if (p[0] == 's')
+                {
                     char *q = p + 1;
                     while (*q == ' ' || *q == '\t')
                         q++;
-                    if (*q == '\0' || *q == '\n') {
+                    if (*q == '\0' || *q == '\n')
+                    {
                         print_stack(stack, sp);
                         continue;
                     }
                     char *dash = strchr(q, '-');
-                    if (dash) {
+                    if (dash)
+                    {
                         *dash = '\0';
                         int a = atoi(q);
                         int b = atoi(dash + 1);
@@ -239,10 +273,9 @@ int main(int argc, char *argv[]) {
                             a = 0;
                         if (b < 0)
                             b = 0;
-                        if ((size_t)a >= sp || (size_t)b >= sp || a > b) {
-                            printf(
-                                "Invalid stack range %d-%d (stack size=%zu)\n",
-                                a, b, sp);
+                        if ((size_t)a >= sp || (size_t)b >= sp || a > b)
+                        {
+                            printf("Invalid stack range %d-%d (stack size=%zu)\n", a, b, sp);
                             continue;
                         }
                         printf("Stack entries %d..%d:\n", a, b);
@@ -251,13 +284,15 @@ int main(int argc, char *argv[]) {
                         printf("\n");
                         continue;
                     }
-                    if (q[0] >= '0' && q[0] <= '9') {
+                    if (q[0] >= '0' && q[0] <= '9')
+                    {
                         int n = atoi(q);
                         if (n <= 0)
                             n = 8;
                         size_t show = (size_t)n < sp ? (size_t)n : sp;
                         printf("Stack size=%zu, top %zu entries:\n", sp, show);
-                        for (size_t i = 0; i < show; i++) {
+                        for (size_t i = 0; i < show; i++)
+                        {
                             size_t idx = (sp == 0) ? 0 : sp - 1 - i;
                             printf(" [%zu]=%lld", idx, (long long)stack[idx]);
                         }
@@ -268,19 +303,22 @@ int main(int argc, char *argv[]) {
             }
         }
         uint8_t opcode = program[pc++];
-        switch (opcode) {
-        case OPCODE_WRITE: {
+        switch (opcode)
+        {
+        case OPCODE_WRITE:
+        {
             uint8_t fd = program[pc++];
             uint8_t len = program[pc++];
-            if (fd != 1 && fd != 2) {
+            if (fd != 1 && fd != 2)
+            {
                 fprintf(stderr, "Error: invalid fd %hhu at pc=%zu\n", fd, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (pc + len > size) {
-                fprintf(stderr, "Error: string past end of program at pc=%zu\n",
-                        pc);
+            if (pc + len > size)
+            {
+                fprintf(stderr, "Error: string past end of program at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -288,7 +326,8 @@ int main(int argc, char *argv[]) {
             FILE *out = (fd == 1) ? stdout : stderr;
             size_t written = fwrite(&program[pc], 1, len, out);
             fflush(out);
-            if (written != len) {
+            if (written != len)
+            {
                 perror("fwrite");
                 free(program);
                 free(stack);
@@ -297,15 +336,18 @@ int main(int argc, char *argv[]) {
             pc += len;
             break;
         }
-        case OPCODE_INC: {
-            if (pc >= size) {
+        case OPCODE_INC:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for INC at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in INC at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -314,15 +356,18 @@ int main(int argc, char *argv[]) {
             registers[reg] += 1;
             break;
         }
-        case OPCODE_DEC: {
-            if (pc >= size) {
+        case OPCODE_DEC:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for DEC at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in DEC at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -331,19 +376,23 @@ int main(int argc, char *argv[]) {
             registers[reg] -= 1;
             break;
         }
-        case OPCODE_PUSH_IMM: {
-            if (pc + 3 >= size) {
+        case OPCODE_PUSH_IMM:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operand for PUSH at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (sp >= stack_cap) {
+            if (sp >= stack_cap)
+            {
                 size_t new_cap = stack_cap + stack_cap / 2;
                 if (new_cap <= sp)
                     new_cap = sp + 1;
                 int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
-                if (!tmp) {
+                if (!tmp)
+                {
                     perror("realloc");
                     free(program);
                     free(stack);
@@ -359,27 +408,31 @@ int main(int argc, char *argv[]) {
             stack[sp++] = value;
             break;
         }
-        case OPCODE_PUSH_REG: {
-            if (pc >= size) {
-                fprintf(stderr, "Missing operands for PUSH_REG at pc=%zu\n",
-                        pc);
+        case OPCODE_PUSH_REG:
+        {
+            if (pc >= size)
+            {
+                fprintf(stderr, "Missing operands for PUSH_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t src = program[pc++];
-            if (src >= REGISTERS) {
+            if (src >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in PUSH_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (sp >= stack_cap) {
+            if (sp >= stack_cap)
+            {
                 size_t new_cap = stack_cap + stack_cap / 2;
                 if (new_cap <= sp)
                     new_cap = sp + 1;
                 int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
-                if (!tmp) {
+                if (!tmp)
+                {
                     perror("realloc");
                     free(program);
                     free(stack);
@@ -391,8 +444,10 @@ int main(int argc, char *argv[]) {
             stack[sp++] = registers[src];
             break;
         }
-        case OPCODE_CMP: {
-            if (pc + 2 >= size) {
+        case OPCODE_CMP:
+        {
+            if (pc + 2 >= size)
+            {
                 fprintf(stderr, "Missing operands for CMP at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -400,7 +455,8 @@ int main(int argc, char *argv[]) {
             }
             uint8_t src = program[pc++];
             uint8_t dst = program[pc++];
-            if (src >= REGISTERS || dst >= REGISTERS) {
+            if (src >= REGISTERS || dst >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in CMP at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -411,34 +467,49 @@ int main(int argc, char *argv[]) {
             int64_t b = registers[dst];
             int64_t res = a - b;
 
-            if (res == 0) {
+            if (res == 0)
+            {
                 ZF = 1;
-            } else {
+            }
+            else
+            {
                 ZF = 0;
             }
 
-            if (res < 0) {
+            if (res < 0)
+            {
                 SF = 1;
-            } else {
+            }
+            else
+            {
                 SF = 0;
             }
 
-            if ((uint64_t)a < (uint64_t)b) {
+            if ((uint64_t)a < (uint64_t)b)
+            {
                 CF = 1;
-            } else {
+            }
+            else
+            {
                 CF = 0;
             }
 
             int64_t x = (a ^ b) & (a ^ res);
-            if (x < 0) {
+            if (x < 0)
+            {
                 OF = 1;
-            } else {
+            }
+            else
+            {
                 OF = 0;
             }
 
-            if ((a & 0xF) < (b & 0xF)) {
+            if ((a & 0xF) < (b & 0xF))
+            {
                 AF = 1;
-            } else {
+            }
+            else
+            {
                 AF = 0;
             }
 
@@ -450,21 +521,25 @@ int main(int argc, char *argv[]) {
 
             break;
         }
-        case OPCODE_POP: {
-            if (pc >= size) {
+        case OPCODE_POP:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for POP at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (sp == 0) {
+            if (sp == 0)
+            {
                 fprintf(stderr, "Stack underflow at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -473,8 +548,10 @@ int main(int argc, char *argv[]) {
             registers[reg] = stack[--sp];
             break;
         }
-        case OPCODE_JE: {
-            if (pc + 3 >= size) {
+        case OPCODE_JE:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operands for JE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -483,10 +560,11 @@ int main(int argc, char *argv[]) {
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (ZF) {
-                if (addr >= size) {
-                    fprintf(stderr, "JE address out of bounds: %u at pc=%zu\n",
-                            addr, pc);
+            if (ZF)
+            {
+                if (addr >= size)
+                {
+                    fprintf(stderr, "JE address out of bounds: %u at pc=%zu\n", addr, pc);
                     free(program);
                     free(stack);
                     return 1;
@@ -495,8 +573,10 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_JNE: {
-            if (pc + 3 >= size) {
+        case OPCODE_JNE:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operands for JNE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -505,10 +585,12 @@ int main(int argc, char *argv[]) {
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (!ZF) {
-                if (addr >= size) {
-                    fprintf(stderr, "JNE address out of bounds: %u at pc=%zu\n",
-                            addr, pc);
+            if (!ZF)
+            {
+                if (addr >= size)
+                {
+                    fprintf(stderr, "JNE address out of bounds: %u at pc=%zu\n", addr,
+                            pc);
                     free(program);
                     free(stack);
                     return 1;
@@ -517,10 +599,11 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_ADD: {
-            if (pc + 2 >= size) {
-                fprintf(stderr,
-                        "Missing operands for ADD at pc=%zu at pc=%zu\n", pc,
+        case OPCODE_ADD:
+        {
+            if (pc + 2 >= size)
+            {
+                fprintf(stderr, "Missing operands for ADD at pc=%zu at pc=%zu\n", pc,
                         pc);
                 free(program);
                 free(stack);
@@ -528,7 +611,8 @@ int main(int argc, char *argv[]) {
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
-            if (src >= REGISTERS || dst >= REGISTERS) {
+            if (src >= REGISTERS || dst >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in ADD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -537,8 +621,10 @@ int main(int argc, char *argv[]) {
             registers[dst] += registers[src];
             break;
         }
-        case OPCODE_SUB: {
-            if (pc + 2 >= size) {
+        case OPCODE_SUB:
+        {
+            if (pc + 2 >= size)
+            {
                 fprintf(stderr, "Missing operands for SUB at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -546,7 +632,8 @@ int main(int argc, char *argv[]) {
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
-            if (src >= REGISTERS || dst >= REGISTERS) {
+            if (src >= REGISTERS || dst >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in SUB at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -555,8 +642,10 @@ int main(int argc, char *argv[]) {
             registers[dst] -= registers[src];
             break;
         }
-        case OPCODE_MUL: {
-            if (pc + 2 >= size) {
+        case OPCODE_MUL:
+        {
+            if (pc + 2 >= size)
+            {
                 fprintf(stderr, "Missing operands for MUL at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -564,7 +653,8 @@ int main(int argc, char *argv[]) {
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
-            if (src >= REGISTERS || dst >= REGISTERS) {
+            if (src >= REGISTERS || dst >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in MUL at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -573,8 +663,10 @@ int main(int argc, char *argv[]) {
             registers[dst] *= registers[src];
             break;
         }
-        case OPCODE_DIV: {
-            if (pc + 2 >= size) {
+        case OPCODE_DIV:
+        {
+            if (pc + 2 >= size)
+            {
                 fprintf(stderr, "Missing operands for DIV at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -582,13 +674,15 @@ int main(int argc, char *argv[]) {
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
-            if (src >= REGISTERS || dst >= REGISTERS) {
+            if (src >= REGISTERS || dst >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in DIV at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (registers[src] == 0) {
+            if (registers[src] == 0)
+            {
                 fprintf(stderr, "Invalid: division by zero at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -598,8 +692,10 @@ int main(int argc, char *argv[]) {
             break;
         }
 
-        case OPCODE_PRINTREG: {
-            if (pc >= size) {
+        case OPCODE_PRINTREG:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for PRINTREG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -607,7 +703,8 @@ int main(int argc, char *argv[]) {
             }
 
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register");
                 free(program);
                 free(stack);
@@ -617,8 +714,10 @@ int main(int argc, char *argv[]) {
             fflush(stdout);
             break;
         }
-        case OPCODE_MOV_REG: {
-            if (pc + 2 >= size) {
+        case OPCODE_MOV_REG:
+        {
+            if (pc + 2 >= size)
+            {
                 fprintf(stderr, "Missing operands for MOV_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -626,7 +725,8 @@ int main(int argc, char *argv[]) {
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
-            if (dst >= REGISTERS || src >= REGISTERS) {
+            if (dst >= REGISTERS || src >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in MOV_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -635,15 +735,18 @@ int main(int argc, char *argv[]) {
             registers[dst] = registers[src];
             break;
         }
-        case OPCODE_MOV_IMM: {
-            if (pc + 4 >= size) {
+        case OPCODE_MOV_IMM:
+        {
+            if (pc + 4 >= size)
+            {
                 fprintf(stderr, "Missing operands for MOV_IMM at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t dst = program[pc++];
-            if (dst >= REGISTERS) {
+            if (dst >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in MOV_IMM at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -655,8 +758,10 @@ int main(int argc, char *argv[]) {
             registers[dst] = value;
             break;
         }
-        case OPCODE_JMP: {
-            if (pc + 3 >= size) {
+        case OPCODE_JMP:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operand for JMP at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -665,22 +770,25 @@ int main(int argc, char *argv[]) {
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc = addr;
-            if (pc >= size) {
-                fprintf(stderr, "JMP addr out of bounds: %zu at pc=%u\n", pc,
-                        addr);
+            if (pc >= size)
+            {
+                fprintf(stderr, "JMP addr out of bounds: %zu at pc=%u\n", pc, addr);
                 free(program);
                 free(stack);
                 return 1;
             }
             break;
         }
-        case OPCODE_NEWLINE: {
+        case OPCODE_NEWLINE:
+        {
             putchar('\n');
             break;
         }
-        case OPCODE_HALT: {
+        case OPCODE_HALT:
+        {
             uint8_t code = 0;
-            if (pc < size) {
+            if (pc < size)
+            {
                 code = program[pc++];
             }
             free(program);
@@ -690,8 +798,10 @@ int main(int argc, char *argv[]) {
             free(frame_base_stack);
             return (int)code;
         }
-        case OPCODE_PRINT: {
-            if (pc >= size) {
+        case OPCODE_PRINT:
+        {
+            if (pc >= size)
+            {
                 printf("Error: missing operand for PRINT at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -702,8 +812,10 @@ int main(int argc, char *argv[]) {
             putchar(value);
             break;
         }
-        case OPCODE_ALLOC: {
-            if (pc + 3 >= size) {
+        case OPCODE_ALLOC:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operand for ALLOC at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -715,9 +827,11 @@ int main(int argc, char *argv[]) {
                              (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
 
-            if (elems > stack_cap) {
+            if (elems > stack_cap)
+            {
                 int64_t *tmp = realloc(stack, elems * sizeof *stack);
-                if (!tmp) {
+                if (!tmp)
+                {
                     perror("realloc");
                     free(program);
                     free(stack);
@@ -729,8 +843,10 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_LOAD: {
-            if (pc + 5 >= size) {
+        case OPCODE_LOAD:
+        {
+            if (pc + 5 >= size)
+            {
                 fprintf(stderr, "Missing operands for LOAD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -740,15 +856,16 @@ int main(int argc, char *argv[]) {
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in LOAD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if ((size_t)addr >= stack_cap) {
-                fprintf(stderr, "LOAD address out of bounds: %u at pc=%zu\n",
-                        addr, pc);
+            if ((size_t)addr >= stack_cap)
+            {
+                fprintf(stderr, "LOAD address out of bounds: %u at pc=%zu\n", addr, pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -756,26 +873,28 @@ int main(int argc, char *argv[]) {
             registers[reg] = stack[addr];
             break;
         }
-        case OPCODE_LOAD_REG: {
-            if (pc + 1 >= size) {
-                fprintf(stderr, "Missing operands for LOAD_REG at pc=%zu\n",
-                        pc);
+        case OPCODE_LOAD_REG:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOAD_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
             uint8_t idxreg = program[pc++];
-            if (reg >= REGISTERS || idxreg >= REGISTERS) {
+            if (reg >= REGISTERS || idxreg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in LOAD_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             int64_t idx64 = registers[idxreg];
-            if (idx64 < 0 || (size_t)idx64 >= stack_cap) {
-                fprintf(stderr,
-                        "LOAD_REG address out of bounds: %lld at pc=%zu\n",
+            if (idx64 < 0 || (size_t)idx64 >= stack_cap)
+            {
+                fprintf(stderr, "LOAD_REG address out of bounds: %lld at pc=%zu\n",
                         (long long)idx64, pc);
                 free(program);
                 free(stack);
@@ -784,8 +903,10 @@ int main(int argc, char *argv[]) {
             registers[reg] = stack[(size_t)idx64];
             break;
         }
-        case OPCODE_STORE: {
-            if (pc + 5 >= size) {
+        case OPCODE_STORE:
+        {
+            if (pc + 5 >= size)
+            {
                 fprintf(stderr, "Missing operands for STORE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -795,15 +916,17 @@ int main(int argc, char *argv[]) {
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in STORE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if ((size_t)addr >= stack_cap) {
-                fprintf(stderr, "STORE address out of bounds: %u at pc=%zu\n",
-                        addr, pc);
+            if ((size_t)addr >= stack_cap)
+            {
+                fprintf(stderr, "STORE address out of bounds: %u at pc=%zu\n", addr,
+                        pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -811,27 +934,28 @@ int main(int argc, char *argv[]) {
             stack[addr] = registers[reg];
             break;
         }
-        case OPCODE_STORE_REG: {
-            if (pc + 1 >= size) {
-                fprintf(stderr, "Missing operands for STORE_REG at pc=%zu\n",
-                        pc);
+        case OPCODE_STORE_REG:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for STORE_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
             uint8_t idxreg = program[pc++];
-            if (reg >= REGISTERS || idxreg >= REGISTERS) {
-                fprintf(stderr, "Invalid register in STORE_REG at pc=%zu\n",
-                        pc);
+            if (reg >= REGISTERS || idxreg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in STORE_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             int64_t idx64 = registers[idxreg];
-            if (idx64 < 0 || (size_t)idx64 >= stack_cap) {
-                fprintf(stderr,
-                        "STORE_REG address out of bounds: %lld at pc=%zu\n",
+            if (idx64 < 0 || (size_t)idx64 >= stack_cap)
+            {
+                fprintf(stderr, "STORE_REG address out of bounds: %lld at pc=%zu\n",
                         (long long)idx64, pc);
                 free(program);
                 free(stack);
@@ -840,8 +964,10 @@ int main(int argc, char *argv[]) {
             stack[(size_t)idx64] = registers[reg];
             break;
         }
-        case OPCODE_LOADVAR: {
-            if (pc + 5 >= size) {
+        case OPCODE_LOADVAR:
+        {
+            if (pc + 5 >= size)
+            {
                 fprintf(stderr, "Missing operands for LOADVAR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -851,7 +977,8 @@ int main(int argc, char *argv[]) {
             uint32_t slot = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in LOADVAR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -859,9 +986,10 @@ int main(int argc, char *argv[]) {
             }
             size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
             size_t abs_idx = frame_base + (size_t)slot;
-            if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
-                fprintf(stderr, "LOADVAR slot out of bounds: %zu at pc=%zu\n",
-                        abs_idx, pc);
+            if (abs_idx >= vars_cap || abs_idx >= vars_sp)
+            {
+                fprintf(stderr, "LOADVAR slot out of bounds: %zu at pc=%zu\n", abs_idx,
+                        pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -869,25 +997,27 @@ int main(int argc, char *argv[]) {
             registers[reg] = vars[abs_idx];
             break;
         }
-        case OPCODE_LOADVAR_REG: {
-            if (pc + 1 >= size) {
-                fprintf(stderr, "Missing operands for LOADVAR_REG at pc=%zu\n",
-                        pc);
+        case OPCODE_LOADVAR_REG:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADVAR_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
             uint8_t idxreg = program[pc++];
-            if (reg >= REGISTERS || idxreg >= REGISTERS) {
-                fprintf(stderr, "Invalid register in LOADVAR_REG at pc=%zu\n",
-                        pc);
+            if (reg >= REGISTERS || idxreg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOADVAR_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             int64_t slot64 = registers[idxreg];
-            if (slot64 < 0) {
+            if (slot64 < 0)
+            {
                 fprintf(stderr, "LOADVAR_REG negative slot: %lld at pc=%zu\n",
                         (long long)slot64, pc);
                 free(program);
@@ -896,9 +1026,9 @@ int main(int argc, char *argv[]) {
             }
             size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
             size_t abs_idx = frame_base + (size_t)slot64;
-            if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
-                fprintf(stderr,
-                        "LOADVAR_REG slot out of bounds: %zu at pc=%zu\n",
+            if (abs_idx >= vars_cap || abs_idx >= vars_sp)
+            {
+                fprintf(stderr, "LOADVAR_REG slot out of bounds: %zu at pc=%zu\n",
                         abs_idx, pc);
                 free(program);
                 free(stack);
@@ -907,10 +1037,11 @@ int main(int argc, char *argv[]) {
             registers[reg] = vars[abs_idx];
             break;
         }
-        case OPCODE_STOREVAR: {
-            if (pc + 5 >= size) {
-                fprintf(stderr, "Missing operands for STOREVAR at pc=%zu\n",
-                        pc);
+        case OPCODE_STOREVAR:
+        {
+            if (pc + 5 >= size)
+            {
+                fprintf(stderr, "Missing operands for STOREVAR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -919,7 +1050,8 @@ int main(int argc, char *argv[]) {
             uint32_t slot = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in STOREVAR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -927,9 +1059,10 @@ int main(int argc, char *argv[]) {
             }
             size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
             size_t abs_idx = frame_base + (size_t)slot;
-            if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
-                fprintf(stderr, "STOREVAR slot out of bounds: %zu at pc=%zu\n",
-                        abs_idx, pc);
+            if (abs_idx >= vars_cap || abs_idx >= vars_sp)
+            {
+                fprintf(stderr, "STOREVAR slot out of bounds: %zu at pc=%zu\n", abs_idx,
+                        pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -937,25 +1070,27 @@ int main(int argc, char *argv[]) {
             vars[abs_idx] = registers[reg];
             break;
         }
-        case OPCODE_STOREVAR_REG: {
-            if (pc + 1 >= size) {
-                fprintf(stderr, "Missing operands for STOREVAR_REG at pc=%zu\n",
-                        pc);
+        case OPCODE_STOREVAR_REG:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for STOREVAR_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
             uint8_t idxreg = program[pc++];
-            if (reg >= REGISTERS || idxreg >= REGISTERS) {
-                fprintf(stderr, "Invalid register in STOREVAR_REG at pc=%zu\n",
-                        pc);
+            if (reg >= REGISTERS || idxreg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in STOREVAR_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             int64_t slot64 = registers[idxreg];
-            if (slot64 < 0) {
+            if (slot64 < 0)
+            {
                 fprintf(stderr, "STOREVAR_REG negative slot: %lld at pc=%zu\n",
                         (long long)slot64, pc);
                 free(program);
@@ -964,9 +1099,9 @@ int main(int argc, char *argv[]) {
             }
             size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
             size_t abs_idx = frame_base + (size_t)slot64;
-            if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
-                fprintf(stderr,
-                        "STOREVAR_REG slot out of bounds: %zu at pc=%zu\n",
+            if (abs_idx >= vars_cap || abs_idx >= vars_sp)
+            {
+                fprintf(stderr, "STOREVAR_REG slot out of bounds: %zu at pc=%zu\n",
                         abs_idx, pc);
                 free(program);
                 free(stack);
@@ -975,8 +1110,10 @@ int main(int argc, char *argv[]) {
             vars[abs_idx] = registers[reg];
             break;
         }
-        case OPCODE_GROW: {
-            if (pc + 3 >= size) {
+        case OPCODE_GROW:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operand for GROW at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -993,7 +1130,8 @@ int main(int argc, char *argv[]) {
             size_t new_cap = stack_cap + elem;
 
             int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
-            if (!tmp) {
+            if (!tmp)
+            {
                 perror("realloc");
                 free(program);
                 free(stack);
@@ -1003,13 +1141,16 @@ int main(int argc, char *argv[]) {
             stack_cap = new_cap;
             break;
         }
-        case OPCODE_PRINT_STACKSIZE: {
+        case OPCODE_PRINT_STACKSIZE:
+        {
             printf("%zu", stack_cap);
             fflush(stdout);
             break;
         }
-        case OPCODE_RESIZE: {
-            if (pc + 3 >= size) {
+        case OPCODE_RESIZE:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operand for RESIZE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1017,12 +1158,12 @@ int main(int argc, char *argv[]) {
             }
 
             uint32_t new_size = program[pc] | (program[pc + 1] << 8) |
-                                (program[pc + 2] << 16) |
-                                (program[pc + 3] << 24);
+                                (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
 
             int64_t *tmp = realloc(stack, new_size * sizeof *stack);
-            if (!tmp) {
+            if (!tmp)
+            {
                 perror("realloc");
                 free(program);
                 free(stack);
@@ -1030,13 +1171,16 @@ int main(int argc, char *argv[]) {
             }
             stack = tmp;
             stack_cap = new_size;
-            if (sp > stack_cap) {
+            if (sp > stack_cap)
+            {
                 sp = stack_cap;
             }
             break;
         }
-        case OPCODE_FREE: {
-            if (pc + 3 >= size) {
+        case OPCODE_FREE:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operand for FREE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1050,9 +1194,9 @@ int main(int argc, char *argv[]) {
             if (num == 0)
                 break;
 
-            if (num > stack_cap) {
-                fprintf(stderr, "FREE size out of bounds: %u at pc=%zu\n", num,
-                        pc);
+            if (num > stack_cap)
+            {
+                fprintf(stderr, "FREE size out of bounds: %u at pc=%zu\n", num, pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -1061,7 +1205,8 @@ int main(int argc, char *argv[]) {
             size_t new_cap = stack_cap - num;
 
             int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
-            if (!tmp) {
+            if (!tmp)
+            {
                 perror("realloc");
                 free(program);
                 free(stack);
@@ -1071,8 +1216,10 @@ int main(int argc, char *argv[]) {
             stack_cap = new_cap;
             break;
         }
-        case OPCODE_FOPEN: {
-            if (pc + 2 >= size) {
+        case OPCODE_FOPEN:
+        {
+            if (pc + 2 >= size)
+            {
                 fprintf(stderr, "Missing operands for FOPEN at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1082,21 +1229,23 @@ int main(int argc, char *argv[]) {
             uint8_t fd = program[pc++];
             uint8_t fname_len = program[pc++];
 
-            if (fd >= FILE_DESCRIPTORS) {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd,
+            if (fd >= FILE_DESCRIPTORS)
+            {
+                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            if (fname_len == 0 || fname_len >= 255)
+            {
+                fprintf(stderr, "Invalid filename length %u at pc=%zu\n", fname_len,
                         pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (fname_len == 0 || fname_len >= 255) {
-                fprintf(stderr, "Invalid filename length %u at pc=%zu\n",
-                        fname_len, pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-            if (pc + fname_len > size) {
+            if (pc + fname_len > size)
+            {
                 fprintf(stderr, "Filename past end of program at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1115,31 +1264,41 @@ int main(int argc, char *argv[]) {
                 mode = "w";
             else if (mode_str == 2)
                 mode = "a";
-            else {
+            else
+            {
                 fprintf(stderr, "Invalid mode %u at pc=%zu\n", mode_str, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (fds[fd]) {
+            if (fds[fd])
+            {
                 if (fds_owned[fd])
                     fclose(fds[fd]);
                 fds[fd] = NULL;
                 fds_owned[fd] = 0;
             }
 
-            if (strcmp(fname, "/dev/stdout") == 0) {
+            if (strcmp(fname, "/dev/stdout") == 0)
+            {
                 fds[fd] = stdout;
                 fds_owned[fd] = 0;
-            } else if (strcmp(fname, "/dev/stderr") == 0) {
+            }
+            else if (strcmp(fname, "/dev/stderr") == 0)
+            {
                 fds[fd] = stderr;
                 fds_owned[fd] = 0;
-            } else if (strcmp(fname, "/dev/stdin") == 0) {
+            }
+            else if (strcmp(fname, "/dev/stdin") == 0)
+            {
                 fds[fd] = stdin;
                 fds_owned[fd] = 0;
-            } else {
+            }
+            else
+            {
                 FILE *file = fopen(fname, mode);
-                if (!file) {
+                if (!file)
+                {
                     perror("fopen");
                     free(program);
                     free(stack);
@@ -1150,22 +1309,25 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_FCLOSE: {
-            if (pc >= size) {
+        case OPCODE_FCLOSE:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for FCLOSE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t fd = program[pc++];
-            if (fd >= FILE_DESCRIPTORS) {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd,
-                        pc);
+            if (fd >= FILE_DESCRIPTORS)
+            {
+                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (fds[fd]) {
+            if (fds[fd])
+            {
                 if (fds_owned[fd])
                     fclose(fds[fd]);
                 fds[fd] = NULL;
@@ -1173,8 +1335,10 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_FREAD: {
-            if (pc + 1 >= size) {
+        case OPCODE_FREAD:
+        {
+            if (pc + 1 >= size)
+            {
                 fprintf(stderr, "Missing operands for FREAD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1183,21 +1347,23 @@ int main(int argc, char *argv[]) {
             size_t operand_pc = pc;
             uint8_t fd = program[pc++];
             uint8_t reg = program[pc++];
-            if (fd >= FILE_DESCRIPTORS) {
+            if (fd >= FILE_DESCRIPTORS)
+            {
                 fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd,
                         operand_pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (reg >= REGISTERS) {
-                fprintf(stderr, "Invalid register %u at pc=%zu\n", reg,
-                        operand_pc);
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, operand_pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (!fds[fd]) {
+            if (!fds[fd])
+            {
                 fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd,
                         operand_pc);
                 free(program);
@@ -1205,52 +1371,61 @@ int main(int argc, char *argv[]) {
                 return 1;
             }
             int c = fgetc(fds[fd]);
-            if (c == EOF) {
-                if (feof(fds[fd])) {
+            if (c == EOF)
+            {
+                if (feof(fds[fd]))
+                {
                     registers[reg] = -1;
-                } else {
+                }
+                else
+                {
                     perror("fgetc");
                     free(program);
                     free(stack);
                     return 1;
                 }
-            } else {
+            }
+            else
+            {
                 registers[reg] = (int64_t)c;
             }
             break;
         }
-        case OPCODE_FWRITE_REG: {
-            if (pc + 1 >= size) {
-                fprintf(stderr, "Missing operands for FWRITE_REG at pc=%zu\n",
-                        pc);
+        case OPCODE_FWRITE_REG:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for FWRITE_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t fd = program[pc++];
             uint8_t reg = program[pc++];
-            if (fd >= FILE_DESCRIPTORS) {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd,
-                        pc);
+            if (fd >= FILE_DESCRIPTORS)
+            {
+                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (!fds[fd]) {
-                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd,
-                        pc);
+            if (!fds[fd])
+            {
+                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             int val = (int)registers[reg];
-            if (fputc(val, fds[fd]) == EOF) {
+            if (fputc(val, fds[fd]) == EOF)
+            {
                 perror("fputc");
                 free(program);
                 free(stack);
@@ -1258,10 +1433,11 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_FWRITE_IMM: {
-            if (pc + 4 >= size) {
-                fprintf(stderr, "Missing operands for FWRITE_IMM at pc=%zu\n",
-                        pc);
+        case OPCODE_FWRITE_IMM:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for FWRITE_IMM at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -1270,21 +1446,22 @@ int main(int argc, char *argv[]) {
             int32_t value = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (fd >= FILE_DESCRIPTORS) {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd,
-                        pc);
+            if (fd >= FILE_DESCRIPTORS)
+            {
+                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (!fds[fd]) {
-                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd,
-                        pc);
+            if (!fds[fd])
+            {
+                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (fputc(value, fds[fd]) == EOF) {
+            if (fputc(value, fds[fd]) == EOF)
+            {
                 perror("fputc");
                 free(program);
                 free(stack);
@@ -1292,37 +1469,40 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_FSEEK_REG: {
-            if (pc + 1 >= size) {
-                fprintf(stderr, "Missing operands for FSEEK_REG at pc=%zu\n",
-                        pc);
+        case OPCODE_FSEEK_REG:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for FSEEK_REG at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t fd = program[pc++];
             uint8_t reg = program[pc++];
-            if (fd >= FILE_DESCRIPTORS) {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd,
-                        pc);
+            if (fd >= FILE_DESCRIPTORS)
+            {
+                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (!fds[fd]) {
-                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd,
-                        pc);
+            if (!fds[fd])
+            {
+                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (fseek(fds[fd], registers[reg], SEEK_SET) != 0) {
+            if (fseek(fds[fd], registers[reg], SEEK_SET) != 0)
+            {
                 perror("fseek");
                 free(program);
                 free(stack);
@@ -1330,10 +1510,11 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_FSEEK_IMM: {
-            if (pc + 3 >= size) {
-                fprintf(stderr, "Missing operands for FSEEK_IMM at pc=%zu\n",
-                        pc);
+        case OPCODE_FSEEK_IMM:
+        {
+            if (pc + 3 >= size)
+            {
+                fprintf(stderr, "Missing operands for FSEEK_IMM at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -1342,21 +1523,22 @@ int main(int argc, char *argv[]) {
             int32_t offset = program[pc] | (program[pc + 1] << 8) |
                              (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (fd >= FILE_DESCRIPTORS) {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd,
-                        pc);
+            if (fd >= FILE_DESCRIPTORS)
+            {
+                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (!fds[fd]) {
-                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd,
-                        pc);
+            if (!fds[fd])
+            {
+                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd, pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (fseek(fds[fd], offset, SEEK_SET) != 0) {
+            if (fseek(fds[fd], offset, SEEK_SET) != 0)
+            {
                 perror("fseek");
                 free(program);
                 free(stack);
@@ -1364,8 +1546,10 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_LOADSTR: {
-            if (pc + 4 >= size) {
+        case OPCODE_LOADSTR:
+        {
+            if (pc + 4 >= size)
+            {
                 fprintf(stderr, "Missing operands for LOADSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1375,15 +1559,17 @@ int main(int argc, char *argv[]) {
             uint32_t offset = program[pc] | (program[pc + 1] << 8) |
                               (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in LOADSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (offset >= data_table_size) {
-                fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n",
-                        offset, pc);
+            if (offset >= data_table_size)
+            {
+                fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", offset,
+                        pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -1391,15 +1577,18 @@ int main(int argc, char *argv[]) {
             registers[reg] = offset;
             break;
         }
-        case OPCODE_PRINTSTR: {
-            if (pc >= size) {
+        case OPCODE_PRINTSTR:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for PRINTSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in PRINTSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1408,9 +1597,10 @@ int main(int argc, char *argv[]) {
 
             uint32_t offset = (uint32_t)registers[reg];
 
-            if (offset >= data_table_size) {
-                fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n",
-                        offset, pc);
+            if (offset >= data_table_size)
+            {
+                fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", offset,
+                        pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -1420,15 +1610,18 @@ int main(int argc, char *argv[]) {
             fflush(stdout);
             break;
         }
-        case OPCODE_NOT: {
-            if (pc >= size) {
+        case OPCODE_NOT:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for NOT at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in NOT at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1437,8 +1630,10 @@ int main(int argc, char *argv[]) {
             registers[reg] = ~registers[reg];
             break;
         }
-        case OPCODE_AND: {
-            if (pc + 1 >= size) {
+        case OPCODE_AND:
+        {
+            if (pc + 1 >= size)
+            {
                 fprintf(stderr, "Missing operands for AND at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1446,7 +1641,8 @@ int main(int argc, char *argv[]) {
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
-            if (dst >= REGISTERS || src >= REGISTERS) {
+            if (dst >= REGISTERS || src >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in AND at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1455,8 +1651,10 @@ int main(int argc, char *argv[]) {
             registers[dst] = registers[dst] & registers[src];
             break;
         }
-        case OPCODE_OR: {
-            if (pc + 1 >= size) {
+        case OPCODE_OR:
+        {
+            if (pc + 1 >= size)
+            {
                 fprintf(stderr, "Missing operands for OR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1464,7 +1662,8 @@ int main(int argc, char *argv[]) {
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
-            if (dst >= REGISTERS || src >= REGISTERS) {
+            if (dst >= REGISTERS || src >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in OR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1473,8 +1672,10 @@ int main(int argc, char *argv[]) {
             registers[dst] = registers[dst] | registers[src];
             break;
         }
-        case OPCODE_XOR: {
-            if (pc + 1 >= size) {
+        case OPCODE_XOR:
+        {
+            if (pc + 1 >= size)
+            {
                 fprintf(stderr, "Missing operands for XOR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1482,7 +1683,8 @@ int main(int argc, char *argv[]) {
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
-            if (dst >= REGISTERS || src >= REGISTERS) {
+            if (dst >= REGISTERS || src >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in XOR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1491,15 +1693,18 @@ int main(int argc, char *argv[]) {
             registers[dst] = registers[dst] ^ registers[src];
             break;
         }
-        case OPCODE_READSTR: {
-            if (pc >= size) {
+        case OPCODE_READSTR:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for READSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in READSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1509,11 +1714,14 @@ int main(int argc, char *argv[]) {
             uint32_t start_addr = sp | 0x80000000;
 
             int c;
-            while ((c = getchar()) != EOF && c != '\n') {
-                if (sp >= stack_cap) {
+            while ((c = getchar()) != EOF && c != '\n')
+            {
+                if (sp >= stack_cap)
+                {
                     size_t new_cap = stack_cap + stack_cap / 2;
                     int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
-                    if (!tmp) {
+                    if (!tmp)
+                    {
                         perror("realloc");
                         free(program);
                         free(stack);
@@ -1524,10 +1732,12 @@ int main(int argc, char *argv[]) {
                 }
                 stack[sp++] = c;
             }
-            if (sp >= stack_cap) {
+            if (sp >= stack_cap)
+            {
                 size_t new_cap = stack_cap + stack_cap / 2;
                 int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
-                if (!tmp) {
+                if (!tmp)
+                {
                     perror("realloc");
                     free(program);
                     free(stack);
@@ -1541,8 +1751,10 @@ int main(int argc, char *argv[]) {
             registers[reg] = start_addr;
             break;
         }
-        case OPCODE_SLEEP: {
-            if (pc + 3 >= size) {
+        case OPCODE_SLEEP:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operand for SLEEP at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1561,7 +1773,8 @@ int main(int argc, char *argv[]) {
 #endif
             break;
         }
-        case OPCODE_CLRSCR: {
+        case OPCODE_CLRSCR:
+        {
 #ifdef _WIN32
             system("cls");
 #else
@@ -1570,62 +1783,78 @@ int main(int argc, char *argv[]) {
 #endif
             break;
         }
-        case OPCODE_RAND: {
-            if (pc >= size) {
+        case OPCODE_RAND:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for RAND at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in RAND at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (pc + 16 <= size) {
+            if (pc + 16 <= size)
+            {
                 int64_t min = read_i64(program, &pc);
                 int64_t max = read_i64(program, &pc);
                 uint64_t r = get_true_random();
-                if (min > max) {
+                if (min > max)
+                {
                     int64_t t = min;
                     min = max;
                     max = t;
                 }
                 uint64_t range;
-                if ((uint64_t)(max - min) == UINT64_MAX) {
+                if ((uint64_t)(max - min) == UINT64_MAX)
+                {
                     registers[reg] = (int64_t)r;
-                } else {
+                }
+                else
+                {
                     range = (uint64_t)(max - min) + 1;
                     if (range == 0)
                         registers[reg] = (int64_t)r;
                     else
                         registers[reg] = min + (int64_t)(r % range);
                 }
-            } else {
+            }
+            else
+            {
                 registers[reg] = (int64_t)get_true_random();
             }
             break;
         }
-        case OPCODE_GETKEY: {
-            if (pc >= size) {
+        case OPCODE_GETKEY:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for GETKEY at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in GETKEY at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
 #ifdef _WIN32
-            if (_kbhit()) {
+            if (_kbhit())
+            {
                 registers[reg] = (int64_t)_getch();
-            } else {
+            }
+            else
+            {
                 registers[reg] = -1;
             }
 #else
@@ -1646,25 +1875,31 @@ int main(int argc, char *argv[]) {
                 tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
                 fcntl(STDIN_FILENO, F_SETFL, oldf);
 
-                if (ch == EOF) {
+                if (ch == EOF)
+                {
                     clearerr(stdin);
                     registers[reg] = -1;
-                } else {
+                }
+                else
+                {
                     registers[reg] = (int64_t)ch;
                 }
             }
 #endif
             break;
         }
-        case OPCODE_READ: {
-            if (pc >= size) {
+        case OPCODE_READ:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for READ at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in READ at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1678,15 +1913,18 @@ int main(int argc, char *argv[]) {
                 registers[reg] = (int64_t)v;
             break;
         }
-        case OPCODE_READCHAR: {
-            if (pc >= size) {
+        case OPCODE_READCHAR:
+        {
+            if (pc >= size)
+            {
                 fprintf(stderr, "Missing operand for READCHAR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in READCHAR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1697,9 +1935,12 @@ int main(int argc, char *argv[]) {
             while ((c = getchar()) != EOF &&
                    (c == ' ' || c == '\t' || c == '\n' || c == '\r'))
                 ;
-            if (c == EOF) {
+            if (c == EOF)
+            {
                 registers[reg] = 0;
-            } else {
+            }
+            else
+            {
                 registers[reg] = (int64_t)(unsigned char)c;
                 int ch;
                 while ((ch = getchar()) != EOF && ch != '\n')
@@ -1707,12 +1948,14 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_BREAK: {
-            if (breakpoints_enabled) {
+        case OPCODE_BREAK:
+        {
+            if (breakpoints_enabled)
+            {
                 printf("[BREAK] pc=%zu opcode=0x%02X %s\n", pc - 1,
-                       (unsigned int)program[pc - 1],
-                       opcode_name(program[pc - 1]));
-                if (!dbg_instructions_shown) {
+                       (unsigned int)program[pc - 1], opcode_name(program[pc - 1]));
+                if (!dbg_instructions_shown)
+                {
                     printf("Debugger commands:\n");
                     printf("Enter - step one instruction\n");
                     printf("c - continue (disable debugger)\n");
@@ -1720,11 +1963,11 @@ int main(int argc, char *argv[]) {
                     printf("rN - show first N registers (e.g. r20)\n");
                     printf("s - show top 8 stack entries\n");
                     printf("sN - show top N stack entries (e.g. s10)\n");
-                    printf("sM-N - show stack entries from index M to N "
-                           "(inclusive)\n");
+                    printf("sM-N - show stack entries from index M to N (inclusive)\n");
                     dbg_instructions_shown = true;
                 }
-                for (;;) {
+                for (;;)
+                {
                     printf("> ");
                     fflush(stdout);
                     char cmdb[128];
@@ -1733,16 +1976,21 @@ int main(int argc, char *argv[]) {
                     char *p = cmdb;
                     while (*p == ' ' || *p == '\t')
                         p++;
-                    if (p[0] == 'c') {
+                    if (p[0] == 'c')
+                    {
                         break;
-                    } else if (p[0] == 'q') {
+                    }
+                    else if (p[0] == 'q')
+                    {
                         free(program);
                         free(stack);
                         free(call_stack);
                         free(vars);
                         free(frame_base_stack);
                         return 0;
-                    } else if (p[0] == 'r') {
+                    }
+                    else if (p[0] == 'r')
+                    {
                         int n = 0;
                         if (p[1] != '\0' && (p[1] >= '0' && p[1] <= '9'))
                             n = atoi(p + 1);
@@ -1750,15 +1998,21 @@ int main(int argc, char *argv[]) {
                             n = 16;
                         print_regs(registers, n);
                         continue;
-                    } else if (p[0] == 's') {
+                    }
+                    else if (p[0] == 's')
+                    {
                         char *q = p + 1;
                         while (*q == ' ' || *q == '\t')
                             q++;
-                        if (*q == '\0' || *q == '\n') {
+                        if (*q == '\0' || *q == '\n')
+                        {
                             print_stack(stack, sp);
-                        } else {
+                        }
+                        else
+                        {
                             char *dash = strchr(q, '-');
-                            if (dash) {
+                            if (dash)
+                            {
                                 *dash = '\0';
                                 int a = atoi(q);
                                 int b = atoi(dash + 1);
@@ -1766,48 +2020,56 @@ int main(int argc, char *argv[]) {
                                     a = 0;
                                 if (b < 0)
                                     b = 0;
-                                if ((size_t)a >= sp || (size_t)b >= sp ||
-                                    a > b) {
-                                    printf("Invalid stack range %d-%d (stack "
-                                           "size=%zu)\n",
-                                           a, b, sp);
-                                } else {
+                                if ((size_t)a >= sp || (size_t)b >= sp || a > b)
+                                {
+                                    printf("Invalid stack range %d-%d (stack size=%zu)\n", a, b,
+                                           sp);
+                                }
+                                else
+                                {
                                     printf("Stack entries %d..%d:\n", a, b);
                                     for (int i = a; i <= b; i++)
-                                        printf(" [%d]=%lld", i,
-                                               (long long)stack[i]);
+                                        printf(" [%d]=%lld", i, (long long)stack[i]);
                                     printf("\n");
                                 }
-                            } else if (q[0] >= '0' && q[0] <= '9') {
+                            }
+                            else if (q[0] >= '0' && q[0] <= '9')
+                            {
                                 int n = atoi(q);
                                 if (n <= 0)
                                     n = 8;
                                 size_t show = (size_t)n < sp ? (size_t)n : sp;
-                                printf("Stack size=%zu, top %zu entries:\n", sp,
-                                       show);
-                                for (size_t i = 0; i < show; i++) {
+                                printf("Stack size=%zu, top %zu entries:\n", sp, show);
+                                for (size_t i = 0; i < show; i++)
+                                {
                                     size_t idx = (sp == 0) ? 0 : sp - 1 - i;
-                                    printf(" [%zu]=%lld", idx,
-                                           (long long)stack[idx]);
+                                    printf(" [%zu]=%lld", idx, (long long)stack[idx]);
                                 }
                                 printf("\n");
                             }
                         }
                         continue;
-                    } else {
+                    }
+                    else
+                    {
                         continue;
                     }
                 }
-            } else {
+            }
+            else
+            {
                 break;
             }
             break;
         }
-        case OPCODE_CONTINUE: {
+        case OPCODE_CONTINUE:
+        {
             break;
         }
-        case OPCODE_JL: {
-            if (pc + 3 >= size) {
+        case OPCODE_JL:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operands for JL at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1816,10 +2078,11 @@ int main(int argc, char *argv[]) {
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (SF != OF) {
-                if (pc >= size) {
-                    fprintf(stderr, "JL addr out of bounds: %zu at pc=%u\n", pc,
-                            addr);
+            if (SF != OF)
+            {
+                if (pc >= size)
+                {
+                    fprintf(stderr, "JL addr out of bounds: %zu at pc=%u\n", pc, addr);
                     free(program);
                     free(stack);
                     return 1;
@@ -1828,8 +2091,10 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_JGE: {
-            if (pc + 3 >= size) {
+        case OPCODE_JGE:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operands for JGE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1838,10 +2103,11 @@ int main(int argc, char *argv[]) {
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (SF == OF) {
-                if (pc >= size) {
-                    fprintf(stderr, "JGE addr out of bounds: %zu at pc=%u\n",
-                            pc, addr);
+            if (SF == OF)
+            {
+                if (pc >= size)
+                {
+                    fprintf(stderr, "JGE addr out of bounds: %zu at pc=%u\n", pc, addr);
                     free(program);
                     free(stack);
                     return 1;
@@ -1850,8 +2116,10 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_JB: {
-            if (pc + 3 >= size) {
+        case OPCODE_JB:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operands for JB at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1860,10 +2128,11 @@ int main(int argc, char *argv[]) {
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (CF == 1) {
-                if (pc >= size) {
-                    fprintf(stderr, "JB addr out of bounds: %zu at pc=%u\n", pc,
-                            addr);
+            if (CF == 1)
+            {
+                if (pc >= size)
+                {
+                    fprintf(stderr, "JB addr out of bounds: %zu at pc=%u\n", pc, addr);
                     free(program);
                     free(stack);
                     return 1;
@@ -1872,8 +2141,10 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_JAE: {
-            if (pc + 3 >= size) {
+        case OPCODE_JAE:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operands for JAE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1882,10 +2153,11 @@ int main(int argc, char *argv[]) {
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (CF == 0) {
-                if (pc >= size) {
-                    fprintf(stderr, "JAE addr out of bounds: %zu at pc=%u\n",
-                            pc, addr);
+            if (CF == 0)
+            {
+                if (pc >= size)
+                {
+                    fprintf(stderr, "JAE addr out of bounds: %zu at pc=%u\n", pc, addr);
                     free(program);
                     free(stack);
                     return 1;
@@ -1894,8 +2166,10 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_CALL: {
-            if (pc + 3 >= size) {
+        case OPCODE_CALL:
+        {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing operand for CALL at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1904,27 +2178,29 @@ int main(int argc, char *argv[]) {
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (pc + 3 >= size) {
+            if (pc + 3 >= size)
+            {
                 fprintf(stderr, "Missing frame size for CALL at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
             uint32_t frame_size = program[pc] | (program[pc + 1] << 8) |
-                                  (program[pc + 2] << 16) |
-                                  (program[pc + 3] << 24);
+                                  (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (addr >= size) {
-                fprintf(stderr, "CALL addr out of bounds: %zu at pc=%u\n", pc,
-                        addr);
+            if (addr >= size)
+            {
+                fprintf(stderr, "CALL addr out of bounds: %zu at pc=%u\n", pc, addr);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (csp >= call_stack_cap) {
+            if (csp >= call_stack_cap)
+            {
                 size_t new_cap = call_stack_cap + call_stack_cap / 2;
                 size_t *tmp = realloc(call_stack, new_cap * sizeof *call_stack);
-                if (!tmp) {
+                if (!tmp)
+                {
                     perror("realloc");
                     free(program);
                     free(stack);
@@ -1934,11 +2210,13 @@ int main(int argc, char *argv[]) {
                 call_stack = tmp;
                 call_stack_cap = new_cap;
             }
-            if (fsp >= frame_stack_cap) {
+            if (fsp >= frame_stack_cap)
+            {
                 size_t new_cap = frame_stack_cap + frame_stack_cap / 2;
-                size_t *tmp = realloc(frame_base_stack,
-                                      new_cap * sizeof *frame_base_stack);
-                if (!tmp) {
+                size_t *tmp =
+                    realloc(frame_base_stack, new_cap * sizeof *frame_base_stack);
+                if (!tmp)
+                {
                     perror("realloc");
                     free(program);
                     free(stack);
@@ -1954,12 +2232,14 @@ int main(int argc, char *argv[]) {
             call_stack[csp++] = pc;
             frame_base_stack[fsp++] = vars_sp;
 
-            if (vars_sp + (size_t)frame_size > vars_cap) {
+            if (vars_sp + (size_t)frame_size > vars_cap)
+            {
                 size_t new_cap = vars_cap + vars_cap / 2;
                 if (new_cap <= vars_sp + (size_t)frame_size)
                     new_cap = vars_sp + (size_t)frame_size;
                 int64_t *tmp = realloc(vars, new_cap * sizeof *vars);
-                if (!tmp) {
+                if (!tmp)
+                {
                     perror("realloc");
                     free(program);
                     free(stack);
@@ -1976,8 +2256,10 @@ int main(int argc, char *argv[]) {
             pc = addr;
             break;
         }
-        case OPCODE_RET: {
-            if (csp == 0 || fsp == 0) {
+        case OPCODE_RET:
+        {
+            if (csp == 0 || fsp == 0)
+            {
                 fprintf(stderr, "Stack underflow on RET at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -1989,9 +2271,9 @@ int main(int argc, char *argv[]) {
             size_t old_pc = pc;
             pc = call_stack[--csp];
             vars_sp = frame_base_stack[--fsp];
-            if (pc >= size) {
-                fprintf(stderr,
-                        "Return address %zu out of bounds, popped at pc=%zu\n",
+            if (pc >= size)
+            {
+                fprintf(stderr, "Return address %zu out of bounds, popped at pc=%zu\n",
                         pc, old_pc);
                 free(program);
                 free(stack);
@@ -2002,10 +2284,11 @@ int main(int argc, char *argv[]) {
             }
             break;
         }
-        case OPCODE_LOADBYTE: {
-            if (pc + 4 >= size) {
-                fprintf(stderr, "Missing operands for LOADBYTE at pc=%zu\n",
-                        pc);
+        case OPCODE_LOADBYTE:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADBYTE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -2014,23 +2297,26 @@ int main(int argc, char *argv[]) {
             uint32_t offset = program[pc] | (program[pc + 1] << 8) |
                               (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in LOADBYTE at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (offset >= data_table_size) {
+            if (offset >= data_table_size)
+            {
                 fprintf(stderr, "Data offset out of bounds: %u\n", offset);
                 exit(1);
             }
             registers[reg] = (int64_t)data_table[offset];
             break;
         }
-        case OPCODE_LOADWORD: {
-            if (pc + 4 >= size) {
-                fprintf(stderr, "Missing operands for LOADWORD at pc=%zu\n",
-                        pc);
+        case OPCODE_LOADWORD:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADWORD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -2041,14 +2327,16 @@ int main(int argc, char *argv[]) {
                               (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
 
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in LOADWORD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
 
-            if (offset + 1 >= data_table_size) {
+            if (offset + 1 >= data_table_size)
+            {
                 fprintf(stderr, "Data offset out of bounds: %u\n", offset);
                 exit(1);
             }
@@ -2057,10 +2345,11 @@ int main(int argc, char *argv[]) {
 
             break;
         }
-        case OPCODE_LOADDWORD: {
-            if (pc + 4 >= size) {
-                fprintf(stderr, "Missing operands for LOADDWORD at pc=%zu\n",
-                        pc);
+        case OPCODE_LOADDWORD:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADDWORD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -2071,15 +2360,16 @@ int main(int argc, char *argv[]) {
                               (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
 
-            if (reg >= REGISTERS) {
-                fprintf(stderr, "Invalid register in LOADDWORD at pc=%zu\n",
-                        pc);
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOADDWORD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
 
-            if (offset + 3 >= data_table_size) {
+            if (offset + 3 >= data_table_size)
+            {
                 fprintf(stderr, "Data offset out of bounds: %u\n", offset);
                 exit(1);
             }
@@ -2090,10 +2380,11 @@ int main(int argc, char *argv[]) {
 
             break;
         }
-        case OPCODE_LOADQWORD: {
-            if (pc + 4 >= size) {
-                fprintf(stderr, "Missing operands for LOADQWORD at pc=%zu\n",
-                        pc);
+        case OPCODE_LOADQWORD:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for LOADQWORD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -2104,15 +2395,16 @@ int main(int argc, char *argv[]) {
                               (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
 
-            if (reg >= REGISTERS) {
-                fprintf(stderr, "Invalid register in LOADQWORD at pc=%zu\n",
-                        pc);
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in LOADQWORD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
 
-            if (offset + 7 >= data_table_size) {
+            if (offset + 7 >= data_table_size)
+            {
                 fprintf(stderr, "Data offset out of bounds: %u\n", offset);
                 exit(1);
             }
@@ -2123,8 +2415,10 @@ int main(int argc, char *argv[]) {
 
             break;
         }
-        case OPCODE_MOD: {
-            if (pc + 1 >= size) {
+        case OPCODE_MOD:
+        {
+            if (pc + 1 >= size)
+            {
                 fprintf(stderr, "Missing operands for MOD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -2132,13 +2426,15 @@ int main(int argc, char *argv[]) {
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
-            if (dst >= REGISTERS || src >= REGISTERS) {
+            if (dst >= REGISTERS || src >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in MOD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
             }
-            if (registers[src] == 0) {
+            if (registers[src] == 0)
+            {
                 fprintf(stderr, "Division by zero in MOD at pc=%zu\n", pc);
                 free(program);
                 free(stack);
@@ -2147,7 +2443,8 @@ int main(int argc, char *argv[]) {
             registers[dst] = registers[dst] % registers[src];
             break;
         }
-        default: {
+        default:
+        {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,
                     pc - 1);
             free(program);

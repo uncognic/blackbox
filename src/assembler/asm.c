@@ -7,153 +7,179 @@
 #include <stdlib.h>
 #include <string.h>
 
-int assemble_file(const char *filename, const char *output_file, int debug) {
+int assemble_file(const char *filename, const char *output_file, int debug)
+{
     FILE *in = fopen(filename, "rb");
-    if (!in) {
+    if (!in)
+    {
         perror("fopen input");
         return 1;
     }
-    char readline[8192];
-    char **lines = NULL;
-    size_t lines_count = 0, lines_cap = 0;
+    {
+        char readline[8192];
+        char **lines = NULL;
+        size_t lines_count = 0, lines_cap = 0;
 
-    while (fgets(readline, sizeof(readline), in)) {
-        if (lines_count + 1 >= lines_cap) {
-            lines_cap = lines_cap ? lines_cap * 2 : 256;
-            lines = realloc(lines, lines_cap * sizeof(char *));
+        while (fgets(readline, sizeof(readline), in))
+        {
+            if (lines_count + 1 >= lines_cap)
+            {
+                lines_cap = lines_cap ? lines_cap * 2 : 256;
+                lines = realloc(lines, lines_cap * sizeof(char *));
+            }
+            lines[lines_count++] = strdup(readline);
         }
-        lines[lines_count++] = strdup(readline);
-    }
 
-    fclose(in);
+        fclose(in);
 
-    FILE *tmp = tmpfile();
-    if (!tmp) {
-        perror("tmpfile");
+        FILE *tmp = tmpfile();
+        if (!tmp)
+        {
+            perror("tmpfile");
+            for (size_t i = 0; i < lines_count; i++)
+                free(lines[i]);
+            free(lines);
+            return 1;
+        }
+
+        Macro *macros = NULL;
+        size_t macro_count = 0, macro_cap = 0;
+
+        for (size_t i = 0; i < lines_count; i++)
+        {
+            char *copy = strdup(lines[i]);
+            char *t = trim(copy);
+            if (strncmp(t, "%macro", 6) == 0 &&
+                (t[6] == ' ' || t[6] == '\t' || t[6] == '\0'))
+            {
+                char *p = t + 6;
+                while (*p == ' ' || *p == '\t')
+                    p++;
+                char *tok = strtok(p, " \t\r\n");
+                if (!tok)
+                {
+                    fprintf(stderr, "Syntax error: bad %%macro header\n");
+                    free(copy);
+                    continue;
+                }
+                char *mname = strdup(tok);
+                char **params = NULL;
+                int paramc = 0, paramcap = 0;
+                char *argtok;
+                while ((argtok = strtok(NULL, " \t\r\n")) != NULL)
+                {
+                    if (paramc + 1 >= paramcap)
+                    {
+                        paramcap = paramcap ? paramcap * 2 : 8;
+                        params = realloc(params, paramcap * sizeof(char *));
+                    }
+                    params[paramc++] = strdup(argtok);
+                }
+
+                char **body = NULL;
+                int bodyc = 0, bodycap = 0;
+                size_t j = i + 1;
+                for (; j < lines_count; j++)
+                {
+                    char *c2 = strdup(lines[j]);
+                    char *t2 = trim(c2);
+                    if (strcmp(t2, "%endmacro") == 0)
+                    {
+                        free(c2);
+                        break;
+                    }
+                    if (bodyc + 1 >= bodycap)
+                    {
+                        bodycap = bodycap ? bodycap * 2 : 16;
+                        body = realloc(body, bodycap * sizeof(char *));
+                    }
+                    body[bodyc++] = strdup(lines[j]);
+                    free(c2);
+                }
+
+                if (macro_count + 1 >= macro_cap)
+                {
+                    macro_cap = macro_cap ? macro_cap * 2 : 16;
+                    macros = realloc(macros, macro_cap * sizeof(Macro));
+                }
+                macros[macro_count].name = mname;
+                macros[macro_count].params = params;
+                macros[macro_count].paramc = paramc;
+                macros[macro_count].body = body;
+                macros[macro_count].bodyc = bodyc;
+                macro_count++;
+
+                i = j;
+            }
+            free(copy);
+        }
+
+        unsigned long expand_id = 0;
+
+        for (size_t i = 0; i < lines_count; i++)
+        {
+            char *copy = strdup(lines[i]);
+            char *t = trim(copy);
+            if (strncmp(t, "%macro", 6) == 0)
+            {
+                size_t j = i + 1;
+                for (; j < lines_count; j++)
+                {
+                    char *c2 = strdup(lines[j]);
+                    char *t2 = trim(c2);
+                    if (strcmp(t2, "%endmacro") == 0)
+                    {
+                        free(c2);
+                        break;
+                    }
+                    free(c2);
+                }
+                i = j;
+                free(copy);
+                continue;
+            }
+            if (t[0] == '%')
+            {
+                if (strcmp(t, "%asm") == 0 || strcmp(t, "%data") == 0 ||
+                    strcmp(t, "%main") == 0 || strcmp(t, "%entry") == 0 ||
+                    strcmp(t, "%endmacro") == 0)
+                {
+                    fputs(lines[i], tmp);
+                    free(copy);
+                    continue;
+                }
+                if (expand_invocation(t, tmp, 0, macros, macro_count,
+                                      &expand_id))
+                {
+                    free(copy);
+                    continue;
+                }
+            }
+            fputs(lines[i], tmp);
+            free(copy);
+        }
+
         for (size_t i = 0; i < lines_count; i++)
             free(lines[i]);
         free(lines);
-        return 1;
-    }
-
-    Macro *macros = NULL;
-    size_t macro_count = 0, macro_cap = 0;
-
-    for (size_t i = 0; i < lines_count; i++) {
-        char *copy = strdup(lines[i]);
-        char *t = trim(copy);
-        if (starts_with_ci(t, "%macro") &&
-            (t[6] == ' ' || t[6] == '\t' || t[6] == '\0')) {
-            char *p = t + 6;
-            while (*p == ' ' || *p == '\t')
-                p++;
-            char *tok = strtok(p, " \t\r\n");
-            if (!tok) {
-                fprintf(stderr, "Syntax error: bad %%macro header\n");
-                free(copy);
-                continue;
-            }
-            char *mname = strdup(tok);
-            char **params = NULL;
-            int paramc = 0, paramcap = 0;
-            char *argtok;
-            while ((argtok = strtok(NULL, " \t\r\n")) != NULL) {
-                if (paramc + 1 >= paramcap) {
-                    paramcap = paramcap ? paramcap * 2 : 8;
-                    params = realloc(params, paramcap * sizeof(char *));
-                }
-                params[paramc++] = strdup(argtok);
-            }
-
-            char **body = NULL;
-            int bodyc = 0, bodycap = 0;
-            size_t j = i + 1;
-            for (; j < lines_count; j++) {
-                char *c2 = strdup(lines[j]);
-                char *t2 = trim(c2);
-                if (equals_ci(t2, "%endmacro")) {
-                    free(c2);
-                    break;
-                }
-                if (bodyc + 1 >= bodycap) {
-                    bodycap = bodycap ? bodycap * 2 : 16;
-                    body = realloc(body, bodycap * sizeof(char *));
-                }
-                body[bodyc++] = strdup(lines[j]);
-                free(c2);
-            }
-
-            if (macro_count + 1 >= macro_cap) {
-                macro_cap = macro_cap ? macro_cap * 2 : 16;
-                macros = realloc(macros, macro_cap * sizeof(Macro));
-            }
-            macros[macro_count].name = mname;
-            macros[macro_count].params = params;
-            macros[macro_count].paramc = paramc;
-            macros[macro_count].body = body;
-            macros[macro_count].bodyc = bodyc;
-            macro_count++;
-
-            i = j;
+        for (size_t m = 0; m < macro_count; m++)
+        {
+            free(macros[m].name);
+            for (int p = 0; p < macros[m].paramc; p++)
+                free(macros[m].params[p]);
+            free(macros[m].params);
+            for (int b = 0; b < macros[m].bodyc; b++)
+                free(macros[m].body[b]);
+            free(macros[m].body);
         }
-        free(copy);
+        free(macros);
+
+        rewind(tmp);
+        in = tmp;
     }
-
-    unsigned long expand_id = 0;
-
-    for (size_t i = 0; i < lines_count; i++) {
-        char *copy = strdup(lines[i]);
-        char *t = trim(copy);
-        if (starts_with_ci(t, "%macro")) {
-            size_t j = i + 1;
-            for (; j < lines_count; j++) {
-                char *c2 = strdup(lines[j]);
-                char *t2 = trim(c2);
-                if (equals_ci(t2, "%endmacro")) {
-                    free(c2);
-                    break;
-                }
-                free(c2);
-            }
-            i = j;
-            free(copy);
-            continue;
-        }
-        if (t[0] == '%') {
-            if (equals_ci(t, "%asm") || equals_ci(t, "%data") ||
-                equals_ci(t, "%main") || equals_ci(t, "%entry") ||
-                equals_ci(t, "%endmacro")) {
-                fputs(lines[i], tmp);
-                free(copy);
-                continue;
-            }
-            if (expand_invocation(t, tmp, 0, macros, macro_count, &expand_id)) {
-                free(copy);
-                continue;
-            }
-        }
-        fputs(lines[i], tmp);
-        free(copy);
-    }
-
-    for (size_t i = 0; i < lines_count; i++)
-        free(lines[i]);
-    free(lines);
-    for (size_t m = 0; m < macro_count; m++) {
-        free(macros[m].name);
-        for (int p = 0; p < macros[m].paramc; p++)
-            free(macros[m].params[p]);
-        free(macros[m].params);
-        for (int b = 0; b < macros[m].bodyc; b++)
-            free(macros[m].body[b]);
-        free(macros[m].body);
-    }
-    free(macros);
-
-    rewind(tmp);
-    in = tmp;
     FILE *out = fopen(output_file, "wb");
-    if (!out) {
+    if (!out)
+    {
         perror("fopen output");
         fclose(in);
         return 1;
@@ -162,12 +188,14 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
     char line[8192];
     int lineno = 0;
 
-    while (fgets(line, sizeof(line), in)) {
+    while (fgets(line, sizeof(line), in))
+    {
         lineno++;
         char *s = trim(line);
 
         char *comment = strchr(s, ';');
-        if (comment) {
+        if (comment)
+        {
             *comment = '\0';
 
             s = trim(s);
@@ -175,9 +203,12 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
         if (*s == '\0')
             continue;
 
-        if (equals_ci(s, "%asm")) {
+        if (strcmp(s, "%asm") == 0)
+        {
             break;
-        } else {
+        }
+        else
+        {
             fprintf(stderr, "Error: file must start with %%asm (line %d)\n",
                     lineno);
             fclose(in);
@@ -198,19 +229,23 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
     int current_section = 0;
     int found_code_section = 0;
 
-    while (fgets(line, sizeof(line), in)) {
+    while (fgets(line, sizeof(line), in))
+    {
         lineno++;
         char *s = trim(line);
         char *comment = strchr(s, ';');
-        if (comment) {
+        if (comment)
+        {
             *comment = '\0';
             s = trim(s);
         }
         if (*s == '\0' || *s == ';')
             continue;
 
-        if (equals_ci(s, "%data")) {
-            if (found_code_section) {
+        if (strcmp(s, "%data") == 0)
+        {
+            if (found_code_section)
+            {
                 fprintf(stderr,
                         "Error on line %d: %%data section must come before "
                         "%%main/%%entry\n",
@@ -224,7 +259,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 printf("[DEBUG] Entering data section at line %d\n", lineno);
             continue;
         }
-        if (equals_ci(s, "%main") || equals_ci(s, "%entry")) {
+        if (strcmp(s, "%main") == 0 || strcmp(s, "%entry") == 0)
+        {
             current_section = 2;
             found_code_section = 1;
             if (debug)
@@ -232,8 +268,10 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             continue;
         }
 
-        if (starts_with_ci(s, "STR ")) {
-            if (current_section != 1) {
+        if (strncmp(s, "STR ", 4) == 0)
+        {
+            if (current_section != 1)
+            {
                 fprintf(stderr,
                         "Error on line %d: STR must be inside %%data section\n",
                         lineno);
@@ -243,7 +281,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             char name[32];
             char *quote_start = strchr(s, '"');
-            if (!quote_start || sscanf(s + 4, " $%31[^,]", name) != 1) {
+            if (!quote_start || sscanf(s + 4, " $%31[^,]", name) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected STR $name, \"value\"\n",
                         lineno);
@@ -254,7 +293,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             quote_start++;
             char *quote_end = strchr(quote_start, '"');
-            if (!quote_end) {
+            if (!quote_end)
+            {
                 fprintf(stderr, "Syntax error line %d: missing closing quote\n",
                         lineno);
                 fclose(in);
@@ -278,8 +318,11 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 printf("[DEBUG] String $%s at offset %u\n", name,
                        data[data_count - 1].offset);
             continue;
-        } else if (starts_with_ci(s, "DWORD ")) {
-            if (current_section != 1) {
+        }
+        else if (strncmp(s, "DWORD ", 6) == 0)
+        {
+            if (current_section != 1)
+            {
                 fprintf(
                     stderr,
                     "Error on line %d: DWORD must be inside %%data section\n",
@@ -290,7 +333,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             char name[32];
             uint32_t value;
-            if (sscanf(s + 6, " $%31[^,], %u", name, &value) != 2) {
+            if (sscanf(s + 6, " $%31[^,], %u", name, &value) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected DWORD $name, value\n",
                         lineno);
@@ -316,8 +360,11 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 printf("[DEBUG] DWORD $%s at offset %u\n", name,
                        data[data_count - 1].offset);
             continue;
-        } else if (starts_with_ci(s, "QWORD ")) {
-            if (current_section != 1) {
+        }
+        else if (strncmp(s, "QWORD ", 6) == 0)
+        {
+            if (current_section != 1)
+            {
                 fprintf(
                     stderr,
                     "Error on line %d: QWORD must be inside %%data section\n",
@@ -329,7 +376,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             char name[32];
             char value_str[64];
             uint64_t value;
-            if (sscanf(s + 6, " $%31[^,], %63s", name, value_str) != 2) {
+            if (sscanf(s + 6, " $%31[^,], %63s", name, value_str) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected QWORD $name, value\n",
                         lineno);
@@ -361,8 +409,11 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 printf("[DEBUG] QWORD $%s at offset %u\n", name,
                        data[data_count - 1].offset);
             continue;
-        } else if (starts_with_ci(s, "WORD ")) {
-            if (current_section != 1) {
+        }
+        else if (strncmp(s, "WORD ", 5) == 0)
+        {
+            if (current_section != 1)
+            {
                 fprintf(
                     stderr,
                     "Error on line %d: WORD must be inside %%data section\n",
@@ -373,7 +424,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             char name[32];
             uint16_t value;
-            if (sscanf(s + 5, " $%31[^,], %hu", name, &value) != 2) {
+            if (sscanf(s + 5, " $%31[^,], %hu", name, &value) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected WORD $name, value\n",
                         lineno);
@@ -398,8 +450,11 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 printf("[DEBUG] WORD $%s at offset %u\n", name,
                        data[data_count - 1].offset);
             continue;
-        } else if (starts_with_ci(s, "BYTE ")) {
-            if (current_section != 1) {
+        }
+        else if (strncmp(s, "BYTE ", 5) == 0)
+        {
+            if (current_section != 1)
+            {
                 fprintf(
                     stderr,
                     "Error on line %d: BYTE must be inside %%data section\n",
@@ -410,7 +465,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             char name[32];
             uint8_t value;
-            if (sscanf(s + 5, " $%31[^,], %hhu", name, &value) != 2) {
+            if (sscanf(s + 5, " $%31[^,], %hhu", name, &value) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected BYTE $name, value\n",
                         lineno);
@@ -435,9 +491,11 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             continue;
         }
 
-        if (current_section != 2) {
+        if (current_section != 2)
+        {
             size_t len = strlen(s);
-            if (s[0] == '.' && s[len - 1] == ':') {
+            if (s[0] == '.' && s[len - 1] == ':')
+            {
                 fprintf(stderr,
                         "Error on line %d: labels must be inside "
                         "%%main/%%entry section\n",
@@ -446,11 +504,11 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fclose(out);
                 return 1;
             }
-            if (current_section == 0) {
+            if (current_section == 0)
+            {
                 fprintf(stderr,
                         "Error on line %d: code outside of section. Use "
-                        "%%string or "
-                        "%%main/%%entry\n",
+                        "%%string or %%main/%%entry\n",
                         lineno);
                 fclose(in);
                 fclose(out);
@@ -460,8 +518,10 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
         }
 
         size_t len = strlen(s);
-        if (s[0] == '.' && s[len - 1] == ':') {
-            if (label_count >= 256) {
+        if (s[0] == '.' && s[len - 1] == ':')
+        {
+            if (label_count >= 256)
+            {
                 fprintf(stderr, "Too many labels (max 256)\n");
                 fclose(in);
                 fclose(out);
@@ -475,7 +535,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 '\0';
             labels[label_count].addr = pc;
             labels[label_count].frame_size = 0;
-            if (debug) {
+            if (debug)
+            {
                 printf("[DEBUG] Label %s at pc=%u\n", labels[label_count].name,
                        (unsigned)labels[label_count].addr);
             }
@@ -483,8 +544,10 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             continue;
         }
 
-        if (starts_with_ci(s, "FRAME")) {
-            if (label_count == 0) {
+        if (strncmp(s, "FRAME", 5) == 0)
+        {
+            if (label_count == 0)
+            {
                 fprintf(stderr, "Error on line %d: FRAME must follow a label\n",
                         lineno);
                 fclose(in);
@@ -492,7 +555,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 return 1;
             }
             char framebuf[32];
-            if (sscanf(s + 5, " %31s", framebuf) != 1) {
+            if (sscanf(s + 5, " %31s", framebuf) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected FRAME <slots>\n",
                         lineno);
@@ -508,7 +572,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
         pc += (uint32_t)instr_size(s);
     }
 
-    if (!found_code_section) {
+    if (!found_code_section)
+    {
         fprintf(stderr, "Error: missing %%main or %%entry section\n");
         fclose(in);
         fclose(out);
@@ -516,7 +581,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
     }
 
     uint32_t header_offset = (HEADER_FIXED_SIZE - MAGIC_SIZE) + data_table_size;
-    for (size_t i = 0; i < label_count; i++) {
+    for (size_t i = 0; i < label_count; i++)
+    {
         labels[i].addr += header_offset;
     }
 
@@ -531,21 +597,25 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
     write_u32(out, data_table_size);
     fwrite(data_table, 1, data_table_size, out);
 
-    while (fgets(line, sizeof(line), in)) {
+    while (fgets(line, sizeof(line), in))
+    {
         lineno++;
         char *s = trim(line);
         char *comment = strchr(s, ';');
-        if (comment) {
+        if (comment)
+        {
             *comment = '\0';
             s = trim(s);
         }
         if (*s == '\0' || *s == ';')
             continue;
-        if (equals_ci(s, "%data")) {
+        if (strcmp(s, "%data") == 0)
+        {
             current_section = 1;
             continue;
         }
-        if (equals_ci(s, "%main") || equals_ci(s, "%entry")) {
+        if (strcmp(s, "%main") == 0 || strcmp(s, "%entry") == 0)
+        {
             current_section = 2;
             continue;
         }
@@ -556,64 +626,68 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
         if (current_section != 2)
             continue;
 
-        if (starts_with_ci(s, "STR ")) {
-            fprintf(
-                stderr,
-                "Syntax error on line %d: STR directive not allowed in code "
-                "section\n",
-                lineno);
+        if (strncmp(s, "STR ", 4) == 0)
+        {
+            fprintf(stderr,
+                    "Syntax error on line %d: STR directive not allowed in "
+                    "code section\n",
+                    lineno);
             fclose(in);
             fclose(out);
             return 1;
         }
-        if (starts_with_ci(s, "DWORD ")) {
-            fprintf(
-                stderr,
-                "Syntax error on line %d: DWORD directive not allowed in code "
-                "section\n",
-                lineno);
+        if (strncmp(s, "DWORD ", 6) == 0)
+        {
+            fprintf(stderr,
+                    "Syntax error on line %d: DWORD directive not allowed in "
+                    "code section\n",
+                    lineno);
             fclose(in);
             fclose(out);
             return 1;
         }
 
-        if (starts_with_ci(s, "QWORD ")) {
-            fprintf(
-                stderr,
-                "Syntax error on line %d: QWORD directive not allowed in code "
-                "section\n",
-                lineno);
+        if (strncmp(s, "QWORD ", 6) == 0)
+        {
+            fprintf(stderr,
+                    "Syntax error on line %d: QWORD directive not allowed in "
+                    "code section\n",
+                    lineno);
             fclose(in);
             fclose(out);
             return 1;
         }
-        if (starts_with_ci(s, "WORD ")) {
-            fprintf(
-                stderr,
-                "Syntax error on line %d: WORD directive not allowed in code "
-                "section\n",
-                lineno);
+        if (strncmp(s, "WORD ", 5) == 0)
+        {
+            fprintf(stderr,
+                    "Syntax error on line %d: WORD directive not allowed in "
+                    "code section\n",
+                    lineno);
             fclose(in);
             fclose(out);
             return 1;
         }
-        if (starts_with_ci(s, "BYTE ")) {
-            fprintf(
-                stderr,
-                "Syntax error on line %d: BYTE directive not allowed in code "
-                "section\n",
-                lineno);
+        if (strncmp(s, "BYTE ", 5) == 0)
+        {
+            fprintf(stderr,
+                    "Syntax error on line %d: BYTE directive not allowed in "
+                    "code section\n",
+                    lineno);
             fclose(in);
             fclose(out);
             return 1;
-        } else if (starts_with_ci(s, "WRITE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "WRITE", 5) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             int fd;
             char *str_start;
 
-            if (sscanf(s + 5, " %d", &fd) != 1) {
+            if (sscanf(s + 5, " %d", &fd) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected WRITE <fd> "
                         "\"<string>\"\n",
@@ -622,18 +696,19 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fclose(out);
                 return 1;
             }
-            if (fd != 1 && fd != 2) {
-                fprintf(
-                    stderr,
-                    "Invalid file descriptor on line %d: %d (only 1=stdout, "
-                    "2=stderr allowed)\n",
-                    lineno, fd);
+            if (fd != 1 && fd != 2)
+            {
+                fprintf(stderr,
+                        "Invalid file descriptor on line %d: %d (only "
+                        "1=stdout, 2=stderr allowed)\n",
+                        lineno, fd);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             str_start = strchr(s, '"');
-            if (!str_start) {
+            if (!str_start)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: missing opening quote for "
                         "string\n",
@@ -645,7 +720,8 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             str_start++;
 
             char *str_end = strchr(str_start, '"');
-            if (!str_end) {
+            if (!str_end)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: missing closing quote for "
                         "string\n",
@@ -662,13 +738,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc((uint8_t)fd, out);
             fputc((uint8_t)len, out);
 
-            for (size_t i = 0; i < len; i++) {
+            for (size_t i = 0; i < len; i++)
+            {
                 fputc((uint8_t)str_start[i], out);
             }
-        } else if (starts_with_ci(s, "LOADSTR")) {
+        }
+        else if (strncmp(s, "LOADSTR", 7) == 0)
+        {
             char name[32];
             char regname[16];
-            if (sscanf(s + 7, " $%31[^,], %15s", name, regname) != 2) {
+            if (sscanf(s + 7, " $%31[^,], %15s", name, regname) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected LOADSTR $name, "
                         "<register>\n",
@@ -686,11 +766,14 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             if (debug)
                 printf("[DEBUG] LOADSTR $%s (offset=%u) -> %s\n", name, offset,
                        regname);
-        } else if (starts_with_ci(s, "PRINTSTR")) {
+        }
+        else if (strncmp(s, "PRINTSTR", 8) == 0)
+        {
             if (debug)
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
-            if (sscanf(s + 8, " %15s", regname) != 1) {
+            if (sscanf(s + 8, " %15s", regname) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected PRINTSTR <register>\n",
                         lineno);
@@ -701,13 +784,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_PRINTSTR, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "LOADBYTE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "LOADBYTE", 8) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char name[32];
             char regname[16];
-            if (sscanf(s + 8, " $%31[^,], %15s", name, regname) != 2) {
+            if (sscanf(s + 8, " $%31[^,], %15s", name, regname) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected LOADBYTE $name, "
                         "<register>\n",
@@ -726,13 +813,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             if (debug)
                 printf("[DEBUG] LOADBYTE $%s (offset=%u) -> %s\n", name, offset,
                        regname);
-        } else if (starts_with_ci(s, "LOADWORD")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "LOADWORD", 8) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char name[32];
             char regname[16];
-            if (sscanf(s + 8, " $%31[^,], %15s", name, regname) != 2) {
+            if (sscanf(s + 8, " $%31[^,], %15s", name, regname) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected LOADWORD $name, "
                         "<register>\n",
@@ -751,13 +842,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             if (debug)
                 printf("[DEBUG] LOADWORD $%s (offset=%u) -> %s\n", name, offset,
                        regname);
-        } else if (starts_with_ci(s, "LOADDWORD")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "LOADDWORD", 9) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char name[32];
             char regname[16];
-            if (sscanf(s + 9, " $%31[^,], %15s", name, regname) != 2) {
+            if (sscanf(s + 9, " $%31[^,], %15s", name, regname) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected LOADDWORD $name, "
                         "<register>\n",
@@ -776,13 +871,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             if (debug)
                 printf("[DEBUG] LOADDWORD $%s (offset=%u) -> %s\n", name,
                        offset, regname);
-        } else if (starts_with_ci(s, "LOADQWORD")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "LOADQWORD", 9) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char name[32];
             char regname[16];
-            if (sscanf(s + 9, " $%31[^,], %15s", name, regname) != 2) {
+            if (sscanf(s + 9, " $%31[^,], %15s", name, regname) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error line %d: expected LOADQWORD $name, "
                         "<register>\n",
@@ -801,24 +900,36 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             if (debug)
                 printf("[DEBUG] LOADQWORD $%s (offset=%u) -> %s\n", name,
                        offset, regname);
-        } else if (starts_with_ci(s, "CONTINUE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "CONTINUE", 8) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_CONTINUE, out);
-        } else if (equals_ci(s, "NEWLINE")) {
-            if (debug) {
+        }
+        else if (strcmp(s, "NEWLINE") == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_NEWLINE, out);
-        } else if (s[0] == '.') {
+        }
+        else if (s[0] == '.')
+        {
             continue;
-        } else if (starts_with_ci(s, "JE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "JE", 2) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char label[32];
-            if (sscanf(s + 2, " %31s", label) != 1) {
+            if (sscanf(s + 2, " %31s", label) != 1)
+            {
                 fprintf(
                     stderr,
                     "Syntax error on line %d: expected JE <label>\nGot: %s\n",
@@ -828,17 +939,22 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 return 1;
             }
             uint32_t addr = find_label(label, labels, label_count);
-            if (debug) {
+            if (debug)
+            {
                 printf("[DEBUG] JE to %s (addr=%u)\n", label, (unsigned)addr);
             }
             fputc(OPCODE_JE, out);
             write_u32(out, addr);
-        } else if (starts_with_ci(s, "JNE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "JNE", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char label[32];
-            if (sscanf(s + 3, " %31s", label) != 1) {
+            if (sscanf(s + 3, " %31s", label) != 1)
+            {
                 fprintf(
                     stderr,
                     "Syntax error on line %d: expected JNE <label>\nGot: %s\n",
@@ -848,34 +964,46 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 return 1;
             }
             uint32_t addr = find_label(label, labels, label_count);
-            if (debug) {
+            if (debug)
+            {
                 printf("[DEBUG] JNE to %s (addr=%u)\n", label, (unsigned)addr);
             }
             fputc(OPCODE_JNE, out);
             write_u32(out, addr);
         }
 
-        else if (starts_with_ci(s, "HALT")) {
-            if (debug) {
+        else if (strncmp(s, "HALT", 4) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char token[32];
-            if (sscanf(s + 4, " %31s", token) == 1) {
-                for (int t = 0; token[t]; t++) {
-                    if (token[t] == '\r' || token[t] == '\n') {
+            if (sscanf(s + 4, " %31s", token) == 1)
+            {
+                for (int t = 0; token[t]; t++)
+                {
+                    if (token[t] == '\r' || token[t] == '\n')
+                    {
                         token[t] = '\0';
                         break;
                     }
                 }
                 uint8_t val = 0;
-                if (equals_ci(token, "OK")) {
+                if (strcmp(token, "OK") == 0)
+                {
                     val = 0;
-                } else if (equals_ci(token, "BAD")) {
+                }
+                else if (strcmp(token, "BAD") == 0)
+                {
                     val = 1;
-                } else {
+                }
+                else
+                {
                     char *endp = NULL;
                     unsigned long v = strtoul(token, &endp, 0);
-                    if (endp == NULL || *endp != '\0') {
+                    if (endp == NULL || *endp != '\0')
+                    {
                         fprintf(stderr,
                                 "Syntax error on line %d: invalid HALT operand "
                                 "'%s'\nGot: %s\n",
@@ -888,16 +1016,22 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 }
                 fputc(OPCODE_HALT, out);
                 fputc(val, out);
-            } else {
+            }
+            else
+            {
                 fputc(OPCODE_HALT, out);
             }
-        } else if (starts_with_ci(s, "INC")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "INC", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
 
-            if (sscanf(s + 3, " %7s", regname) != 1) {
+            if (sscanf(s + 3, " %7s", regname) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected INC "
                         "<register>\nGot: %s\n",
@@ -906,8 +1040,10 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fclose(out);
                 return 1;
             }
-            for (int i = 0; regname[i]; i++) {
-                if (regname[i] == '\r' || regname[i] == '\n') {
+            for (int i = 0; regname[i]; i++)
+            {
+                if (regname[i] == '\r' || regname[i] == '\n')
+                {
                     regname[i] = '\0';
                     break;
                 }
@@ -915,13 +1051,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_INC, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "DEC")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "DEC", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
 
-            if (sscanf(s + 3, " %7s", regname) != 1) {
+            if (sscanf(s + 3, " %7s", regname) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected DEC "
                         "<register>\nGot: %s\n",
@@ -930,8 +1070,10 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fclose(out);
                 return 1;
             }
-            for (int i = 0; regname[i]; i++) {
-                if (regname[i] == '\r' || regname[i] == '\n') {
+            for (int i = 0; regname[i]; i++)
+            {
+                if (regname[i] == '\r' || regname[i] == '\n')
+                {
                     regname[i] = '\0';
                     break;
                 }
@@ -939,13 +1081,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_DEC, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "PRINTREG")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "PRINTREG", 8) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
 
-            if (sscanf(s + 8, " %7s", regname) != 1) {
+            if (sscanf(s + 8, " %7s", regname) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected PRINTREG "
                         "<register>\nGot: %s\n",
@@ -954,8 +1100,10 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fclose(out);
                 return 1;
             }
-            for (int i = 0; regname[i]; i++) {
-                if (regname[i] == '\r' || regname[i] == '\n') {
+            for (int i = 0; regname[i]; i++)
+            {
+                if (regname[i] == '\r' || regname[i] == '\n')
+                {
                     regname[i] = '\0';
                     break;
                 }
@@ -964,17 +1112,24 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             fputc(OPCODE_PRINTREG, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "PRINT_STACKSIZE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "PRINT_STACKSIZE", 15) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_PRINT_STACKSIZE, out);
-        } else if (starts_with_ci(s, "PRINT")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "PRINT", 5) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char c;
-            if (sscanf(s + 5, " '%c", &c) != 1) {
+            if (sscanf(s + 5, " '%c", &c) != 1)
+            {
                 fprintf(stderr, "Syntax error on line %d\nGot: %s\n", lineno,
                         line);
                 fclose(in);
@@ -983,42 +1138,42 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             }
             fputc(OPCODE_PRINT, out);
             fputc((uint8_t)c, out);
-        } else if (starts_with_ci(s, "JMP")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "JMP", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char operand[32];
-            if (sscanf(s + 3, " %31s", operand) == 0) {
-                fprintf(stderr,
-                        "Syntax error on line %d: expected JMP "
-                        "<label|address>\nGot: %s\n",
-                        lineno, line);
+            char label_name[32];
+            if (sscanf(s + 3, " %31s", label_name) == 0)
+            {
+                fprintf(
+                    stderr,
+                    "Syntax error on line %d: expected JMP <label>\nGot: %s\n",
+                    lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
-            uint32_t addr;
-            if (operand[0] == '.') {
-                addr = find_label(operand, labels, label_count);
-                if (debug) {
-                    printf("[DEBUG] JMP to label %s (addr=%u)\n", operand,
-                           (unsigned)addr);
-                }
-            } else {
-                addr = (uint32_t)strtoul(operand, NULL, 0);
-                if (debug) {
-                    printf("[DEBUG] JMP to immediate address %u\n",
-                           (unsigned)addr);
-                }
+            uint32_t addr = find_label(label_name, labels, label_count);
+            if (debug)
+            {
+                printf("[DEBUG] JMP to %s (addr=%u)\n", label_name,
+                       (unsigned)addr);
             }
             fputc(OPCODE_JMP, out);
             write_u32(out, addr);
-        } else if (starts_with_ci(s, "POP")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "POP", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
-            if (sscanf(s + 3, " %3s", regname) != 1) {
+            if (sscanf(s + 3, " %3s", regname) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected POP "
                         "<register>\nGot: %s\n",
@@ -1030,13 +1185,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_POP, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "ADD")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "ADD", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char src_reg[16];
             char dst_reg[16];
-            if (sscanf(s + 3, " %3s , %3s", dst_reg, src_reg) != 2) {
+            if (sscanf(s + 3, " %3s , %3s", dst_reg, src_reg) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected ADD <src>, "
                         "<dst>\nGot: %s\n",
@@ -1050,13 +1209,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_ADD, out);
             fputc(dst, out);
             fputc(src, out);
-        } else if (starts_with_ci(s, "SUB")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "SUB", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char src_reg[16];
             char dst_reg[16];
-            if (sscanf(s + 3, " %3s , %3s", dst_reg, src_reg) != 2) {
+            if (sscanf(s + 3, " %3s , %3s", dst_reg, src_reg) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected SUB <dst>, "
                         "<src>\nGot: %s\n",
@@ -1070,13 +1233,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_SUB, out);
             fputc(dst, out);
             fputc(src, out);
-        } else if (starts_with_ci(s, "MUL")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "MUL", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char src_reg[16];
             char dst_reg[16];
-            if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2) {
+            if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected MUL <dst>, "
                         "<src>\nGot: %s\n",
@@ -1090,13 +1257,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_MUL, out);
             fputc(dst, out);
             fputc(src, out);
-        } else if (starts_with_ci(s, "DIV")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "DIV", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char src_reg[16];
             char dst_reg[16];
-            if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2) {
+            if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected DIV <dst>, "
                         "<src>\nGot: %s\n",
@@ -1110,72 +1281,87 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_DIV, out);
             fputc(dst, out);
             fputc(src, out);
-        } else if (starts_with_ci(s, "MOV")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "MOV", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char dst_reg[16];
             char src[16];
 
-            if (sscanf(s + 3, " %3s, %15s", dst_reg, src) != 2) {
+            if (sscanf(s + 3, " %3s, %15s", dst_reg, src) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected MOV <dst>, "
-                        "<src>\nGot: "
-                        "%s\n(If you're using a 2 character register like "
-                        "R1 or "
-                        "R2, "
-                        "use R01 or R02 instead!)\n",
+                        "<src>\nGot: %s\n(If you're using a 2 character "
+                        "register like R1 or R2, use R01 or R02 instead!)\n",
                         lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             uint8_t dst = parse_register(dst_reg, lineno);
-            if (src[0] == 'R') {
+            if (src[0] == 'R')
+            {
                 uint8_t srcp = parse_register(src, lineno);
                 fputc(OPCODE_MOV_REG, out);
                 fputc(dst, out);
                 fputc(srcp, out);
-            } else if (src[0] == '\'') {
+            }
+            else if (src[0] == '\'')
+            {
                 int32_t imm = (int32_t)(unsigned char)src[1];
                 fputc(OPCODE_MOV_IMM, out);
                 fputc(dst, out);
                 write_u32(out, imm);
-            } else {
+            }
+            else
+            {
                 int32_t imm = strtol(src, NULL, 0);
                 fputc(OPCODE_MOV_IMM, out);
                 fputc(dst, out);
                 write_u32(out, imm);
             }
-        } else if (starts_with_ci(s, "PUSH")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "PUSH", 4) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char operand[16];
-            if (sscanf(s + 4, " %3s", operand) != 1) {
+            if (sscanf(s + 4, " %3s", operand) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected PUSH "
-                        "<value|register>\nGot: "
-                        "%s\n",
+                        "<value|register>\nGot: %s\n",
                         lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
-            if (operand[0] == 'R') {
+            if (operand[0] == 'R')
+            {
                 uint8_t reg = parse_register(operand, lineno);
-                if (debug) {
+                if (debug)
+                {
                     printf("[DEBUG] PUSH_REG\n");
                 }
                 fputc(OPCODE_PUSH_REG, out);
                 fputc(reg, out);
-            } else {
-                if (debug) {
+            }
+            else
+            {
+                if (debug)
+                {
                     printf("[DEBUG] PUSH_IMM\n");
                 }
                 char *end;
                 int32_t imm = strtol(operand, &end, 0);
-                if (*end != '\0') {
+                if (*end != '\0')
+                {
                     fprintf(stderr, "Invalid immediate on line %d: %s\n",
                             lineno, operand);
                     fclose(in);
@@ -1185,13 +1371,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(OPCODE_PUSH_IMM, out);
                 write_u32(out, imm);
             }
-        } else if (starts_with_ci(s, "CMP")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "CMP", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char reg1[16];
             char reg2[16];
-            if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2) {
+            if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected CMP <reg1>, "
                         "<reg2>\nGot: %s\n",
@@ -1205,12 +1395,16 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_CMP, out);
             fputc(r1, out);
             fputc(r2, out);
-        } else if (starts_with_ci(s, "ALLOC")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "ALLOC", 5) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char operand[32];
-            if (sscanf(s + 5, " %31s", operand) != 1) {
+            if (sscanf(s + 5, " %31s", operand) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected ALLOC "
                         "<elements>\nGot: %s\n",
@@ -1222,15 +1416,21 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_ALLOC, out);
             write_u32(out, num);
-        } else if (starts_with_ci(s, "FRAME")) {
+        }
+        else if (strncmp(s, "FRAME", 5) == 0)
+        {
             continue;
-        } else if (starts_with_ci(s, "LOADVAR")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "LOADVAR", 7) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
             char addrname[32];
-            if (sscanf(s + 7, " %3s, %31s", regname, addrname) != 2) {
+            if (sscanf(s + 7, " %3s, %31s", regname, addrname) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected LOADVAR <register>, "
                         "<slot|Rxx>\nGot: %s\n",
@@ -1240,107 +1440,132 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 return 1;
             }
             uint8_t reg = parse_register(regname, lineno);
-            if (toupper((unsigned char)addrname[0]) == 'R') {
+            if (toupper((unsigned char)addrname[0]) == 'R')
+            {
                 uint8_t idx = parse_register(addrname, lineno);
                 fputc(OPCODE_LOADVAR_REG, out);
                 fputc(reg, out);
                 fputc(idx, out);
-            } else {
+            }
+            else
+            {
                 uint32_t slot = strtoul(addrname, NULL, 0);
                 fputc(OPCODE_LOADVAR, out);
                 fputc(reg, out);
                 write_u32(out, slot);
             }
-        } else if (starts_with_ci(s, "LOAD")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "LOAD", 4) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
             char addrname[32];
-            if (sscanf(s + 4, " %3s, %31s", regname, addrname) != 2) {
+            if (sscanf(s + 4, " %3s, %31s", regname, addrname) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected LOAD <register>, "
-                        "<index in "
-                        "stack|Rxx>\nGot: %s\n",
+                        "<index in stack|Rxx>\nGot: %s\n",
                         lineno, s);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             uint8_t reg = parse_register(regname, lineno);
-            if (toupper((unsigned char)addrname[0]) == 'R') {
+            if (toupper((unsigned char)addrname[0]) == 'R')
+            {
                 uint8_t idx = parse_register(addrname, lineno);
                 fputc(OPCODE_LOAD_REG, out);
                 fputc(reg, out);
                 fputc(idx, out);
-            } else {
+            }
+            else
+            {
                 uint32_t addr = strtoul(addrname, NULL, 0);
                 fputc(OPCODE_LOAD, out);
                 fputc(reg, out);
                 write_u32(out, addr);
             }
-        } else if (starts_with_ci(s, "STOREVAR")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "STOREVAR", 8) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
             char addrname[32];
-            if (sscanf(s + 8, " %3s, %31s", regname, addrname) != 2) {
+            if (sscanf(s + 8, " %3s, %31s", regname, addrname) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected STOREVAR "
-                        "<register>, "
-                        "<slot|Rxx>\nGot: %s\n",
+                        "<register>, <slot|Rxx>\nGot: %s\n",
                         lineno, s);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             uint8_t reg = parse_register(regname, lineno);
-            if (toupper((unsigned char)addrname[0]) == 'R') {
+            if (toupper((unsigned char)addrname[0]) == 'R')
+            {
                 uint8_t idx = parse_register(addrname, lineno);
                 fputc(OPCODE_STOREVAR_REG, out);
                 fputc(reg, out);
                 fputc(idx, out);
-            } else {
+            }
+            else
+            {
                 uint32_t slot = strtoul(addrname, NULL, 0);
                 fputc(OPCODE_STOREVAR, out);
                 fputc(reg, out);
                 write_u32(out, slot);
             }
-        } else if (starts_with_ci(s, "STORE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "STORE", 5) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
             char addrname[32];
-            if (sscanf(s + 5, " %3s, %31s", regname, addrname) != 2) {
+            if (sscanf(s + 5, " %3s, %31s", regname, addrname) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected STORE <register>, "
-                        "<index in "
-                        "stack|Rxx>\nGot: %s\n",
+                        "<index in stack|Rxx>\nGot: %s\n",
                         lineno, s);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             uint8_t reg = parse_register(regname, lineno);
-            if (toupper((unsigned char)addrname[0]) == 'R') {
+            if (toupper((unsigned char)addrname[0]) == 'R')
+            {
                 uint8_t idx = parse_register(addrname, lineno);
                 fputc(OPCODE_STORE_REG, out);
                 fputc(reg, out);
                 fputc(idx, out);
-            } else {
+            }
+            else
+            {
                 uint32_t addr = strtoul(addrname, NULL, 0);
                 fputc(OPCODE_STORE, out);
                 fputc(reg, out);
                 write_u32(out, addr);
             }
-        } else if (starts_with_ci(s, "GROW")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "GROW", 4) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char operand[32];
-            if (sscanf(s + 4, " %31s", operand) != 1) {
+            if (sscanf(s + 4, " %31s", operand) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected GROW <additional "
                         "elements>\nGot: %s\n",
@@ -1352,12 +1577,16 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_GROW, out);
             write_u32(out, num);
-        } else if (starts_with_ci(s, "RESIZE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "RESIZE", 6) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char operand[32];
-            if (sscanf(s + 6, " %31s", operand) != 1) {
+            if (sscanf(s + 6, " %31s", operand) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected RESIZE <new "
                         "size>\nGot: %s\n",
@@ -1369,12 +1598,16 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_RESIZE, out);
             write_u32(out, num);
-        } else if (starts_with_ci(s, "FREE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "FREE", 4) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char operand[32];
-            if (sscanf(s + 4, " %31s", operand) != 1) {
+            if (sscanf(s + 4, " %31s", operand) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected FREE <number of "
                         "elements>\nGot: %s\n",
@@ -1386,15 +1619,19 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_FREE, out);
             write_u32(out, num);
-        } else if (starts_with_ci(s, "FOPEN")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "FOPEN", 5) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char filename[128];
             char mode_raw[8];
             char fid_raw[8];
             if (sscanf(s + 5, " %7[^,], %7[^,], \"%127[^\"]\"", mode_raw,
-                       fid_raw, filename) != 3) {
+                       fid_raw, filename) != 3)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected FOPEN <mode>, "
                         "<file_descriptor>, \"<filename>\"\nGot: %s\n",
@@ -1406,13 +1643,20 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             char *mode = trim(mode_raw);
             char *fid = trim(fid_raw);
             uint8_t mode_flag;
-            if (equals_ci(mode, "r")) {
+            if (strcmp(mode, "r") == 0)
+            {
                 mode_flag = 0;
-            } else if (equals_ci(mode, "w")) {
+            }
+            else if (strcmp(mode, "w") == 0)
+            {
                 mode_flag = 1;
-            } else if (equals_ci(mode, "a")) {
+            }
+            else if (strcmp(mode, "a") == 0)
+            {
                 mode_flag = 2;
-            } else {
+            }
+            else
+            {
                 fprintf(stderr,
                         "Invalid mode on line %d: %s (expected r, w, or a)\n",
                         lineno, mode);
@@ -1426,15 +1670,20 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(fd, out);
             uint8_t fname_len = (uint8_t)strlen(filename);
             fputc(fname_len, out);
-            for (uint8_t i = 0; i < fname_len; i++) {
+            for (uint8_t i = 0; i < fname_len; i++)
+            {
                 fputc((uint8_t)filename[i], out);
             }
-        } else if (starts_with_ci(s, "FCLOSE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "FCLOSE", 6) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char fid[4];
-            if (sscanf(s + 6, " %3s", fid) != 1) {
+            if (sscanf(s + 6, " %3s", fid) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected FCLOSE "
                         "<file_descriptor>\nGot: %s\n",
@@ -1446,17 +1695,20 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t fd = parse_file(fid, lineno);
             fputc(OPCODE_FCLOSE, out);
             fputc(fd, out);
-        } else if (starts_with_ci(s, "FREAD")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "FREAD", 5) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char fid_raw[8];
             char reg_raw[8];
-            if (sscanf(s + 5, " %7[^,], %7[^,]", fid_raw, reg_raw) != 2) {
+            if (sscanf(s + 5, " %7[^,], %7[^,]", fid_raw, reg_raw) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected FREAD "
-                        "<file_descriptor>, "
-                        "<register to read into>\nGot: %s\n",
+                        "<file_descriptor>, <register to read into>\nGot: %s\n",
                         lineno, line);
                 fclose(in);
                 fclose(out);
@@ -1469,13 +1721,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_FREAD, out);
             fputc(fd, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "FSEEK")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "FSEEK", 5) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char fid_raw[8];
             char offset_raw[64];
-            if (sscanf(s + 5, " %7[^,], %63[^\n]", fid_raw, offset_raw) != 2) {
+            if (sscanf(s + 5, " %7[^,], %63[^\n]", fid_raw, offset_raw) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected FSEEK "
                         "<file_descriptor>, "
@@ -1488,14 +1744,18 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             char *fid = trim(fid_raw);
             char *offset_tok = trim(offset_raw);
             uint8_t fd = parse_file(fid, lineno);
-            if (offset_tok[0] == 'R') {
+            if (offset_tok[0] == 'R')
+            {
                 uint8_t offset_reg = parse_register(offset_tok, lineno);
                 fputc(OPCODE_FSEEK_REG, out);
                 fputc(fd, out);
                 fputc(offset_reg, out);
-            } else if (offset_tok[0] == '"') {
+            }
+            else if (offset_tok[0] == '"')
+            {
                 char inner[64];
-                if (sscanf(offset_tok, "\"%63[^\"]\"", inner) != 1) {
+                if (sscanf(offset_tok, "\"%63[^\"]\"", inner) != 1)
+                {
                     fprintf(stderr,
                             "Syntax error on line %d: malformed quoted "
                             "offset\nGot: %s\n",
@@ -1508,24 +1768,30 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(OPCODE_FSEEK_IMM, out);
                 fputc(fd, out);
                 write_u32(out, offset_imm);
-            } else {
+            }
+            else
+            {
                 int32_t offset_imm = (int32_t)strtol(offset_tok, NULL, 0);
                 fputc(OPCODE_FSEEK_IMM, out);
                 fputc(fd, out);
                 write_u32(out, offset_imm);
             }
-        } else if (starts_with_ci(s, "FWRITE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "FWRITE", 6) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char fid_raw[8];
             char size_raw[64];
-            if (sscanf(s + 6, " %7[^,], %63[^\n]", fid_raw, size_raw) != 2) {
-                fprintf(stderr,
-                        "Syntax error on line %d: expected FWRITE "
-                        "<file_descriptor>, "
-                        "<size_value|size_register>\nGot: %s\n",
-                        lineno, line);
+            if (sscanf(s + 6, " %7[^,], %63[^\n]", fid_raw, size_raw) != 2)
+            {
+                fprintf(
+                    stderr,
+                    "Syntax error on line %d: expected FWRITE "
+                    "<file_descriptor>, <size_value|size_register>\nGot: %s\n",
+                    lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
@@ -1533,14 +1799,18 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             char *fid = trim(fid_raw);
             char *size_tok = trim(size_raw);
             uint8_t fd = parse_file(fid, lineno);
-            if (size_tok[0] == 'R') {
+            if (size_tok[0] == 'R')
+            {
                 uint8_t size_reg = parse_register(size_tok, lineno);
                 fputc(OPCODE_FWRITE_REG, out);
                 fputc(fd, out);
                 fputc(size_reg, out);
-            } else if (size_tok[0] == '"') {
+            }
+            else if (size_tok[0] == '"')
+            {
                 char inner[64];
-                if (sscanf(size_tok, "\"%63[^\"]\"", inner) != 1) {
+                if (sscanf(size_tok, "\"%63[^\"]\"", inner) != 1)
+                {
                     fprintf(stderr,
                             "Syntax error on line %d: malformed quoted "
                             "size\nGot: %s\n",
@@ -1553,18 +1823,24 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fputc(OPCODE_FWRITE_IMM, out);
                 fputc(fd, out);
                 write_u32(out, size_imm);
-            } else {
+            }
+            else
+            {
                 uint32_t size_imm = strtoul(size_tok, NULL, 0);
                 fputc(OPCODE_FWRITE_IMM, out);
                 fputc(fd, out);
                 write_u32(out, size_imm);
             }
-        } else if (starts_with_ci(s, "NOT")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "NOT", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
-            if (sscanf(s + 3, " %3s", regname) != 1) {
+            if (sscanf(s + 3, " %3s", regname) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected NOT "
                         "<register>\nGot: %s\n",
@@ -1576,13 +1852,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_NOT, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "AND")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "AND", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char reg1[16];
             char reg2[16];
-            if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2) {
+            if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected AND <reg1>, "
                         "<reg2>\nGot: %s\n",
@@ -1596,13 +1876,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_AND, out);
             fputc(r1, out);
             fputc(r2, out);
-        } else if (starts_with_ci(s, "OR")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "OR", 2) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char reg1[16];
             char reg2[16];
-            if (sscanf(s + 2, " %3s, %3s", reg1, reg2) != 2) {
+            if (sscanf(s + 2, " %3s, %3s", reg1, reg2) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected OR <reg1>, "
                         "<reg2>\nGot: %s\n",
@@ -1616,13 +1900,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_OR, out);
             fputc(r1, out);
             fputc(r2, out);
-        } else if (starts_with_ci(s, "XOR")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "XOR", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char reg1[16];
             char reg2[16];
-            if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2) {
+            if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected XOR <reg1>, "
                         "<reg2>\nGot: %s\n",
@@ -1636,13 +1924,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_XOR, out);
             fputc(r1, out);
             fputc(r2, out);
-        } else if (starts_with_ci(s, "READCHAR")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "READCHAR", 8) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
 
-            if (sscanf(s + 8, " %7s", regname) != 1) {
+            if (sscanf(s + 8, " %7s", regname) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected READCHAR "
                         "<register>\nGot: %s\n",
@@ -1651,8 +1943,10 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fclose(out);
                 return 1;
             }
-            for (int i = 0; regname[i]; i++) {
-                if (regname[i] == '\r' || regname[i] == '\n') {
+            for (int i = 0; regname[i]; i++)
+            {
+                if (regname[i] == '\r' || regname[i] == '\n')
+                {
                     regname[i] = '\0';
                     break;
                 }
@@ -1661,13 +1955,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             fputc(OPCODE_READCHAR, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "READSTR")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "READSTR", 7) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
 
-            if (sscanf(s + 7, " %7s", regname) != 1) {
+            if (sscanf(s + 7, " %7s", regname) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected READSTR "
                         "<register>\nGot: %s\n",
@@ -1676,8 +1974,10 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
                 fclose(out);
                 return 1;
             }
-            for (int i = 0; regname[i]; i++) {
-                if (regname[i] == '\r' || regname[i] == '\n') {
+            for (int i = 0; regname[i]; i++)
+            {
+                if (regname[i] == '\r' || regname[i] == '\n')
+                {
                     regname[i] = '\0';
                     break;
                 }
@@ -1686,12 +1986,16 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             fputc(OPCODE_READSTR, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "SLEEP")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "SLEEP", 5) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char operand[32];
-            if (sscanf(s + 5, " %31s", operand) != 1) {
+            if (sscanf(s + 5, " %31s", operand) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected SLEEP "
                         "<milliseconds>\nGot: %s\n",
@@ -1703,13 +2007,19 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             uint32_t ms = strtoul(operand, NULL, 0);
             fputc(OPCODE_SLEEP, out);
             write_u32(out, ms);
-        } else if (starts_with_ci(s, "CLRSCR")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "CLRSCR", 6) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_CLRSCR, out);
-        } else if (starts_with_ci(s, "RAND")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "RAND", 4) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
@@ -1718,11 +2028,11 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             // RAND <reg>, <max>
             // RAND <reg>, <min>, <max>
             int matched = sscanf(s + 4, " %3s , %63[^\n]", regname, rest);
-            if (matched < 1) {
+            if (matched < 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected RAND <register>[, "
-                        "<max>] or "
-                        "RAND <register>[, <min>, <max>]\nGot: %s\n",
+                        "<max>] or RAND <register>[, <min>, <max>]\nGot: %s\n",
                         lineno, line);
                 fclose(in);
                 fclose(out);
@@ -1733,29 +2043,39 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_RAND, out);
             fputc(reg, out);
 
-            if (matched == 2 && rest[0] != '\0') {
+            if (matched == 2 && rest[0] != '\0')
+            {
                 char a[32] = {0}, b[32] = {0};
                 int cnt = sscanf(rest, " %31[^,] , %31s", a, b);
-                if (cnt == 2) {
+                if (cnt == 2)
+                {
                     int32_t min = (int32_t)strtol(trim(a), NULL, 0);
                     int32_t max = (int32_t)strtol(trim(b), NULL, 0);
                     write_u64(out, (uint64_t)min);
                     write_u64(out, (uint64_t)max);
-                } else {
+                }
+                else
+                {
                     write_u64(out, (uint64_t)INT64_MIN);
                     write_u64(out, (uint64_t)INT64_MAX);
                 }
-            } else {
+            }
+            else
+            {
                 write_u64(out, (uint64_t)INT64_MIN);
                 write_u64(out, (uint64_t)INT64_MAX);
             }
-        } else if (starts_with_ci(s, "GETKEY")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "GETKEY", 6) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
 
-            if (sscanf(s + 6, " %7s", regname) != 1) {
+            if (sscanf(s + 6, " %7s", regname) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected GETKEY "
                         "<register>\nGot: %s\n",
@@ -1768,13 +2088,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             fputc(OPCODE_GETKEY, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "READ")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "READ", 4) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char regname[16];
 
-            if (sscanf(s + 4, " %7s", regname) != 1) {
+            if (sscanf(s + 4, " %7s", regname) != 1)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected READ "
                         "<register>\nGot: %s\n",
@@ -1787,133 +2111,169 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
 
             fputc(OPCODE_READ, out);
             fputc(reg, out);
-        } else if (starts_with_ci(s, "JL")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "JL", 2) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char label[32];
-            if (sscanf(s + 3, " %31s", label) != 1) {
-                fprintf(stderr,
-                        "Syntax error on line %d: expected JL "
-                        "<label>\nGot: %s\n",
-                        lineno, line);
+            if (sscanf(s + 3, " %31s", label) != 1)
+            {
+                fprintf(
+                    stderr,
+                    "Syntax error on line %d: expected JL <label>\nGot: %s\n",
+                    lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             uint32_t addr = find_label(label, labels, label_count);
-            if (debug) {
+            if (debug)
+            {
                 printf("[DEBUG] JL to %s (addr=%u)\n", label, (unsigned)addr);
             }
             fputc(OPCODE_JL, out);
             write_u32(out, addr);
-        } else if (starts_with_ci(s, "JGE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "JGE", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char label[32];
-            if (sscanf(s + 3, " %31s", label) != 1) {
-                fprintf(stderr,
-                        "Syntax error on line %d: expected JGE "
-                        "<label>\nGot: %s\n",
-                        lineno, line);
+            if (sscanf(s + 3, " %31s", label) != 1)
+            {
+                fprintf(
+                    stderr,
+                    "Syntax error on line %d: expected JGE <label>\nGot: %s\n",
+                    lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             uint32_t addr = find_label(label, labels, label_count);
-            if (debug) {
+            if (debug)
+            {
                 printf("[DEBUG] JGE to %s (addr=%u)\n", label, (unsigned)addr);
             }
             fputc(OPCODE_JGE, out);
             write_u32(out, addr);
-        } else if (starts_with_ci(s, "JB")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "JB", 2) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char label[32];
-            if (sscanf(s + 2, " %31s", label) != 1) {
-                fprintf(stderr,
-                        "Syntax error on line %d: expected JB "
-                        "<label>\nGot: %s\n",
-                        lineno, line);
+            if (sscanf(s + 2, " %31s", label) != 1)
+            {
+                fprintf(
+                    stderr,
+                    "Syntax error on line %d: expected JB <label>\nGot: %s\n",
+                    lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             uint32_t addr = find_label(label, labels, label_count);
-            if (debug) {
+            if (debug)
+            {
                 printf("[DEBUG] JB to %s (addr=%u)\n", label, (unsigned)addr);
             }
             fputc(OPCODE_JB, out);
             write_u32(out, addr);
-        } else if (starts_with_ci(s, "JAE")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "JAE", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char label[32];
-            if (sscanf(s + 3, " %31s", label) != 1) {
-                fprintf(stderr,
-                        "Syntax error on line %d: expected JAE "
-                        "<label>\nGot: %s\n",
-                        lineno, line);
+            if (sscanf(s + 3, " %31s", label) != 1)
+            {
+                fprintf(
+                    stderr,
+                    "Syntax error on line %d: expected JAE <label>\nGot: %s\n",
+                    lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             uint32_t addr = find_label(label, labels, label_count);
-            if (debug) {
+            if (debug)
+            {
                 printf("[DEBUG] JAE to %s (addr=%u)\n", label, (unsigned)addr);
             }
             fputc(OPCODE_JAE, out);
             write_u32(out, addr);
-        } else if (starts_with_ci(s, "CALL")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "CALL", 4) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char label[32];
-            if (sscanf(s + 4, " %31s", label) != 1) {
-                fprintf(stderr,
-                        "Syntax error on line %d: expected CALL "
-                        "<label>\nGot: %s\n",
-                        lineno, line);
+            if (sscanf(s + 4, " %31s", label) != 1)
+            {
+                fprintf(
+                    stderr,
+                    "Syntax error on line %d: expected CALL <label>\nGot: %s\n",
+                    lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
             char *comma = strchr(s + 4, ',');
             uint32_t frame_size = 0;
-            if (comma) {
+            if (comma)
+            {
                 frame_size = (uint32_t)strtoul(comma + 1, NULL, 0);
             }
             uint32_t addr = find_label(label, labels, label_count);
-            if (!comma) {
-                for (size_t i = 0; i < label_count; i++) {
-                    if (strcmp(labels[i].name, label) == 0) {
+            if (!comma)
+            {
+                for (size_t i = 0; i < label_count; i++)
+                {
+                    if (strcmp(labels[i].name, label) == 0)
+                    {
                         frame_size = labels[i].frame_size;
                         break;
                     }
                 }
             }
-            if (debug) {
+            if (debug)
+            {
                 printf("[DEBUG] CALL to %s (addr=%u frame=%u)\n", label,
                        (unsigned)addr, (unsigned)frame_size);
             }
             fputc(OPCODE_CALL, out);
             write_u32(out, addr);
             write_u32(out, frame_size);
-        } else if (starts_with_ci(s, "RET")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "RET", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_RET, out);
-        } else if (starts_with_ci(s, "MOD")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "MOD", 3) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char src_reg[16];
             char dst_reg[16];
-            if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2) {
+            if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2)
+            {
                 fprintf(stderr,
                         "Syntax error on line %d: expected MOD <dst>, "
                         "<src>\nGot: %s\n",
@@ -1927,14 +2287,17 @@ int assemble_file(const char *filename, const char *output_file, int debug) {
             fputc(OPCODE_MOD, out);
             fputc(dst, out);
             fputc(src, out);
-        } else if (starts_with_ci(s, "BREAK")) {
-            if (debug) {
+        }
+        else if (strncmp(s, "BREAK", 5) == 0)
+        {
+            if (debug)
+            {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             fputc(OPCODE_BREAK, out);
         }
-
-        else {
+        else
+        {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno,
                     s);
             fclose(in);
