@@ -439,7 +439,15 @@ fn main() {
                     }
                 }
                 opcodes::OPCODE_BREAK => println!("{:#06x}: break", offset),
-
+                opcodes::OPCODE_JMPI => {
+                    if let Some(addr) = read_u32_le(&data, i) {
+                        println!("{:#06x}: jmpi 0x{:08x}", offset, addr);
+                        i += 4.min(len - i);
+                    } else {
+                        println!("{:#06x}: jmpi <truncated>", offset);
+                        break;
+                    }
+                }
                 other => {
                     println!("{:#06x}: UNKNOWN 0x{:02x}", offset, other);
                     println!("opcode = {}", other);
