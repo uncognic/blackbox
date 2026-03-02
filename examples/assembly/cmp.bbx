@@ -4,9 +4,9 @@
     write stdout "Which function to test? (1 for JE/JNE, 2 for JL/JGE, 3 for JB/JAE): "
     READ R00
 
-    MOV R95, 1
-    MOV R96, 2
-    MOV R97, 3
+    MOVI R95, 1
+    MOVI R96, 2
+    MOVI R97, 3
 
     CMP R00, R95
     JE jejne
@@ -23,8 +23,8 @@
     write stdout "JE/JNE pass 1"
     NEWLINE
 
-    MOV R01, 0
-    MOV R05, 0
+    MOVI R01, 0
+    MOVI R05, 0
     CMP R05, R01
     JE jejne2
     JMP jejnefail
@@ -33,7 +33,7 @@
     write stdout "JE/JNE pass 2"
     NEWLINE
 
-    MOV R03, 1
+    MOVI R03, 1
     CMP R01, R03
     JNE jejnesuccess
     JMP jejnefail
@@ -53,8 +53,8 @@
     NEWLINE
 
     ; -1 < 1  (signed)
-    MOV R01, -1
-    MOV R02, 1
+    MOVI R01, -1
+    MOVI R02, 1
     CMP R01, R02
     JL jljge2
     JMP jljgefail
@@ -64,8 +64,8 @@
     NEWLINE
 
     ; 5 >= 5 (signed)
-    MOV R03, 5
-    MOV R04, 5
+    MOVI R03, 5
+    MOVI R04, 5
     CMP R03, R04
     JGE jljgesuccess
     JMP jljgefail
@@ -85,8 +85,8 @@
     NEWLINE
 
     ; 1 < 2 (unsigned)
-    MOV R01, 1
-    MOV R02, 2
+    MOVI R01, 1
+    MOVI R02, 2
     CMP R01, R02
     JB jbjae2
     JMP jbjaefail
@@ -96,8 +96,8 @@
     NEWLINE
 
     ; 255 >= 1 (unsigned)
-    MOV R03, 255
-    MOV R04, 1
+    MOVI R03, 255
+    MOVI R04, 1
     CMP R03, R04
     JAE jbjaesuccess
     JMP jbjaefail

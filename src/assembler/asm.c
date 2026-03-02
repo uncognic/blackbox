@@ -1291,7 +1291,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "MOV"))
+        else if (starts_with_ci(s, "MOVI"))
         {
             if (debug)
             {
@@ -1300,7 +1300,43 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             char dst_reg[16];
             char src[16];
 
-            if (sscanf(s + 3, " %3s, %15s", dst_reg, src) != 2)
+            if (sscanf(s + 4, " %3s, %15s", dst_reg, src) != 2)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected MOVI <dst>, "
+                        "<value>\nGot: %s\n(If you're using a 2 character "
+                        "register like R1 or R2, use R01 or R02 instead!)\n",
+                        lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t dst = parse_register(dst_reg, lineno);
+            if (src[0] == '\'')
+            {
+                int32_t imm = (int32_t)(unsigned char)src[1];
+                fputc(OPCODE_MOVI, out);
+                fputc(dst, out);
+                write_u32(out, imm);
+            }
+            else
+            {
+                int32_t imm = strtol(src, NULL, 0);
+                fputc(OPCODE_MOVI, out);
+                fputc(dst, out);
+                write_u32(out, imm);
+            }
+        }
+        else if (starts_with_ci(s, "MOV"))
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char dst_reg[16];
+            char src_reg[16];
+
+            if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2)
             {
                 fprintf(stderr,
                         "Syntax error on line %d: expected MOV <dst>, "
@@ -1312,27 +1348,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             uint8_t dst = parse_register(dst_reg, lineno);
-            if (src[0] == 'R' || src[0] == 'r')
-            {
-                uint8_t srcp = parse_register(src, lineno);
-                fputc(OPCODE_MOV_REG, out);
-                fputc(dst, out);
-                fputc(srcp, out);
-            }
-            else if (src[0] == '\'')
-            {
-                int32_t imm = (int32_t)(unsigned char)src[1];
-                fputc(OPCODE_MOV_IMM, out);
-                fputc(dst, out);
-                write_u32(out, imm);
-            }
-            else
-            {
-                int32_t imm = strtol(src, NULL, 0);
-                fputc(OPCODE_MOV_IMM, out);
-                fputc(dst, out);
-                write_u32(out, imm);
-            }
+            uint8_t src = parse_register(src_reg, lineno);
+            fputc(OPCODE_MOV_REG, out);
+            fputc(dst, out);
+            fputc(src, out);
         }
         else if (starts_with_ci(s, "PUSH"))
         {

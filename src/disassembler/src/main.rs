@@ -104,13 +104,13 @@ fn main() {
                 i += 1.min(len - i);
                 println!("{:#06x}: POP R{}", offset, r);
             }
-            opcodes::OPCODE_MOV_IMM => {
+            opcodes::OPCODE_MOVI => {
                 let dst = data.get(i).copied().unwrap_or(0);
                 if let Some(v) = read_i32_le(&data, i + 1) {
-                    println!("{:#06x}: MOV_IMM R{}, {}", offset, dst, v);
+                    println!("{:#06x}: MOVI R{}, {}", offset, dst, v);
                     i += 1 + 4.min(len - (i + 1));
                 } else {
-                    println!("{:#06x}: MOV_IMM <truncated>", offset);
+                    println!("{:#06x}: MOVI <truncated>", offset);
                     break;
                 }
             }

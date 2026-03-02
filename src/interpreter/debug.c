@@ -25,8 +25,8 @@ const char *opcode_name(uint8_t op) {
     return "DIV";
   case OPCODE_PRINTREG:
     return "PRINTREG";
-  case OPCODE_MOV_IMM:
-    return "MOV_IMM";
+  case OPCODE_MOVI:
+    return "MOVI";
   case OPCODE_MOV_REG:
     return "MOV_REG";
   case OPCODE_JMP:

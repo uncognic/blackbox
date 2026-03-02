@@ -14,9 +14,12 @@
 - POP: Pop top of stack into a register  
   - Syntax: POP <register>  
   - Encoding: OPCODE_POP, 1 byte register  
-- MOV: Move value into register  
-  - Syntax: MOV <dst>, <src>  (src can be immediate or register)  
-  - Encoding: OPCODE_MOV_IMM, 1 byte dst, 4-byte immediate OR OPCODE_MOV_REG, 1 byte dst, 1 byte src  
+- MOV: Move register value into register  
+  - Syntax: MOV <dst>, <src>  (src must be a register)  
+  - Encoding: OPCODE_MOV_REG, 1 byte dst, 1 byte src  
+- MOVI: Move immediate value into register  
+  - Syntax: MOVI <dst>, <value>  (value is an immediate integer or char literal)  
+  - Encoding: OPCODE_MOVI, 1 byte dst, 4-byte immediate  
 - ADD / SUB / MUL / DIV / MOD: Binary register ops  
   - Syntax: <OP> <dst>, <src>  (first operand = destination)  
   - Encoding: OPCODE_*, 1 byte dst, 1 byte src  

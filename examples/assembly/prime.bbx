@@ -1,12 +1,12 @@
 %asm
 ;prints prime numbers up to 50 
 %main
-    MOV R00, 50
-    MOV R01, 2 
-    MOV R20, 0
+    MOVI R00, 50
+    MOVI R01, 2 
+    MOVI R20, 0
     .loop_outer:
-        MOV R02, 2
-        MOV R03, 1
+        MOVI R02, 2
+        MOVI R03, 1
 
     .loop_inner:
         MOV R04, R01

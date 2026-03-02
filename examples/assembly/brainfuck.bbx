@@ -9,23 +9,23 @@
 	READSTR R02
 
 	MOV R03, R02
-	MOV R09, 2147483647
+	MOVI R09, 2147483647
 	AND R03, R09 ;R03 = program_start
 
-	MOV R04, 0 ;program counter
+	MOVI R04, 0 ;program counter
 
-	MOV R10, 0
-	MOV R11, 1
-	MOV R20, 62 ;'>'
-	MOV R21, 60 ;'<'
-	MOV R22, 43 ;'+'
-	MOV R23, 45 ;'-'
-	MOV R24, 46 ;'.'
-	MOV R25, 44 ;','
-	MOV R26, 91 ;'['
-	MOV R27, 93 ;']'
+	MOVI R10, 0
+	MOVI R11, 1
+	MOVI R20, 62 ;'>'
+	MOVI R21, 60 ;'<'
+	MOVI R22, 43 ;'+'
+	MOVI R23, 45 ;'-'
+	MOVI R24, 46 ;'.'
+	MOVI R25, 44 ;','
+	MOVI R26, 91 ;'['
+	MOVI R27, 93 ;']'
 
-	MOV R05, 0
+	MOVI R05, 0
 
 .find_end:
 	MOV R12, R03
@@ -39,7 +39,7 @@
 	MOV R28, R12
 	INC R28
 
-MOV R07, 0 ;tape pointer
+MOVI R07, 0 ;tape pointer
 
 .main_loop:
 	MOV R05, R03

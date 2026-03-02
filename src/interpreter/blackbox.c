@@ -735,11 +735,11 @@ int main(int argc, char *argv[])
             registers[dst] = registers[src];
             break;
         }
-        case OPCODE_MOV_IMM:
+        case OPCODE_MOVI:
         {
             if (pc + 4 >= size)
             {
-                fprintf(stderr, "Missing operands for MOV_IMM at pc=%zu\n", pc);
+                fprintf(stderr, "Missing operands for MOVI at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
@@ -747,7 +747,7 @@ int main(int argc, char *argv[])
             uint8_t dst = program[pc++];
             if (dst >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in MOV_IMM at pc=%zu\n", pc);
+                fprintf(stderr, "Invalid register in MOVI at pc=%zu\n", pc);
                 free(program);
                 free(stack);
                 return 1;
