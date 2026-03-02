@@ -186,7 +186,7 @@ fn emit_instr(instr: &Instruction, code: &mut Vec<u8>) -> Result<(), String> {
             }
             match &instr.args[0] {
                 Operand::Imm(n) => {
-                    code.push(OPCODE_PUSH_IMM as u8);
+                    code.push(OPCODE_PUSHI as u8);
                     code.extend((*n as i32).to_le_bytes().iter());
                     Ok(())
                 }

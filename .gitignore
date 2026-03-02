@@ -39,3 +39,4 @@ src/tools.o
 *.exe
 *.obj
 bbx-disassembler
+bbxd
