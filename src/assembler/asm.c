@@ -544,7 +544,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "FRAME"))
+        if (starts_with_ci(s, "frame"))
         {
             if (label_count == 0)
             {
@@ -677,7 +677,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fclose(out);
             return 1;
         }
-        else if (starts_with_ci(s, "WRITE"))
+        else if (starts_with_ci(s, "write"))
         {
             if (debug)
             {
@@ -752,7 +752,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fputc((uint8_t)str_start[i], out);
             }
         }
-        else if (starts_with_ci(s, "LOADSTR"))
+        else if (starts_with_ci(s, "loadstr"))
         {
             char name[32];
             char regname[16];
@@ -776,7 +776,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] LOADSTR $%s (offset=%u) -> %s\n", name, offset,
                        regname);
         }
-        else if (starts_with_ci(s, "PRINTSTR"))
+        else if (starts_with_ci(s, "printstr"))
         {
             if (debug)
                 printf("[DEBUG] Encoding instruction: %s\n", s);
@@ -794,7 +794,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_PRINTSTR, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "LOADBYTE"))
+        else if (starts_with_ci(s, "loadbyte"))
         {
             if (debug)
             {
@@ -823,7 +823,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] LOADBYTE $%s (offset=%u) -> %s\n", name, offset,
                        regname);
         }
-        else if (starts_with_ci(s, "LOADWORD"))
+        else if (starts_with_ci(s, "loadword"))
         {
             if (debug)
             {
@@ -852,7 +852,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] LOADWORD $%s (offset=%u) -> %s\n", name, offset,
                        regname);
         }
-        else if (starts_with_ci(s, "LOADDWORD"))
+        else if (starts_with_ci(s, "loaddword"))
         {
             if (debug)
             {
@@ -881,7 +881,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] LOADDWORD $%s (offset=%u) -> %s\n", name,
                        offset, regname);
         }
-        else if (starts_with_ci(s, "LOADQWORD"))
+        else if (starts_with_ci(s, "loadqword"))
         {
             if (debug)
             {
@@ -910,7 +910,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] LOADQWORD $%s (offset=%u) -> %s\n", name,
                        offset, regname);
         }
-        else if (starts_with_ci(s, "CONTINUE"))
+        else if (starts_with_ci(s, "continue"))
         {
             if (debug)
             {
@@ -918,7 +918,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             fputc(OPCODE_CONTINUE, out);
         }
-        else if (equals_ci(s, "NEWLINE"))
+        else if (equals_ci(s, "newline"))
         {
             if (debug)
             {
@@ -930,7 +930,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         {
             continue;
         }
-        else if (starts_with_ci(s, "JE"))
+        else if (starts_with_ci(s, "je"))
         {
             if (debug)
             {
@@ -955,7 +955,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_JE, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "JNE"))
+        else if (starts_with_ci(s, "jne"))
         {
             if (debug)
             {
@@ -981,7 +981,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             write_u32(out, addr);
         }
 
-        else if (starts_with_ci(s, "HALT"))
+        else if (starts_with_ci(s, "halt"))
         {
             if (debug)
             {
@@ -999,11 +999,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     }
                 }
                 uint8_t val = 0;
-                if (equals_ci(token, "OK"))
+                if (equals_ci(token, "ok"))
                 {
                     val = 0;
                 }
-                else if (equals_ci(token, "BAD"))
+                else if (equals_ci(token, "bad"))
                 {
                     val = 1;
                 }
@@ -1031,7 +1031,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fputc(OPCODE_HALT, out);
             }
         }
-        else if (starts_with_ci(s, "INC"))
+        else if (starts_with_ci(s, "inc"))
         {
             if (debug)
             {
@@ -1061,7 +1061,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_INC, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "DEC"))
+        else if (starts_with_ci(s, "dec"))
         {
             if (debug)
             {
@@ -1091,7 +1091,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_DEC, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "PRINTREG"))
+        else if (starts_with_ci(s, "printreg"))
         {
             if (debug)
             {
@@ -1122,7 +1122,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_PRINTREG, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "PRINT_STACKSIZE"))
+        else if (starts_with_ci(s, "print_stacksize"))
         {
             if (debug)
             {
@@ -1130,7 +1130,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             fputc(OPCODE_PRINT_STACKSIZE, out);
         }
-        else if (starts_with_ci(s, "PRINT"))
+        else if (starts_with_ci(s, "print"))
         {
             if (debug)
             {
@@ -1148,7 +1148,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_PRINT, out);
             fputc((uint8_t)c, out);
         }
-        else if (starts_with_ci(s, "JMP"))
+        else if (starts_with_ci(s, "jmp"))
         {
             if (debug)
             {
@@ -1174,7 +1174,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_JMP, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "POP"))
+        else if (starts_with_ci(s, "pop"))
         {
             if (debug)
             {
@@ -1195,7 +1195,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_POP, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "ADD"))
+        else if (starts_with_ci(s, "add"))
         {
             if (debug)
             {
@@ -1219,7 +1219,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "SUB"))
+        else if (starts_with_ci(s, "sub"))
         {
             if (debug)
             {
@@ -1243,7 +1243,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "MUL"))
+        else if (starts_with_ci(s, "mul"))
         {
             if (debug)
             {
@@ -1267,7 +1267,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "DIV"))
+        else if (starts_with_ci(s, "div"))
         {
             if (debug)
             {
@@ -1291,7 +1291,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "MOVI"))
+        else if (starts_with_ci(s, "movi"))
         {
             if (debug)
             {
@@ -1327,7 +1327,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, imm);
             }
         }
-        else if (starts_with_ci(s, "MOV"))
+        else if (starts_with_ci(s, "mov"))
         {
             if (debug)
             {
@@ -1353,7 +1353,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "PUSH"))
+        else if (starts_with_ci(s, "push"))
         {
             if (debug)
             {
@@ -1400,7 +1400,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, imm);
             }
         }
-        else if (starts_with_ci(s, "CMP"))
+        else if (starts_with_ci(s, "cmp"))
         {
             if (debug)
             {
@@ -1424,7 +1424,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(r1, out);
             fputc(r2, out);
         }
-        else if (starts_with_ci(s, "ALLOC"))
+        else if (starts_with_ci(s, "alloc"))
         {
             if (debug)
             {
@@ -1445,11 +1445,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_ALLOC, out);
             write_u32(out, num);
         }
-        else if (starts_with_ci(s, "FRAME"))
+        else if (starts_with_ci(s, "frame"))
         {
             continue;
         }
-        else if (starts_with_ci(s, "LOADVAR"))
+        else if (starts_with_ci(s, "loadvar"))
         {
             if (debug)
             {
@@ -1483,7 +1483,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, slot);
             }
         }
-        else if (starts_with_ci(s, "LOAD"))
+        else if (starts_with_ci(s, "load"))
         {
             if (debug)
             {
@@ -1517,7 +1517,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, addr);
             }
         }
-        else if (starts_with_ci(s, "STOREVAR"))
+        else if (starts_with_ci(s, "storevar"))
         {
             if (debug)
             {
@@ -1551,7 +1551,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, slot);
             }
         }
-        else if (starts_with_ci(s, "STORE"))
+        else if (starts_with_ci(s, "store"))
         {
             if (debug)
             {
@@ -1585,7 +1585,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, addr);
             }
         }
-        else if (starts_with_ci(s, "GROW"))
+        else if (starts_with_ci(s, "grow"))
         {
             if (debug)
             {
@@ -1606,7 +1606,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_GROW, out);
             write_u32(out, num);
         }
-        else if (starts_with_ci(s, "RESIZE"))
+        else if (starts_with_ci(s, "resize"))
         {
             if (debug)
             {
@@ -1627,7 +1627,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_RESIZE, out);
             write_u32(out, num);
         }
-        else if (starts_with_ci(s, "FREE"))
+        else if (starts_with_ci(s, "free"))
         {
             if (debug)
             {
@@ -1648,7 +1648,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_FREE, out);
             write_u32(out, num);
         }
-        else if (starts_with_ci(s, "FOPEN"))
+        else if (starts_with_ci(s, "fopen"))
         {
             if (debug)
             {
@@ -1703,7 +1703,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fputc((uint8_t)filename[i], out);
             }
         }
-        else if (starts_with_ci(s, "FCLOSE"))
+        else if (starts_with_ci(s, "fclose"))
         {
             if (debug)
             {
@@ -1724,7 +1724,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_FCLOSE, out);
             fputc(fd, out);
         }
-        else if (starts_with_ci(s, "FREAD"))
+        else if (starts_with_ci(s, "fread"))
         {
             if (debug)
             {
@@ -1750,7 +1750,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(fd, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "FSEEK"))
+        else if (starts_with_ci(s, "fseek"))
         {
             if (debug)
             {
@@ -2036,7 +2036,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_SLEEP, out);
             write_u32(out, ms);
         }
-        else if (starts_with_ci(s, "CLRSCR"))
+        else if (starts_with_ci(s, "clrscr"))
         {
             if (debug)
             {
@@ -2044,7 +2044,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             fputc(OPCODE_CLRSCR, out);
         }
-        else if (starts_with_ci(s, "RAND"))
+        else if (starts_with_ci(s, "rand"))
         {
             if (debug)
             {
@@ -2094,7 +2094,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u64(out, (uint64_t)INT64_MAX);
             }
         }
-        else if (starts_with_ci(s, "GETKEY"))
+        else if (starts_with_ci(s, "getkey"))
         {
             if (debug)
             {
@@ -2117,7 +2117,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_GETKEY, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "READ"))
+        else if (starts_with_ci(s, "read"))
         {
             if (debug)
             {

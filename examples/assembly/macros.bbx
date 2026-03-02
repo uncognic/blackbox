@@ -1,22 +1,24 @@
 %asm
 
+
 %macro loop_n cnt
-    MOVI R00, $cnt
+    movi R00, $cnt
 .@@loop:
-    PRINT '.'
-    DEC R00
-    MOVI R01, 0
-    CMP R00, R01
-    JNE @@loop
+    print '.'
+    dec R00
+    movi R01, 0
+    cmp R00, R01
+    jne @@loop
 %endmacro
+
 
 %macro hello
     write stdout "Hello from macro!"
-    NEWLINE
+    newline
 %endmacro
 
 %main
     %loop_n 3
     %hello
 
-    HALT OK
+    halt ok

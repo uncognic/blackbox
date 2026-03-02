@@ -2,10 +2,10 @@
 %data
     STR $prompt, "Enter your name: "
 %main
-    LOADSTR $prompt, R01
-    PRINTSTR R01
-    READSTR R00          ; Read user input, store the pointer in R00
+    loadstr $prompt, R01
+    printstr R01
+    readstr R00          ; Read user input, store the pointer in R00
     write stdout "Hello, "
-    PRINTSTR R00         ; Print what user typed
-    NEWLINE
-    HALT OK
+    printstr R00         ; Print what user typed
+    newline
+    halt ok

@@ -1595,18 +1595,38 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            uint32_t offset = (uint32_t)registers[reg];
-
-            if (offset >= data_table_size)
+            uint32_t val = (uint32_t)registers[reg];
+            if (val & 0x80000000)
             {
-                fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", offset,
-                        pc);
-                free(program);
-                free(stack);
-                return 1;
+                size_t offset = val & 0x7FFFFFFF;
+                if (offset >= stack_cap)
+                {
+                    fprintf(stderr, "Stack offset out of bounds: %zu at pc=%zu\n", offset, pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                size_t i = offset;
+                while (i < sp)
+                {
+                    char c = (char)stack[i];
+                    if (c == '\0')
+                        break;
+                    putchar(c);
+                    i++;
+                }
             }
-
-            printf("%s", &data_table[offset]);
+            else
+            {
+                if (val >= data_table_size)
+                {
+                    fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", val, pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                printf("%s", &data_table[val]);
+            }
             fflush(stdout);
             break;
         }

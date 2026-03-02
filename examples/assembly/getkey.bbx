@@ -6,28 +6,29 @@
     STR $got, "Got key: "
 
 %main
-    LOADSTR $prompt, R01
-    PRINTSTR R01
-    NEWLINE
+    loadstr $prompt, R01
+    printstr R01
+    newline
+
 
 .wait:
-    GETKEY R00
-    MOV R01, R00
-    INC R01
-    MOVI R02, 0
-    CMP R01, R02
-    JNE got
-    SLEEP 100
-    JMP wait
+    getkey R00
+    mov R01, R00
+    inc R01
+    movi R02, 0
+    cmp R01, R02
+    jne got
+    sleep 100
+    jmp wait
 
-    LOADSTR $no_key, R02
-    PRINTSTR R02
-    NEWLINE
-    HALT OK
+    loadstr $no_key, R02
+    printstr R02
+    newline
+    halt ok
 
 .got:
-    LOADSTR $got, R02
-    PRINTSTR R02
-    PRINTREG R00
-    NEWLINE
-    HALT OK
+    loadstr $got, R02
+    printstr R02
+    printreg R00
+    newline
+    halt ok

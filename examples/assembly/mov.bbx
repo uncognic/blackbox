@@ -1,9 +1,10 @@
 ;mov
+;should print 42
 %asm
 %main
-    MOVI R00, 42
-    MOV R01, R00
-    BREAK
-    PRINTREG R01
-    NEWLINE
-    HALT OK
+    movi R00, 42
+    mov R01, R00
+    break
+    printreg R01
+    newline
+    halt ok

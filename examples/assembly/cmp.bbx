@@ -2,51 +2,51 @@
 %main
 .start:
     write stdout "Which function to test? (1 for JE/JNE, 2 for JL/JGE, 3 for JB/JAE): "
-    READ R00
+    read R00
 
-    MOVI R95, 1
-    MOVI R96, 2
-    MOVI R97, 3
+    movi R95, 1
+    movi R96, 2
+    movi R97, 3
 
-    CMP R00, R95
-    JE jejne
-    CMP R00, R96
-    JE jljge
-    CMP R00, R97
-    JE jbjae
+    cmp R00, R95
+    je jejne
+    cmp R00, R96
+    je jljge
+    cmp R00, R97
+    je jbjae
 
     write stdout "Invalid choice"
-    NEWLINE
-    JMP start
+    newline
+    jmp start
 
 .jejne:
     write stdout "JE/JNE pass 1"
-    NEWLINE
+    newline
 
-    MOVI R01, 0
-    MOVI R05, 0
-    CMP R05, R01
-    JE jejne2
-    JMP jejnefail
+    movi R01, 0
+    movi R05, 0
+    cmp R05, R01
+    je jejne2
+    jmp jejnefail
 
 .jejne2:
     write stdout "JE/JNE pass 2"
-    NEWLINE
+    newline
 
-    MOVI R03, 1
-    CMP R01, R03
-    JNE jejnesuccess
-    JMP jejnefail
+    movi R03, 1
+    cmp R01, R03
+    jne jejnesuccess
+    jmp jejnefail
 
 .jejnesuccess:
     write stdout "JE and JNE Success"
-    NEWLINE
-    HALT OK
+    newline
+    halt ok
 
 .jejnefail:
     write stdout "JE/JNE Fail"
-    NEWLINE
-    HALT BAD
+    newline
+    halt bad
 
 .jljge:
     write stdout "JL/JGE pass 1"

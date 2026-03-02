@@ -4,97 +4,97 @@
 ;example:
 ;echo '++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.' | ./bbx brainfuck.bcx
 %main
-	FOPEN w, F1, "/dev/stdout"
+	fopen w, F1, "/dev/stdout"
 
-	READSTR R02
+	readstr R02
 
-	MOV R03, R02
-	MOVI R09, 2147483647
-	AND R03, R09 ;R03 = program_start
+	mov R03, R02
+	movi R09, 2147483647
+	and R03, R09 ;R03 = program_start
 
-	MOVI R04, 0 ;program counter
+	movi R04, 0 ;program counter
 
-	MOVI R10, 0
-	MOVI R11, 1
-	MOVI R20, 62 ;'>'
-	MOVI R21, 60 ;'<'
-	MOVI R22, 43 ;'+'
-	MOVI R23, 45 ;'-'
-	MOVI R24, 46 ;'.'
-	MOVI R25, 44 ;','
-	MOVI R26, 91 ;'['
-	MOVI R27, 93 ;']'
+	movi R10, 0
+	movi R11, 1
+	movi R20, 62 ;'>'
+	movi R21, 60 ;'<'
+	movi R22, 43 ;'+'
+	movi R23, 45 ;'-'
+	movi R24, 46 ;'.'
+	movi R25, 44 ;','
+	movi R26, 91 ;'['
+	movi R27, 93 ;']'
 
-	MOVI R05, 0
+	movi R05, 0
 
 .find_end:
-	MOV R12, R03
-	ADD R12, R05
-	LOAD R06, R12
-	CMP R06, R10
-	JE found_end
-	INC R05
-	JMP find_end
+	mov R12, R03
+	add R12, R05
+	load R06, R12
+	cmp R06, R10
+	je found_end
+	inc R05
+	jmp find_end
 .found_end:
-	MOV R28, R12
-	INC R28
+	mov R28, R12
+	inc R28
 
-MOVI R07, 0 ;tape pointer
+movi R07, 0 ;tape pointer
 
 .main_loop:
-	MOV R05, R03
-	ADD R05, R04
-	LOAD R06, R05
-	CMP R06, R10
-	JE end_program
+	mov R05, R03
+	add R05, R04
+	load R06, R05
+	cmp R06, R10
+	je end_program
 
-	CMP R06, R20
-	JE op_gt
-	CMP R06, R21
-	JE op_lt
-	CMP R06, R22
-	JE op_plus
-	CMP R06, R23
-	JE op_minus
-	CMP R06, R24
-	JE op_dot
-	CMP R06, R25
-	JE op_comma
-	CMP R06, R26
-	JE op_lb
-	CMP R06, R27
-	JE op_rb
+	cmp R06, R20
+	je op_gt
+	cmp R06, R21
+	je op_lt
+	cmp R06, R22
+	je op_plus
+	cmp R06, R23
+	je op_minus
+	cmp R06, R24
+	je op_dot
+	cmp R06, R25
+	je op_comma
+	cmp R06, R26
+	je op_lb
+	cmp R06, R27
+	je op_rb
 
-	INC R04
-	JMP main_loop
+	inc R04
+	jmp main_loop
 
 .op_gt:
-	INC R07
-	INC R04
-	JMP main_loop
+	inc R07
+	inc R04
+	jmp main_loop
 
 .op_lt:
-	DEC R07
-	INC R04
-	JMP main_loop
+	dec R07
+	inc R04
+	jmp main_loop
 
 .op_plus:
-	MOV R12, R28
-	ADD R12, R07
-	LOAD R08, R12
-	INC R08
-	STORE R08, R12
-	INC R04
-	JMP main_loop
+	mov R12, R28
+	add R12, R07
+	load R08, R12
+	inc R08
+	store R08, R12
+	inc R04
+	jmp main_loop
 
 .op_minus:
-	MOV R12, R28
-	ADD R12, R07
-	LOAD R08, R12
-	DEC R08
-	STORE R08, R12
-	INC R04
-	JMP main_loop
+	mov R12, R28
+	add R12, R07
+	load R08, R12
+	dec R08
+	store R08, R12
+	inc R04
+	jmp main_loop
 
 .op_dot:
 	MOV R12, R28

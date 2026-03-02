@@ -1,11 +1,10 @@
 %asm
 
 %data
-    STR $hello, "Hello, World!"
-    STR $error, "An error occurred!"
+    str $hello, "Hello, World!"
 
 %main
-    LOADSTR $hello, R01
-    PRINTSTR R01
-    NEWLINE
-    HALT OK
+    loadstr $hello, R01
+    printstr R01
+    newline
+    halt ok

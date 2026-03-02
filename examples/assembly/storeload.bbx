@@ -2,19 +2,19 @@
 
 %main
 ;store 42 at stack index 10
-MOVI R00, 42
-STORE R00, 10
+movi R00, 42
+store R00, 10
 ;load it back and print
-LOAD R01, 10
-PRINTREG R01
-NEWLINE
+load R01, 10
+printreg R01
+newline
 
 ;store using a register as the index
-MOVI R02, 123 ;value to store
-MOVI R10, 11 ;index in R10
-STORE R02, R10 ;store R02 at stack index 11
-LOAD R03, R10 ;load back into R03
-PRINTREG R03
-NEWLINE
+movi R02, 123 ;value to store
+movi R10, 11 ;index in R10
+store R02, R10 ;store R02 at stack index 11
+load R03, R10 ;load back into R03
+printreg R03
+newline
 
-HALT OK
+halt ok

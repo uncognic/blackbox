@@ -2,22 +2,22 @@
 ;Simple guessing game
 %main
     write stdout "Welcome to the Guessing Game!"
-    NEWLINE
+    newline
     write stdout "Try to guess a number between 1 and 100."
     NEWLINE
 
-    RAND R00, 1, 100 ; Generate a random number between 1 and 100
+    rand R00, 1, 100 ; Generate a random number between 1 and 100
 .guess:
     write stdout "Enter your guess: "
-    READ R01
-    CMP R01, R00
-    JE correct
-    JMP wrong
+    read R01
+    cmp R01, R00
+    je correct
+    jmp wrong
 .correct:
     write stdout "Congratulations! You guessed the number!"
-    NEWLINE
-    HALT OK
+    newline
+    halt ok
 .wrong:
     write stdout "Wrong guess. Try again!"
-    NEWLINE
-    JMP guess
+    newline
+    jmp guess

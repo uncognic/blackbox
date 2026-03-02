@@ -1,21 +1,22 @@
 ;unconditional jump
+;should print 1, 2, 3 in an infinite loop
 %asm
 %main
     .label1:
-    MOVI R1, 1
-    PRINTREG R1
-    NEWLINE
-    JMP label2
+    movi r01, 1
+    printreg r01
+    newline
+    jmp label2
 
     .label2:
-    MOVI R2, 2
-    PRINTREG R2
-    NEWLINE
-    JMP label3
+    movi r02, 2
+    printreg r02
+    newline
+    jmp label3
 
     .label3:
-    MOVI R3, 3
-    PRINTREG R3
-    NEWLINE
-    JMP label1
-    HALT OK
+    movi r03, 3
+    printreg r03
+    newline
+    jmp label1
+    halt ok

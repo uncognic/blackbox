@@ -3,40 +3,40 @@
     ;arithmetic operations example
 
     ;Add operation
-    PUSH 20
-    POP R00
-    PUSH 10
-    POP R01
-    ADD R00, R01
-    PRINTREG R00 ;Result: 30
+    push 20
+    pop R00
+    push 10
+    pop R01
+    add R00, R01
+    printreg R00 ;Result: 30
 
     ;Subtract operation
-    NEWLINE
-    PUSH 2
-    POP R02
-    SUB R00, R02
-    PRINTREG R00 ;Result: 28
+    newline
+    push 2
+    pop R02
+    sub R00, R02
+    printreg R00 ;Result: 28
 
     ;Multiply operation
-    NEWLINE
-    PUSH 2
-    POP R02
-    MUL R00, R02
-    PRINTREG R00 ;Result: 56
+    newline
+    push 2
+    pop R02
+    mul R00, R02
+    printreg R00 ;Result: 56
 
     ;Divide operation
-    NEWLINE
-    PUSH 2
-    POP R02
-    DIV R00, R02
-    PRINTREG R00 ;Result: 28
+    newline
+    push 2
+    pop R02
+    div R00, R02
+    printreg R00 ;Result: 28
 
     ;Modulus operation
-    NEWLINE
-    MOVI R00, 10
-    MOVI R01, 3
-    MOD R00, R01
-    PRINTREG R00 ;Result: 1
+    newline
+    movi R00, 10
+    movi R01, 3
+    mod R00, R01
+    printreg R00 ;Result: 1
 
-    NEWLINE
-    HALT OK
+    newline
+    halt ok
