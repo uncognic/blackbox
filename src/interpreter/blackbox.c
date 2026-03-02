@@ -2463,6 +2463,28 @@ int main(int argc, char *argv[])
             registers[dst] = registers[dst] % registers[src];
             break;
         }
+        case OPCODE_JMPI:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operand for JMPI at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint32_t addr = program[pc] | (program[pc + 1] << 8) |
+                            (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+            if (addr >= size)
+            {
+                fprintf(stderr, "JMPI addr out of bounds: %zu at pc=%u\n", pc, addr);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            pc = addr;
+            break;
+        }
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,

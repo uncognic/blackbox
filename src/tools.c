@@ -158,6 +158,8 @@ size_t instr_size(const char *line)
             str_len = 255;
         return 3 + str_len;
     }
+    else if (starts_with_ci(line, "JMPI"))
+        return 5;
     else if (starts_with_ci(line, "JMP"))
         return 5;
     else if (starts_with_ci(line, "ALLOC"))

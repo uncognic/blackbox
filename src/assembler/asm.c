@@ -1148,6 +1148,30 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_PRINT, out);
             fputc((uint8_t)c, out);
         }
+        else if (starts_with_ci(s, "jmpi"))
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            uint32_t addr;
+            if (sscanf(s + 5, " %u", &addr) != 1)
+            {
+                fprintf(
+                    stderr,
+                    "Syntax error on line %d: expected JMPI <addr>\nGot: %s\n",
+                    lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            if (debug)
+            {
+                printf("[DEBUG] JMPI to addr %u\n", addr);
+            }
+            fputc(OPCODE_JMPI, out);
+            write_u32(out, addr);
+        }
         else if (starts_with_ci(s, "jmp"))
         {
             if (debug)
@@ -1408,7 +1432,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_PUSHI, out);
             write_u32(out, imm);
         }
-        
+
         else if (starts_with_ci(s, "cmp"))
         {
             if (debug)
