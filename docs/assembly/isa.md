@@ -17,7 +17,7 @@
 - MOV: Move value into register  
   - Syntax: MOV <dst>, <src>  (src can be immediate or register)  
   - Encoding: OPCODE_MOV_IMM, 1 byte dst, 4-byte immediate OR OPCODE_MOV_REG, 1 byte dst, 1 byte src  
-- ADD / SUB / MUL / DIV: Binary register ops  
+- ADD / SUB / MUL / DIV / MOD: Binary register ops  
   - Syntax: <OP> <dst>, <src>  (first operand = destination)  
   - Encoding: OPCODE_*, 1 byte dst, 1 byte src  
   - DIV: division by zero is an error (interpreter checks).  

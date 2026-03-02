@@ -1312,7 +1312,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             uint8_t dst = parse_register(dst_reg, lineno);
-            if (src[0] == 'R')
+            if (src[0] == 'R' || src[0] == 'r')
             {
                 uint8_t srcp = parse_register(src, lineno);
                 fputc(OPCODE_MOV_REG, out);

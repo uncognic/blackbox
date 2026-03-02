@@ -1,0 +1,41 @@
+%asm
+;FizzBuzz for the Blackbox assembly language.
+%main
+    mov r00, 1
+    mov r01, 101
+    mov r10, 0
+.loop:
+    mov r02, r00
+    mov r03, 15
+    mod r02, r03
+    cmp r02, r10
+    je fizzbuzz
+    mov r02, r00
+    mov r15, 3
+    mod r02, r15
+    cmp r02, r10
+    je fizz
+    mov r02, r00
+    mov r16, 5
+    mod r02, r16
+    cmp r02, r10
+    je buzz
+    printreg r00
+    newline
+    jmp next
+.fizzbuzz:
+    write stdout "FizzBuzz"
+    newline
+    jmp next
+.fizz:
+    write stdout "Fizz"
+    newline
+    jmp next
+.buzz:
+    write stdout "Buzz"
+    newline
+.next:
+    inc r00
+    cmp r00, r01
+    jne loop
+    halt ok
