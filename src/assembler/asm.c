@@ -1353,53 +1353,62 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "push"))
+        else if (starts_with_ci(s, "push "))
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char regname[16];
+            if (sscanf(s + 5, " %3s", regname) != 1)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected PUSH "
+                        "<register>\nGot: %s\n",
+                        lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_PUSH_REG, out);
+            fputc(reg, out);
+        }
+        else if (starts_with_ci(s, "pushi "))
         {
             if (debug)
             {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
             char operand[16];
-            if (sscanf(s + 4, " %3s", operand) != 1)
+            if (sscanf(s + 6, " %15s", operand) != 1)
             {
                 fprintf(stderr,
-                        "Syntax error on line %d: expected PUSH "
+                        "Syntax error on line %d: expected pushi "
                         "<value|register>\nGot: %s\n",
                         lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
-            if (operand[0] == 'R')
+            if (debug)
             {
-                uint8_t reg = parse_register(operand, lineno);
-                if (debug)
-                {
-                    printf("[DEBUG] PUSH_REG\n");
-                }
-                fputc(OPCODE_PUSH_REG, out);
-                fputc(reg, out);
+                printf("[DEBUG] pushi %s\n", operand);
             }
-            else
+            char *end;
+            int32_t imm = strtol(operand, &end, 0);
+            if (*end != '\0')
             {
-                if (debug)
-                {
-                    printf("[DEBUG] PUSH_IMM\n");
-                }
-                char *end;
-                int32_t imm = strtol(operand, &end, 0);
-                if (*end != '\0')
-                {
-                    fprintf(stderr, "Invalid immediate on line %d: %s\n",
-                            lineno, operand);
-                    fclose(in);
-                    fclose(out);
-                    return 1;
-                }
-                fputc(OPCODE_PUSH_IMM, out);
-                write_u32(out, imm);
+                fprintf(stderr, "Invalid immediate on line %d: %s\n",
+                        lineno, operand);
+                fclose(in);
+                fclose(out);
+                return 1;
             }
+            fputc(OPCODE_PUSHI, out);
+            write_u32(out, imm);
         }
+        
         else if (starts_with_ci(s, "cmp"))
         {
             if (debug)

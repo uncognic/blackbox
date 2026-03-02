@@ -376,7 +376,7 @@ int main(int argc, char *argv[])
             registers[reg] -= 1;
             break;
         }
-        case OPCODE_PUSH_IMM:
+        case OPCODE_PUSHI:
         {
             if (pc + 3 >= size)
             {

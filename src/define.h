@@ -12,7 +12,7 @@
 #define OPCODE_WRITE 0x01
 #define OPCODE_NEWLINE 0x02
 #define OPCODE_PRINT 0x03
-#define OPCODE_PUSH_IMM 0x04
+#define OPCODE_PUSHI 0x04
 #define OPCODE_POP 0x05
 #define OPCODE_ADD 0x06
 #define OPCODE_SUB 0x07

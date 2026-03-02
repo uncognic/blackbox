@@ -8,9 +8,9 @@
 - PRINT: Print single character  
   - Syntax: PRINT '<char>'  
   - Encoding: OPCODE_PRINT, 1 byte char  
-- PUSH: Push immediate or register onto the stack  
-  - Syntax: PUSH <value|register>  
-  - Encoding: OPCODE_PUSH_IMM + 4-byte signed immediate OR OPCODE_PUSH_REG + 1 byte register  
+- PUSH / PUSHI: Push immediate or register onto the stack  
+  - Syntax: PUSH / PUSHI <value|register>  
+  - Encoding: OPCODE_PUSH_IMM + 4-byte signed immediate OR OPCODE_PUSH_REG + 1 byte register
 - POP: Pop top of stack into a register  
   - Syntax: POP <register>  
   - Encoding: OPCODE_POP, 1 byte register  

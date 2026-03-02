@@ -3,30 +3,30 @@
     ;arithmetic operations example
 
     ;Add operation
-    push 20
+    pushi 20
     pop R00
-    push 10
+    pushi 10
     pop R01
     add R00, R01
     printreg R00 ;Result: 30
 
     ;Subtract operation
     newline
-    push 2
+    pushi 2
     pop R02
     sub R00, R02
     printreg R00 ;Result: 28
 
     ;Multiply operation
     newline
-    push 2
+    pushi 2
     pop R02
     mul R00, R02
     printreg R00 ;Result: 56
 
     ;Divide operation
     newline
-    push 2
+    pushi 2
     pop R02
     div R00, R02
     printreg R00 ;Result: 28

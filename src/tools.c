@@ -126,18 +126,9 @@ size_t instr_size(const char *line)
             return 6;
     }
     else if (starts_with_ci(line, "PUSH"))
-    {
-        char operand[32];
-        sscanf(line + 4, " %31s", operand);
-        if (operand[0] == 'R')
-        {
-            return 2;
-        }
-        else
-        {
-            return 5;
-        }
-    }
+        return 2;
+    else if (starts_with_ci(line, "PUSHI"))
+        return 5;
     else if (starts_with_ci(line, "POP"))
         return 2;
     else if (starts_with_ci(line, "ADD"))
@@ -300,7 +291,8 @@ size_t instr_size(const char *line)
     }
     else if (starts_with_ci(line, "PRINTSTR"))
         return 2;
-    else if (starts_with_ci(line, "HALT")) {
+    else if (starts_with_ci(line, "HALT"))
+    {
         char operand[32];
         if (sscanf(line + 4, " %31s", operand) == 1)
             return 2;
@@ -616,7 +608,8 @@ int equals_ci(const char *a, const char *b)
 {
     if (!a || !b)
         return 0;
-    while (*a && *b) {
+    while (*a && *b)
+    {
         if (toupper((unsigned char)*a) != toupper((unsigned char)*b))
             return 0;
         a++;
@@ -630,7 +623,8 @@ int starts_with_ci(const char *s, const char *prefix)
     if (!s || !prefix)
         return 0;
     size_t i = 0;
-    while (prefix[i]) {
+    while (prefix[i])
+    {
         if (s[i] == '\0')
             return 0;
         if (toupper((unsigned char)s[i]) != toupper((unsigned char)prefix[i]))

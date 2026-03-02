@@ -11,7 +11,7 @@ const char *opcode_name(uint8_t op) {
     return "NEWLINE";
   case OPCODE_PRINT:
     return "PRINT";
-  case OPCODE_PUSH_IMM:
+  case OPCODE_PUSHI:
     return "PUSH_IMM";
   case OPCODE_POP:
     return "POP";
