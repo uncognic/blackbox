@@ -97,12 +97,12 @@ fn main() {
                     i += 1.min(len - i);
                     println!("{:#06x}: print '{}' (0x{:02x})", offset, ch as char, ch);
                 }
-                opcodes::OPCODE_PUSH_IMM => {
+                opcodes::OPCODE_PUSHI => {
                     if let Some(v) = read_i32_le(&data, i) {
-                        println!("{:#06x}: push_imm {}", offset, v);
+                        println!("{:#06x}: pushi {}", offset, v);
                         i += 4.min(len - i);
                     } else {
-                        println!("{:#06x}: push_imm <truncated>", offset);
+                        println!("{:#06x}: pushi <truncated>", offset);
                         break;
                     }
                 }
