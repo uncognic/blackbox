@@ -2485,6 +2485,52 @@ int main(int argc, char *argv[])
             pc = addr;
             break;
         }
+        case OPCODE_EXEC:
+        {
+            if (pc >= size)
+            {
+                fprintf(stderr, "Missing dest register for EXEC at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t dest = program[pc++];
+            if (dest >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid dest register %u for EXEC at pc=%zu\n", dest, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            if (pc >= size)
+            {
+                fprintf(stderr, "Missing length for EXEC at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t len = program[pc++];
+            if (pc + len > size)
+            {
+                fprintf(stderr, "EXEC string past end of program at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            char cmd[256];
+            if (len > 255)
+                len = 255;
+            memcpy(cmd, &program[pc], len);
+            cmd[len] = '\0';
+            pc += len;
+
+            if (debug)
+                printf("[DEBUG] EXEC: %s -> r%02u\n", cmd, dest);
+
+            int ret = system(cmd);
+            registers[dest] = (int64_t)ret;
+            break;
+        }
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,

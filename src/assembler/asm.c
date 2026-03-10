@@ -2357,6 +2357,74 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             fputc(OPCODE_BREAK, out);
         }
+        else if (starts_with_ci(s, "EXEC"))
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char *str_start = strchr(s, '"');
+            if (!str_start)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: missing opening quote for EXEC\n",
+                        lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            str_start++;
+
+            char *str_end = strchr(str_start, '"');
+            if (!str_end)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: missing closing quote for EXEC\n",
+                        lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+
+            size_t len = (size_t)(str_end - str_start);
+            if (len > 255)
+                len = 255;
+
+            char *after = str_end + 1;
+            while (*after == ' ' || *after == '\t' || *after == ',')
+                after++;
+            char regname[16];
+            if (sscanf(after, " %15s", regname) != 1)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected EXEC \"<cmd>\", <register>\n",
+                        lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            for (int i = 0; regname[i]; i++)
+            {
+                if (regname[i] == '\r' || regname[i] == '\n')
+                {
+                    regname[i] = '\0';
+                    break;
+                }
+            }
+            uint8_t dest_reg = parse_register(regname, lineno);
+
+            fputc(OPCODE_EXEC, out);
+            fputc(dest_reg, out);
+            fputc((uint8_t)len, out);
+            for (size_t i = 0; i < len; i++)
+            {
+                fputc((uint8_t)str_start[i], out);
+            }
+            if (debug)
+            {
+                printf("[DEBUG] EXEC -> %.*s (dest=%s)\n", (int)len, str_start, regname);
+            }
+        }
         else
         {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno,

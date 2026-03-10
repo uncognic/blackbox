@@ -40,3 +40,4 @@ src/tools.o
 *.obj
 bbx-disassembler
 bbxd
+new.bbx

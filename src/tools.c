@@ -158,6 +158,19 @@ size_t instr_size(const char *line)
             str_len = 255;
         return 3 + str_len;
     }
+    else if (starts_with_ci(line, "EXEC"))
+    {
+        char *quote = strchr(line, '"');
+        if (!quote)
+            return 3;
+        char *end = strchr(quote + 1, '"');
+        if (!end)
+            return 3;
+        size_t str_len = end - (quote + 1);
+        if (str_len > 255)
+            str_len = 255;
+        return 3 + str_len;
+    }
     else if (starts_with_ci(line, "JMPI"))
         return 5;
     else if (starts_with_ci(line, "JMP"))

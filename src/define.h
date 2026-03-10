@@ -74,6 +74,7 @@
 #define OPCODE_LOADQWORD 0x3F
 #define OPCODE_MOD 0x40
 #define OPCODE_JMPI 0x47
+#define OPCODE_EXEC 0x48
 #define OPCODE_HALT 0xFF
 #define OPCODE_BREAK 0xFE
 

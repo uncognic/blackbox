@@ -76,6 +76,13 @@ fn scan_one(
             let slen = bytes[j + 1] as usize;
             j += 2 + slen;
         }
+        opcodes::OPCODE_EXEC => {
+            if j + 2 > len {
+                return None;
+            }
+            let slen = bytes[j + 1] as usize;
+            j += 2 + slen;
+        }
         opcodes::OPCODE_NEWLINE
         | opcodes::OPCODE_CLRSCR
         | opcodes::OPCODE_CONTINUE
@@ -344,6 +351,21 @@ fn emit_instruction(
             };
             j += slen.min(len - j);
             let _ = writeln!(w, "    write {} \"{}\"", fd_name, s);
+        }
+        opcodes::OPCODE_EXEC => {
+            if j + 2 > len {
+                return None;
+            }
+            let dest = bytes[j];
+            let slen = bytes[j + 1] as usize;
+            j += 2;
+            let s = if j + slen <= len {
+                String::from_utf8_lossy(&bytes[j..j + slen]).to_string()
+            } else {
+                "<truncated>".to_string()
+            };
+            j += slen.min(len - j);
+            let _ = writeln!(w, "    exec \"{}\", {}", s, reg(dest));
         }
         opcodes::OPCODE_NEWLINE => {
             let _ = writeln!(w, "    newline");
@@ -1375,6 +1397,23 @@ fn main() {
                     }
                 }
                 opcodes::OPCODE_BREAK => println!("{:#06x}: break", offset),
+                opcodes::OPCODE_EXEC => {
+                    if i + 2 <= len {
+                        let dest = data.get(i).copied().unwrap_or(0);
+                        let slen = data.get(i + 1).copied().unwrap_or(0) as usize;
+                        i += 2;
+                        let s = if i + slen <= len {
+                            String::from_utf8_lossy(&data[i..i + slen]).to_string()
+                        } else {
+                            "<truncated>".to_string()
+                        };
+                        i += slen.min(len - i);
+                        println!("{:#06x}: exec \"{}\", R{}", offset, s, dest);
+                    } else {
+                        println!("{:#06x}: exec <truncated>", offset);
+                        break;
+                    }
+                }
                 opcodes::OPCODE_JMPI => {
                     if let Some(addr) = read_u32_le(&data, i) {
                         println!("{:#06x}: jmpi 0x{:08x}", offset, addr);
@@ -1392,7 +1431,7 @@ fn main() {
         }
     } else {
         eprintln!(
-            "Usage: {} [--dump|--decomp] [file]",
+            "Usage: {} [--dump|--decomp] [-o file]",
             args.get(0).map(|s| s.as_str()).unwrap_or("program")
         );
     }
