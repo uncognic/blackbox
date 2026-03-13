@@ -1,0 +1,252 @@
+; Conway's Game of Life
+
+; Memory layout (stack slots):
+;  Slots 0..799 = grid A
+;  Slots 800..1599 = grid B
+
+; R08 = current buffer base (0 or 800)
+; R09 = next buffer base (800 or 0)
+; R10 = row (outer loop counter)
+; R11 = col (inner loop counter)
+; R04 = neighbor accumulator
+; R03 = current cell value
+; R05 = scratch / next cell value
+; R06 = flat index scratch
+; R07 = scratch (used by IDX macro)
+; R00,R01 = scratch / neighbor offset regs
+
+%asm
+%macro IDX row col dst
+    MOV $dst, $row
+    MOVI R07, 40
+    MUL $dst, R07
+    ADD $dst, $col
+%endmacro
+
+%macro CHECK_NEIGHBOR nr nc buf acc
+    MOVI R05, 0
+    CMP $nr, R05
+    JL @@skip
+    MOVI R05, 20
+    CMP R05, $nr
+    JL @@skip
+    MOVI R05, 0
+    CMP $nc, R05
+    JL @@skip
+    MOVI R05, 40
+    CMP R05, $nc
+    JL @@skip
+    %IDX $nr, $nc, R06
+    ADD R06, $buf
+    LOAD R05, R06
+    ADD $acc, R05
+.@@skip:
+%endmacro
+
+%main
+    ALLOC 1600
+
+    MOVI R00, 0
+
+.zero_loop:
+    MOVI R05, 0
+    STORE R05, R00
+    INC R00
+    MOVI R05, 1600
+    CMP R00, R05
+    JL zero_loop
+
+    MOVI R02, 0
+    MOVI R03, 1
+
+    MOVI R00, 1
+    MOVI R01, 3
+    %IDX R00, R01, R06
+    ADD R06, R02
+    STORE R03, R06
+
+    MOVI R00, 2
+    MOVI R01, 1
+    %IDX R00, R01, R06
+    ADD R06, R02
+    STORE R03, R06
+
+    MOVI R00, 2
+    MOVI R01, 3
+    %IDX R00, R01, R06
+    ADD R06, R02
+    STORE R03, R06
+
+    MOVI R00, 3
+    MOVI R01, 2
+    %IDX R00, R01, R06
+    ADD R06, R02
+    STORE R03, R06
+
+    MOVI R00, 3
+    MOVI R01, 3
+    %IDX R00, R01, R06
+    ADD R06, R02
+    STORE R03, R06
+
+    MOVI R00, 8
+    MOVI R01, 19
+    %IDX R00, R01, R06
+    ADD R06, R02
+    STORE R03, R06
+
+    MOVI R00, 8
+    MOVI R01, 20
+    %IDX R00, R01, R06
+    ADD R06, R02
+    STORE R03, R06
+
+    MOVI R00, 9
+    MOVI R01, 18
+    %IDX R00, R01, R06
+    ADD R06, R02
+    STORE R03, R06
+
+    MOVI R00, 9
+    MOVI R01, 19
+    %IDX R00, R01, R06
+    ADD R06, R02
+    STORE R03, R06
+
+    MOVI R00, 10
+    MOVI R01, 19
+    %IDX R00, R01, R06
+    ADD R06, R02
+    STORE R03, R06
+
+    MOVI R08, 0
+    MOVI R09, 800
+
+.main_loop:
+    CLRSCR
+
+    MOVI R10, 0
+.render_row:
+    MOVI R11, 0
+.render_col:
+    %IDX R10, R11, R06
+    ADD R06, R08
+    LOAD R00, R06
+    MOVI R05, 0
+    CMP R00, R05
+    JNE print_alive
+    PRINT '.'
+    JMP render_next_col
+.print_alive:
+    PRINT '#'
+.render_next_col:
+    INC R11
+    MOVI R05, 40
+    CMP R11, R05
+    JL render_col
+    NEWLINE
+    INC R10
+    MOVI R05, 20
+    CMP R10, R05
+    JL render_row
+
+    MOVI R10, 0
+.gen_row:
+    MOVI R11, 0
+.gen_col:
+    MOVI R04, 0
+
+    MOV R00, R10
+    DEC R00
+    MOV R01, R11
+    DEC R01
+    %CHECK_NEIGHBOR R00, R01, R08, R04
+
+    MOV R00, R10
+    DEC R00
+    MOV R01, R11
+    %CHECK_NEIGHBOR R00, R01, R08, R04
+
+    MOV R00, R10
+    DEC R00
+    MOV R01, R11
+    INC R01
+    %CHECK_NEIGHBOR R00, R01, R08, R04
+
+    MOV R00, R10
+    MOV R01, R11
+    DEC R01
+    %CHECK_NEIGHBOR R00, R01, R08, R04
+
+    MOV R00, R10
+    MOV R01, R11
+    INC R01
+    %CHECK_NEIGHBOR R00, R01, R08, R04
+
+    MOV R00, R10
+    INC R00
+    MOV R01, R11
+    DEC R01
+    %CHECK_NEIGHBOR R00, R01, R08, R04
+
+    MOV R00, R10
+    INC R00
+    MOV R01, R11
+    %CHECK_NEIGHBOR R00, R01, R08, R04
+
+    MOV R00, R10
+    INC R00
+    MOV R01, R11
+    INC R01
+    %CHECK_NEIGHBOR R00, R01, R08, R04
+
+    %IDX R10, R11, R06
+    ADD R06, R08
+    LOAD R03, R06
+
+    MOVI R05, 0
+
+    MOVI R00, 0
+    CMP R03, R00
+    JE check_birth
+
+    MOVI R00, 2
+    CMP R04, R00
+    JE set_alive
+    MOVI R00, 3
+    CMP R04, R00
+    JE set_alive
+    JMP write_next
+
+.check_birth:
+    MOVI R00, 3
+    CMP R04, R00
+    JE set_alive
+    JMP write_next
+
+.set_alive:
+    MOVI R05, 1
+
+.write_next:
+    %IDX R10, R11, R06
+    ADD R06, R09
+    STORE R05, R06
+
+    INC R11
+    MOVI R00, 40
+    CMP R11, R00
+    JL gen_col
+
+    INC R10
+    MOVI R00, 20
+    CMP R10, R00
+    JL gen_row
+
+    MOV R00, R08
+    MOV R08, R09
+    MOV R09, R00
+
+    SLEEP 120
+    JMP main_loop
+
+    HALT

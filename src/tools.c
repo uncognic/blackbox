@@ -506,7 +506,7 @@ int expand_invocation(const char *invocation_line, FILE *dest, int depth, Macro 
     char *args[32];
     int argc = 0;
     char *at;
-    while ((at = strtok(NULL, " \t\r\n")) != NULL && argc < 32)
+    while ((at = strtok(NULL, " \t\r\n,")) != NULL && argc < 32)
         args[argc++] = at;
 
     (*expand_id)++;

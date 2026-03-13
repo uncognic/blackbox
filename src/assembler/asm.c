@@ -66,7 +66,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 char **params = NULL;
                 int paramc = 0, paramcap = 0;
                 char *argtok;
-                while ((argtok = strtok(NULL, " \t\r\n")) != NULL)
+                while ((argtok = strtok(NULL, " \t\r\n,")) != NULL)
                 {
                     if (paramc + 1 >= paramcap)
                     {
@@ -1360,7 +1360,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             char dst_reg[16];
             char src_reg[16];
 
-            if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2)
+            if (sscanf(s + 3, " %15[^,], %15s", dst_reg, src_reg) != 2)
             {
                 fprintf(stderr,
                         "Syntax error on line %d: expected MOV <dst>, "
