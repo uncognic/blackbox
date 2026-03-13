@@ -47,9 +47,10 @@
 
 %main
     ALLOC 1600
-
     MOVI R00, 0
+
 .zero_loop:
+    ; Zero out the entire grid
     MOVI R05, 0
     STORE R05, R00
     INC R00
@@ -66,7 +67,6 @@
     MOVI R01, 2
     CMP R00, R01
     JE setup_phase
-
     MOVI R02, 0
     MOVI R03, 1
 
@@ -141,6 +141,8 @@
 .setup_loop:
     CLRSCR
     MOVI R10, 0
+    WRITE STDOUT "WASD=move  SPACE=toggle  ENTER=start"
+    NEWLINE
 .setup_render_row:
     MOVI R11, 0
 .setup_render_col:
@@ -254,8 +256,8 @@
 
 .main_loop:
     CLRSCR
-
     MOVI R10, 0
+
 .render_row:
     MOVI R11, 0
 .render_col:

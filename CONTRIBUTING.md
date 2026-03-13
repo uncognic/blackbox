@@ -6,5 +6,5 @@
 4. Add the opcode in `src/tools.c` for size calculation
 5. Add the opcode in `src/interpreter/debug.c` for debugging
 6. Add the opcode in `src/disassembler/src/main.rs` for disassembly
-7. Document the opcode in `docs/assembly/isa.md`
+7. Document the opcode in `docs/assembly/ISA.md`
 8. (Optional) Add an example in `examples/assembly/`
