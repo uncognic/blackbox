@@ -14,6 +14,8 @@
 ; R06 = flat index scratch
 ; R07 = scratch (used by IDX macro)
 ; R00,R01 = scratch / neighbor offset regs
+; R12 = cursor row (setup phase)
+; R13 = cursor col (setup phase)
 
 %asm
 %macro IDX row col dst
@@ -47,7 +49,6 @@
     ALLOC 1600
 
     MOVI R00, 0
-
 .zero_loop:
     MOVI R05, 0
     STORE R05, R00
@@ -55,6 +56,16 @@
     MOVI R05, 1600
     CMP R00, R05
     JL zero_loop
+
+    MOVI R08, 0
+    MOVI R09, 800
+
+    WRITE stdout "Start with: (1) glider seed or (2) draw your own: "
+    READ R00
+
+    MOVI R01, 2
+    CMP R00, R01
+    JE setup_phase
 
     MOVI R02, 0
     MOVI R03, 1
@@ -119,8 +130,127 @@
     ADD R06, R02
     STORE R03, R06
 
-    MOVI R08, 0
-    MOVI R09, 800
+    JMP main_loop
+
+.setup_phase:
+    WRITE stdout "WASD=move  SPACE=toggle  ENTER=start"
+    NEWLINE
+    MOVI R12, 10
+    MOVI R13, 20
+
+.setup_loop:
+    CLRSCR
+    MOVI R10, 0
+.setup_render_row:
+    MOVI R11, 0
+.setup_render_col:
+    CMP R10, R12
+    JNE setup_not_cursor
+    CMP R11, R13
+    JNE setup_not_cursor
+    PRINT '@'
+    JMP setup_render_col_next
+.setup_not_cursor:
+    %IDX R10, R11, R06
+    ADD R06, R08
+    LOAD R00, R06
+    MOVI R05, 0
+    CMP R00, R05
+    JNE setup_print_alive
+    PRINT '.'
+    JMP setup_render_col_next
+.setup_print_alive:
+    PRINT '#'
+.setup_render_col_next:
+    INC R11
+    MOVI R05, 40
+    CMP R11, R05
+    JL setup_render_col
+    NEWLINE
+    INC R10
+    MOVI R05, 20
+    CMP R10, R05
+    JL setup_render_row
+
+    SLEEP 80
+    GETKEY R00
+
+    MOVI R05, -1
+    CMP R00, R05
+    JE setup_loop
+
+    MOVI R05, 119
+    CMP R00, R05
+    JE setup_move_up
+
+    MOVI R05, 115
+    CMP R00, R05
+    JE setup_move_down
+
+    MOVI R05, 97
+    CMP R00, R05
+    JE setup_move_left
+
+    MOVI R05, 100
+    CMP R00, R05
+    JE setup_move_right
+
+    MOVI R05, 32
+    CMP R00, R05
+    JE setup_toggle
+
+    MOVI R05, 13
+    CMP R00, R05
+    JE main_loop
+
+    MOVI R05, 10
+    CMP R00, R05
+    JE main_loop
+
+    JMP setup_loop
+
+.setup_move_up:
+    MOVI R05, 0
+    CMP R12, R05
+    JE setup_loop
+    DEC R12
+    JMP setup_loop
+
+.setup_move_down:
+    MOVI R05, 19
+    CMP R05, R12
+    JE setup_loop
+    INC R12
+    JMP setup_loop
+
+.setup_move_left:
+    MOVI R05, 0
+    CMP R13, R05
+    JE setup_loop
+    DEC R13
+    JMP setup_loop
+
+.setup_move_right:
+    MOVI R05, 39
+    CMP R05, R13
+    JE setup_loop
+    INC R13
+    JMP setup_loop
+
+.setup_toggle:
+    %IDX R12, R13, R06
+    ADD R06, R08
+    LOAD R00, R06
+    MOVI R05, 0
+    CMP R00, R05
+    JE setup_set_alive
+    MOVI R00, 0
+    STORE R00, R06
+    JMP setup_loop
+.setup_set_alive:
+    MOVI R00, 1
+    STORE R00, R06
+    JMP setup_loop
 
 .main_loop:
     CLRSCR
