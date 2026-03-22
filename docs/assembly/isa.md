@@ -211,6 +211,9 @@
   - Encoding: `OPCODE_EXEC`, 1 byte dest register, 1 byte len, len bytes of command
   - Behavior: Executes the specified system command and stores the exit code in the destination register.
 ## Macros
+- %include: Inline another source file before macro processing
+  - Syntax: `%include "path/to/file.bbx"`
+  - Behavior: Recursively expands the target file into the current source stream (max depth 32). Relative paths are resolved from the current file's directory.
 - %macro / %endmacro: Define compiler macro
   - Syntax: `%macro <name> [param1 param2 ...]` ... `%endmacro`
   - Parameters: Up to **32** parameters. Arbitrary limit, can be increased at any time. (space-separated on the `%macro` line). Inside the body, `$paramName` is replaced with the corresponding argument. You can also use parameters based on their position `$1`, `$2`, so definition isn't necessarily needed.

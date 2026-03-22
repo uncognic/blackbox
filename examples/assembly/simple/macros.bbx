@@ -1,5 +1,6 @@
 %asm
 
+%include "macro_library.bbx"
 
 %macro loop_n cnt
     movi R00, $cnt
@@ -11,11 +12,6 @@
     jne @@loop
 %endmacro
 
-
-%macro hello
-    write stdout "Hello from macro!"
-    newline
-%endmacro
 
 %main
     %loop_n 3

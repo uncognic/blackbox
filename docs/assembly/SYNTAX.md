@@ -15,6 +15,18 @@ Every file must follow this order:
 - `%data` is optional, must come before `%main`/`%entry`
 - `%main` and `%entry` are interchangeable — both define the program entry point
 
+## Includes
+You can inline other source files with:
+
+```
+%include "path/to/file.bbx"
+```
+
+- Includes are expanded before macro parsing, so included files can provide `%macro` definitions.
+- Relative include paths are resolved from the directory of the file that contains the `%include`.
+- Includes can be nested (maximum depth: 32).
+- `%include` accepts one quoted path and nothing else on the line (aside from whitespace and comments).
+
 ## Sections
 ### %data
 Holds named constants. Only `STR`, `BYTE`, `WORD`, `DWORD`, and `QWORD` definitions are allowed here.

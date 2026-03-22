@@ -7,38 +7,95 @@
 #include <stdlib.h>
 #include <string.h>
 
+extern char *preprocess_includes(const char *input);
+extern void preprocess_includes_free(char *buf);
+
+static int append_line(char ***lines, size_t *count, size_t *cap,
+                       const char *text)
+{
+    if (*count + 1 >= *cap)
+    {
+        size_t new_cap = (*cap) ? (*cap * 2) : 256;
+        char **new_lines = realloc(*lines, new_cap * sizeof(char *));
+        if (!new_lines)
+            return 1;
+        *lines = new_lines;
+        *cap = new_cap;
+    }
+    (*lines)[(*count)++] = strdup(text);
+    if (!(*lines)[(*count) - 1])
+        return 1;
+    return 0;
+}
+
+static void free_lines(char **lines, size_t count)
+{
+    for (size_t i = 0; i < count; i++)
+        free(lines[i]);
+    free(lines);
+}
+
+static int collect_lines_from_buffer(const char *src, char ***lines,
+                                     size_t *lines_count, size_t *lines_cap)
+{
+    const char *p = src;
+    while (*p)
+    {
+        const char *nl = strchr(p, '\n');
+        size_t len = nl ? (size_t)(nl - p + 1) : strlen(p);
+
+        char *line = malloc(len + 1);
+        if (!line)
+        {
+            fprintf(stderr, "Out of memory\n");
+            return 1;
+        }
+        memcpy(line, p, len);
+        line[len] = '\0';
+
+        if (append_line(lines, lines_count, lines_cap, line) != 0)
+        {
+            free(line);
+            fprintf(stderr, "Out of memory\n");
+            return 1;
+        }
+        free(line);
+
+        if (!nl)
+            break;
+        p = nl + 1;
+    }
+
+    return 0;
+}
+
 int assemble_file(const char *filename, const char *output_file, int debug)
 {
-    FILE *in = fopen(filename, "rb");
-    if (!in)
+    FILE *in = NULL;
     {
-        perror("fopen input");
-        return 1;
-    }
-    {
-        char readline[8192];
         char **lines = NULL;
         size_t lines_count = 0, lines_cap = 0;
-
-        while (fgets(readline, sizeof(readline), in))
+        char *preprocessed = preprocess_includes(filename);
+        if (!preprocessed)
         {
-            if (lines_count + 1 >= lines_cap)
-            {
-                lines_cap = lines_cap ? lines_cap * 2 : 256;
-                lines = realloc(lines, lines_cap * sizeof(char *));
-            }
-            lines[lines_count++] = strdup(readline);
+            free_lines(lines, lines_count);
+            return 1;
         }
 
-        fclose(in);
+        if (collect_lines_from_buffer(preprocessed, &lines, &lines_count,
+                                      &lines_cap) != 0)
+        {
+            preprocess_includes_free(preprocessed);
+            free_lines(lines, lines_count);
+            return 1;
+        }
+        preprocess_includes_free(preprocessed);
 
         FILE *tmp = tmpfile();
         if (!tmp)
         {
             perror("tmpfile");
-            for (size_t i = 0; i < lines_count; i++)
-                free(lines[i]);
-            free(lines);
+            free_lines(lines, lines_count);
             return 1;
         }
 
@@ -159,9 +216,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             free(copy);
         }
 
-        for (size_t i = 0; i < lines_count; i++)
-            free(lines[i]);
-        free(lines);
+        free_lines(lines, lines_count);
         for (size_t m = 0; m < macro_count; m++)
         {
             free(macros[m].name);
