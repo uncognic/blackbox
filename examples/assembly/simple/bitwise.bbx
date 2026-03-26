@@ -2,40 +2,40 @@
 ; Bitwise ops test
 %main
     ; AND: 6 & 3 = 2
-    movi R00, 6
-    movi R01, 3
+    MOVI R00, 6
+    MOVI R01, 3
     and R00, R01
     printreg R00 ; Expected: 2
     newline
 
     ; OR: 6 | 1 = 7
-    movi R02, 6
-    movi R03, 1
+    MOVI R02, 6
+    MOVI R03, 1
     or R02, R03
     printreg R02 ; Expected: 7
     newline
 
     ; XOR: 6 ^ 3 = 5
-    movi R04, 6
-    movi R05, 3
+    MOVI R04, 6
+    MOVI R05, 3
     xor R04, R05
     printreg R04 ; Expected: 5
     newline
 
     ; NOT (bitwise): ~0 = -1
-    movi R06, 0
+    MOVI R06, 0
     not R06
     printreg R06 ; Expected: -1
     newline
 
     ; NOT (bitwise): ~1 = -2
-    movi R07, 1
+    MOVI R07, 1
     not R07
     printreg R07 ; Expected: -2
     newline
 
     ; NOT (bitwise): ~255 = -256
-    movi R08, 255
+    MOVI R08, 255
     not R08
     printreg R08 ; Expected: -256
     newline

@@ -1,4 +1,4 @@
-use crate::ast::{Function, Instruction, Operand, Program, Statement};
+use crate::ast::{Function, Program, Statement};
 use crate::lexer::{Lexer, Token};
 use std::fmt;
 
@@ -16,7 +16,6 @@ impl std::error::Error for ParseError {}
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
     cur: Token,
-    in_unsafe: bool,
 }
 
 impl<'a> Parser<'a> {
@@ -25,7 +24,6 @@ impl<'a> Parser<'a> {
         Parser {
             lexer,
             cur,
-            in_unsafe: false,
         }
     }
 
@@ -92,42 +90,13 @@ impl<'a> Parser<'a> {
                     self.advance();
                     body.push(Statement::Empty);
                 }
-                Token::Ident(id) if id == "unsafe" => {
-                    // parse unsafe { ... }
-                    self.advance();
-                    self.expect(Token::LBrace)?;
-                    let prev = self.in_unsafe;
-                    self.in_unsafe = true;
-                    let mut inner: Vec<Statement> = Vec::new();
-                    while self.cur != Token::RBrace && self.cur != Token::Eof {
-                        match &self.cur {
-                            Token::Semicolon => {
-                                self.advance();
-                                inner.push(Statement::Empty);
-                            }
-                            Token::Ident(_) => {
-                                let instr = self.parse_instruction()?;
-                                inner.push(Statement::Instr(instr));
-                            }
-                            other => {
-                                return Err(ParseError(format!(
-                                    "Unsupported token in unsafe body: {:?}",
-                                    other
-                                )))
-                            }
-                        }
-                    }
-                    self.expect(Token::RBrace)?;
-                    self.in_unsafe = prev;
-                    body.push(Statement::UnsafeBlock(inner));
-                }
-                Token::Ident(_) => {
-                    let instr = self.parse_instruction()?;
-                    body.push(Statement::Instr(instr));
+                Token::Unsafe => {
+                    let asm = self.parse_unsafe_asm()?;
+                    body.push(Statement::UnsafeAsm(asm));
                 }
                 other => {
                     return Err(ParseError(format!(
-                        "Unsupported token in body: {:?}",
+                        "Unsupported token in body (expected `unsafe asm {{ ... }}`): {:?}",
                         other
                     )))
                 }
@@ -143,80 +112,38 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_instruction(&mut self) -> Result<Instruction, ParseError> {
-        let name = match &self.cur {
-            Token::Ident(s) => s.clone(),
-            other => {
-                return Err(ParseError(format!(
-                    "Expected instruction name, found {:?}",
-                    other
-                )))
-            }
-        };
+    fn parse_unsafe_asm(&mut self) -> Result<Vec<String>, ParseError> {
+        self.expect(Token::Unsafe)?;
+        self.expect(Token::Asm)?;
+
+        if self.cur != Token::LBrace {
+            return Err(ParseError(format!(
+                "Expected '{{' after `unsafe asm`, found {:?}",
+                self.cur
+            )));
+        }
+
+        self.lexer.set_raw_mode(true);
         self.advance();
 
-        let mut args = Vec::new();
-        if self.cur == Token::LParen {
-            self.advance();
-            while self.cur != Token::RParen {
-                let operand = match &self.cur {
-                    Token::Number(n) => {
-                        let v = *n;
-                        self.advance();
-                        Operand::Imm(v)
-                    }
-                    Token::Str(s) => {
-                        let s2 = s.clone();
-                        self.advance();
-                        Operand::Str(s2)
-                    }
-                    Token::Char(c) => {
-                        let c2 = *c as u8;
-                        self.advance();
-                        Operand::Char(c2)
-                    }
-                    Token::Ident(id) => {
-                        if id.len() > 0
-                            && (id.chars().next().unwrap() == 'R'
-                                || id.chars().next().unwrap() == 'r')
-                        {
-                            if !self.in_unsafe {
-                                return Err(ParseError(format!(
-                                    "Register {} used outside unsafe block",
-                                    id
-                                )));
-                            }
-                            let num = id[1..].parse::<u8>().unwrap_or(0);
-                            self.advance();
-                            Operand::Reg(num)
-                        } else {
-                            let s2 = id.clone();
-                            self.advance();
-                            Operand::Ident(s2)
-                        }
-                    }
-                    other => return Err(ParseError(format!("Unexpected operand: {:?}", other))),
-                };
-                args.push(operand);
-                if self.cur == Token::Comma {
+        let mut lines = Vec::new();
+        while self.cur != Token::RBrace && self.cur != Token::Eof {
+            match &self.cur {
+                Token::RawLine(line) => {
+                    lines.push(line.clone());
                     self.advance();
-                    continue;
-                } else if self.cur == Token::RParen {
-                    break;
-                } else {
+                }
+                other => {
                     return Err(ParseError(format!(
-                        "Expected ',' or ')', found {:?}",
-                        self.cur
+                        "Unsupported token in `unsafe asm` body: {:?}",
+                        other
                     )));
                 }
             }
-            self.expect(Token::RParen)?;
         }
 
-        if self.cur == Token::Semicolon {
-            self.advance();
-        }
-
-        Ok(Instruction { name, args })
+        self.lexer.set_raw_mode(false);
+        self.expect(Token::RBrace)?;
+        Ok(lines)
     }
 }

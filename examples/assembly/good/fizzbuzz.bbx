@@ -1,22 +1,22 @@
 %asm
 ;FizzBuzz for the Blackbox assembly language.
 %main
-    movi r00, 1
-    movi r01, 101
-    movi r10, 0
+    MOVI r00, 1
+    MOVI r01, 101
+    MOVI r10, 0
 .loop:
     mov r02, r00
-    movi r03, 15
+    MOVI r03, 15
     mod r02, r03
     cmp r02, r10
     je fizzbuzz
     mov r02, r00
-    movi r15, 3
+    MOVI r15, 3
     mod r02, r15
     cmp r02, r10
     je fizz
     mov r02, r00
-    movi r16, 5
+    MOVI r16, 5
     mod r02, r16
     cmp r02, r10
     je buzz

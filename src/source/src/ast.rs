@@ -13,23 +13,7 @@ pub struct Function {
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     Empty,
-    Instr(Instruction),
-    UnsafeBlock(Vec<Statement>),
-}
-
-#[derive(Debug, PartialEq)]
-pub struct Instruction {
-    pub name: String,
-    pub args: Vec<Operand>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Operand {
-    Imm(i64),
-    Reg(u8),
-    Str(String),
-    Char(u8),
-    Ident(String),
+    UnsafeAsm(Vec<String>),
 }
 
 impl Program {

@@ -1,5 +1,5 @@
 [workspace]
-members = [
+members = ["src/bbxc-asm",
     "src/disassembler",
     "src/source"
 ]

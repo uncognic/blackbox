@@ -4,9 +4,9 @@
     write stdout "Which function to test? (1 for JE/JNE, 2 for JL/JGE, 3 for JB/JAE): "
     read R00
 
-    movi R95, 1
-    movi R96, 2
-    movi R97, 3
+    MOVI R95, 1
+    MOVI R96, 2
+    MOVI R97, 3
 
     cmp R00, R95
     je jejne
@@ -23,8 +23,8 @@
     write stdout "JE/JNE pass 1"
     newline
 
-    movi R01, 0
-    movi R05, 0
+    MOVI R01, 0
+    MOVI R05, 0
     cmp R05, R01
     je jejne2
     jmp jejnefail
@@ -33,7 +33,7 @@
     write stdout "JE/JNE pass 2"
     newline
 
-    movi R03, 1
+    MOVI R03, 1
     cmp R01, R03
     jne jejnesuccess
     jmp jejnefail

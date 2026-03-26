@@ -6,9 +6,9 @@
 .foo:
     frame 2
     ;store 42 in local slot 0 and 7 in local slot 1
-    movi R00, 42
+    MOVI R00, 42
     storevar R00, 0
-    movi R01, 7
+    MOVI R01, 7
     storevar R01, 1
     ;load back and print
     loadvar R02, 0

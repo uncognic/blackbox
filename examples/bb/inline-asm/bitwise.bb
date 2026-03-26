@@ -1,0 +1,44 @@
+fn main() {
+    unsafe asm {
+        ; AND: 6 & 3 = 2
+        MOVI R00, 6
+        MOVI R01, 3
+        AND R00, R01
+        PRINTREG R00 ; Expected: 2
+        NEWLINE
+
+        ; OR: 6 | 1 = 7
+        MOVI R02, 6
+        MOVI R03, 1
+        OR R02, R03
+        PRINTREG R02 ; Expected: 7
+        NEWLINE
+
+        ; XOR: 6 ^ 3 = 5
+        MOVI R04, 6
+        MOVI R05, 3
+        XOR R04, R05
+        PRINTREG R04 ; Expected: 5
+        NEWLINE
+
+        ; NOT (bitwise): ~0 = -1
+        MOVI R06, 0
+        NOT R06
+        PRINTREG R06 ; Expected: -1
+        NEWLINE
+
+        ; NOT (bitwise): ~1 = -2
+        MOVI R07, 1
+        NOT R07
+        PRINTREG R07 ; Expected: -2
+        NEWLINE
+
+        ; NOT (bitwise): ~255 = -256
+        MOVI R08, 255
+        NOT R08
+        PRINTREG R08 ; Expected: -256
+        NEWLINE
+
+        HALT OK
+    }
+}

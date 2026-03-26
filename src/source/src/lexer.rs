@@ -4,10 +4,13 @@ use std::str::Chars;
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
     Fn,
+    Unsafe,
+    Asm,
     Ident(String),
     Number(i64),
     Str(String),
     Char(char),
+    RawLine(String),
     LParen,
     RParen,
     LBrace,
@@ -19,13 +22,19 @@ pub enum Token {
 
 pub struct Lexer<'a> {
     input: Peekable<Chars<'a>>,
+    raw_mode: bool,
 }
 
 impl<'a> Lexer<'a> {
     pub fn new(src: &'a str) -> Self {
         Lexer {
             input: src.chars().peekable(),
+            raw_mode: false,
         }
+    }
+
+    pub fn set_raw_mode(&mut self, enabled: bool) {
+        self.raw_mode = enabled;
     }
 
     fn read_identifier(&mut self, first: char) -> String {
@@ -93,7 +102,50 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    fn read_raw_line_or_rbrace(&mut self) -> Token {
+        loop {
+            while let Some(&ch) = self.input.peek() {
+                if ch == '\n' || ch == '\r' {
+                    self.input.next();
+                } else {
+                    break;
+                }
+            }
+
+            if self.input.peek().is_none() {
+                return Token::Eof;
+            }
+
+            let mut line = String::new();
+            while let Some(ch) = self.input.next() {
+                if ch == '\n' {
+                    break;
+                }
+                if ch == '\r' {
+                    if let Some('\n') = self.input.peek().copied() {
+                        self.input.next();
+                    }
+                    break;
+                }
+                line.push(ch);
+            }
+
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                continue;
+            }
+            if trimmed == "}" {
+                return Token::RBrace;
+            }
+            return Token::RawLine(line);
+        }
+    }
+
     pub fn next_token(&mut self) -> Token {
+        if self.raw_mode {
+            return self.read_raw_line_or_rbrace();
+        }
+
         self.skip_whitespace();
         match self.input.next() {
             Some('(') => Token::LParen,
@@ -122,6 +174,8 @@ impl<'a> Lexer<'a> {
                 let ident = self.read_identifier(ch);
                 match ident.as_str() {
                     "fn" => Token::Fn,
+                    "unsafe" => Token::Unsafe,
+                    "asm" => Token::Asm,
                     other => Token::Ident(other.to_string()),
                 }
             }
