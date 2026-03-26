@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
 
         int res = compile(input_file, output_file, debug);
         if (res == 0)
-            printf("Compilation successful (bblang).\n");
+            printf("Compilation successful (blackbox).\n");
         return res;
     }
 }

@@ -1,19 +1,22 @@
-# BBLang
+# Blackbox
 ## Overview
-bblang is a small, high-level language that compiles down to Blackbox bytecode (`.bcx`) and runs on the existing Blackbox interpreter (`bbx`). 
-It is compiled using `bbxc`, the same as Blackbox assembly.
+Blackbox (the language) is a small, mid to high level language that compiles down to Blackbox bytecode (`.bcx`) and runs on the existing Blackbox interpreter (`bbx`). 
+It is compiled using the `bbxc` frontend, the same as Blackbox assembly.
 
-## Unsafe
-Any code that directly references VM registers (e.g. `R0`, `R1`) must be placed inside an `unsafe` block.
+## unsafe asm
+Blackbox supports inline assembly in `unsafe asm` blocks. This allows you to write raw Blackbox assembly code directly in your source files. The safety of this code cannot be guaranteed, as it allows you to directly reference registers which are usually abstracted in Blackbox.
 Example:
 
 ```
 fn main() {
-    unsafe {
-        MOV(R0, 42);
-        PRINTREG(R0);
-        NEWLINE();
-        HALT();
+    // This runs the command `echo Hello World!` in the host environment and prints the exit code
+    unsafe asm {
+        EXEC "echo Hello World!", R00
+        WRITE STDOUT, "exit code: "
+        PRINTREG R00
+        NEWLINE
+        HALT OK
     }
 }
+
 ```

@@ -2,6 +2,6 @@
 members = [
     "src/bbxc-asm",
     "src/bbx-disasm",
-    "src/bbxc-bblang"
+    "src/bbxc-blackbox"
 ]
 resolver = "3"

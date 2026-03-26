@@ -11,7 +11,7 @@ interpreter:
 	$(MAKE) -C src/interpreter
 
 rust:
-	cargo build --release --manifest-path=src/bbxc-bblang/Cargo.toml
+	cargo build --release --manifest-path=src/bbxc-blackbox/Cargo.toml
 
 disassembler:
 	cargo build --release --manifest-path=src/bbx-disasm/Cargo.toml
@@ -24,6 +24,6 @@ copy:
 clean:
 	$(MAKE) -C src/interpreter clean || true
 	$(MAKE) -C src/assembler clean || true
-	cargo clean --manifest-path=src/bbxc-bblang/Cargo.toml || true
+	cargo clean --manifest-path=src/bbxc-blackbox/Cargo.toml || true
 	cargo clean --manifest-path=src/bbx-disasm/Cargo.toml || true
 	rm -f bbx bbxc bbxd

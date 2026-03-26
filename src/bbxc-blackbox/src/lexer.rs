@@ -18,6 +18,7 @@ pub enum Token {
     Comma,
     Semicolon,
     Eof,
+    Slash
 }
 
 pub struct Lexer<'a> {
@@ -177,6 +178,17 @@ impl<'a> Lexer<'a> {
                     "unsafe" => Token::Unsafe,
                     "asm" => Token::Asm,
                     other => Token::Ident(other.to_string()),
+                }
+            }
+            Some('/') => {
+                if let Some(&'/') = self.input.peek() {
+                    while let Some(&c) = self.input.peek() {
+                        self.input.next();
+                        if c == '\n' { break; }
+                    }
+                    self.next_token()
+                } else {
+                    Token::Slash
                 }
             }
             None => Token::Eof,

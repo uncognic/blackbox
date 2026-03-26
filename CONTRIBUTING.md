@@ -7,4 +7,5 @@
 5. Add the opcode in `src/interpreter/debug.c` for debugging
 6. Add the opcode in `src/disassembler/src/main.rs` for disassembly
 7. Document the opcode in `docs/assembly/ISA.md`
-8. (Optional) Add an example in `examples/assembly/`
+8. Add an `InstrDef` entry in `src/bbxc-asm/src/lib.rs` for inline assembly support for Blackbox the language
+9. (Optional) Add an example in `examples/assembly/`
