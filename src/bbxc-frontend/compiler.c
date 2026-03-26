@@ -2,9 +2,9 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-#include "define.h"
+#include "../define.h"
 #include "tools.h"
-#include "assembler/asm.h" 
+#include "../assembler/asm.h" 
 
 extern int compile(const char *input, const char *output, int debug);
 

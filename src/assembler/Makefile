@@ -2,9 +2,9 @@ CC = gcc
 CFLAGS = -Wall -Wextra -O2
 INCLUDES = -I.
 
-SRC = ../compiler.c ../tools.c asm.c
+SRC = ../bbxc-frontend/compiler.c ../bbxc-frontend/tools.c asm.c
 OBJ = $(SRC:.c=.o)
-HEADER = ../define.h ../tools.h asm.h
+HEADER = ../define.h ../bbxc-frontend/tools.h asm.h
 TARGET = bbxc
 
 RUST_MANIFEST = ../source/Cargo.toml

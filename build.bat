@@ -37,13 +37,13 @@ cd "%SRC%\source"
 cargo build --release
 for %%f in ("%ROOT%\target\release\*.lib") do set RUSTLIB=%%~ff
 cd "%SRC%"
-cl compiler.c assembler/asm.c tools.c "%RUSTLIB%" bcrypt.lib ws2_32.lib userenv.lib iphlpapi.lib advapi32.lib ntdll.lib ole32.lib shell32.lib kernel32.lib /Fe:"%ROOT%\bbxc.exe"
+cl bbxc-frontend/compiler.c assembler/asm.c bbxc-frontend/tools.c "%RUSTLIB%" bcrypt.lib ws2_32.lib userenv.lib iphlpapi.lib advapi32.lib ntdll.lib ole32.lib shell32.lib kernel32.lib /Fe:"%ROOT%\bbxc.exe"
 if errorlevel 1 (
     echo Failed to build assembler
     exit /b 1
 )
 echo Building disassembler...
-cargo build --release --manifest-path=%SRC%\disassembler\Cargo.toml
+cargo build --release --manifest-path=%SRC%\bbx-disasm\Cargo.toml
 if errorlevel 1 (
     echo Failed to build disassembler
     exit /b 1
@@ -55,7 +55,7 @@ if errorlevel 1 (
 )
 echo Building interpreter...
 cd "%SRC%\interpreter"
-cl *.c ../tools.c bcrypt.lib /Fe:"%ROOT%\bbx.exe"
+cl *.c ../bbxc-frontend/tools.c bcrypt.lib /Fe:"%ROOT%\bbx.exe"
 if errorlevel 1 (
     echo Failed to build interpreter
     exit /b 1

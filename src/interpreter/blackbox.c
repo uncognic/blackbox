@@ -1,5 +1,5 @@
 #include "../define.h"
-#include "../tools.h"
+#include "../bbxc-frontend/tools.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>

@@ -1,6 +1,7 @@
 [workspace]
-members = ["src/bbxc-asm",
-    "src/disassembler",
-    "src/source"
+members = [
+    "src/bbxc-asm",
+    "src/bbx-disasm",
+    "src/bbxc-bblang"
 ]
 resolver = "3"
