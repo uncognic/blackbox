@@ -12,7 +12,7 @@ int main(int argc, char *argv[])
 {
     if (argc > 1 && (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0))
     {
-        fprintf(stdout, "Usage: %s [-d, --debug] [-h, --help] input.bbx output.bcx\n", argv[0]);
+        fprintf(stdout, "Usage: %s [-d, --debug] [-h, --help] input.bbx <output.bcx>\n", argv[0]);
         return 1;
     }
     char *input_file = NULL;
@@ -40,9 +40,15 @@ int main(int argc, char *argv[])
         }
     }
 
+    if (!output_file)
+    {
+        printf("Output file not specified, defaulting to 'out.bcx'\n");
+        output_file = "out.bcx";
+    }
+
     if (!input_file || !output_file)
     {
-        fprintf(stderr, "Usage: %s [-d] input.bbx output.bcx\n", argv[0]);
+        fprintf(stderr, "Usage: %s [-d] input.bbx <output.bcx>\n", argv[0]);
         return 1;
     }
 

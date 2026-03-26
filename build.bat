@@ -18,14 +18,14 @@ if /I "%~1"=="clean" (
 if /I "%~1"=="cargo" (
     shift
     echo Running %*
-    cd "%SRC%\source"
+    cd "%SRC%\bbxc-bblang"
     %*
     exit /b %errorlevel%
 )
 
 if /I "%~1"=="rust" (
     echo Building Rust project...
-    cd "%SRC%\source"
+    cd "%SRC%\bbxc-bblang"
     cargo build --release
     exit /b %errorlevel%
 )
@@ -33,7 +33,7 @@ if /I "%~1"=="rust" (
 echo Building compiler...
 cd "%SRC%"
 
-cd "%SRC%\source"
+cd "%SRC%\bbxc-bblang"
 cargo build --release
 for %%f in ("%ROOT%\target\release\*.lib") do set RUSTLIB=%%~ff
 cd "%SRC%"
