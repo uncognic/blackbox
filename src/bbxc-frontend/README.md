@@ -1,0 +1,2 @@
+# bbxc-frontend
+This directory contains the source code for the Blackbox compiler frontend, which is responsible for parsing either Blackbox assembly or Blackbox, and calling the appropriate libraries to compile it into bytecode that can be executed by the Blackbox interpreter (`bbx`).

@@ -1,19 +1,20 @@
 %asm
 %main
-    call foo
-    halt ok
+    CALL foo
+    HALT OK
 
 .foo:
-    frame 2
-    ;store 42 in local slot 0 and 7 in local slot 1
-    MOVI R00, 42
-    storevar R00, 0
+    FRAME 2
+
+    ;store 6 in local slot 0 and 7 in local slot 1
+    MOVI R00, 6
+    STOREVAR R00, 0
     MOVI R01, 7
-    storevar R01, 1
+    STOREVAR R01, 1
+    
     ;load back and print
-    loadvar R02, 0
-    printreg R02
-    newline
-    loadvar R02, 1
-    printreg R02
-    ret
+    LOADVAR R02, 0
+    PRINTREG R02
+    LOADVAR R02, 1
+    PRINTREG R02
+    RET
