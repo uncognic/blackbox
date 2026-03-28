@@ -872,6 +872,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_LOADBYTE, out);
             fputc(reg, out);
             Data *d = &data[offset];
+            if (d->type != DATA_BYTE)
+            {
+                fprintf(stderr, "Warning line %d: LOADBYTE used on $%s which is not a BYTE\n", lineno, name);
+            }
             uint32_t offset_in_table = d->offset;
             write_u32(out, offset_in_table);
             if (debug)
@@ -901,6 +905,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_LOADWORD, out);
             fputc(reg, out);
             Data *d = &data[offset];
+            if (d->type != DATA_WORD)
+            {
+                fprintf(stderr, "Warning line %d: LOADWORD used on $%s which is not a WORD\n", lineno, name);
+            }
             uint32_t offset_in_table = d->offset;
             write_u32(out, offset_in_table);
             if (debug)
@@ -930,6 +938,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_LOADDWORD, out);
             fputc(reg, out);
             Data *d = &data[offset];
+            if (d->type != DATA_DWORD)
+            {
+                fprintf(stderr, "Warning line %d: LOADDWORD used on $%s which is not a DWORD\n", lineno, name);
+            }
             uint32_t offset_in_table = d->offset;
             write_u32(out, offset_in_table);
             if (debug)
@@ -959,6 +971,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_LOADQWORD, out);
             fputc(reg, out);
             Data *d = &data[offset];
+            if (d->type != DATA_QWORD)
+            {
+                fprintf(stderr, "Warning line %d: LOADQWORD used on $%s which is not a QWORD\n", lineno, name);
+            }
             uint32_t offset_in_table = d->offset;
             write_u32(out, offset_in_table);
             if (debug)
