@@ -364,6 +364,12 @@ size_t instr_size(const char *line)
         return 2;
     else if (starts_with_ci(line, "SETPERM"))
         return 13;
+    else if (starts_with_ci(line, "REGFAULT"))
+        return 6;
+    else if (starts_with_ci(line, "FAULTRET"))
+        return 1;
+    else if (starts_with_ci(line, "GETFAULT"))
+        return 2;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }

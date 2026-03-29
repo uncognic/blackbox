@@ -1,0 +1,44 @@
+%asm
+%main
+; Start privileged
+    ; Register fault 1 (FAULT_PERM_WRITE) to handler_fault
+    REGFAULT 1, handler_fault
+
+    ; Register syscall 0 to handler_setup
+    REGSYSCALL 0, handler_setup
+    
+    ; Jump to protected code
+    DROPPRIV
+    JMP protected_start
+
+; Handlers
+    .handler_setup:
+        ALLOC 64
+        MOVI R00, 67
+        STORE R00, 10
+        SETPERM 10, 10, RW/R
+        SYSRET
+
+    .handler_fault:
+        ; Handle a write permission fault by printing a message and returning
+        WRITE STDOUT, "Caught a write permission fault!"
+        NEWLINE
+        FAULTRET
+    
+; Protected code
+    .protected_start:
+        ; Set up memory and permissions
+        SYSCALL 0
+        
+        ; Can read since RW/R allows reads, should print 67
+        LOAD R00, 10
+        PRINTREG R00
+        NEWLINE
+
+        ; Try to write to slot 10, should trigger a fault and jump to handler_fault because RW/R
+        MOVI R01, 99
+        STORE R01, 10
+        
+        WRITE stdout "still running after fault!"
+        NEWLINE
+        HALT OK

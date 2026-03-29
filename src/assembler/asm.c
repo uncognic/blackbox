@@ -2568,21 +2568,24 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_GETMODE, out);
             fputc(parse_register(reg, lineno), out);
         }
-        else if (starts_with_ci(s, "SETPERM")) {
+        else if (starts_with_ci(s, "SETPERM"))
+        {
             uint32_t start, count;
             char perm_str[16];
-            if (sscanf(s + 7, " %u, %u, %15s", &start, &count, perm_str) != 3) {
+            if (sscanf(s + 7, " %u, %u, %15s", &start, &count, perm_str) != 3)
+            {
                 fprintf(stderr, "Syntax error on line %d: expected SETPERM <start>, <count>, <priv>/<prot>\nGot: %s\n", lineno, s);
-                fclose(in); 
-                fclose(out); 
+                fclose(in);
+                fclose(out);
                 return 1;
             }
 
             char *slash = strchr(perm_str, '/');
-            if (!slash) {
+            if (!slash)
+            {
                 fprintf(stderr, "Syntax error on line %d: SETPERM permissions must be <priv>/<prot> e.g. rw/r\nGot: %s\n", lineno, s);
-                fclose(in); 
-                fclose(out); 
+                fclose(in);
+                fclose(out);
                 return 1;
             }
 
@@ -2590,18 +2593,63 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             char *priv_str = perm_str;
             char *prot_str = slash + 1;
 
-            uint8_t priv_read  = strchr(priv_str, 'R') ? 1 : 0;
+            uint8_t priv_read = strchr(priv_str, 'R') ? 1 : 0;
             uint8_t priv_write = strchr(priv_str, 'W') ? 1 : 0;
-            uint8_t prot_read  = strchr(prot_str, 'R') ? 1 : 0;
+            uint8_t prot_read = strchr(prot_str, 'R') ? 1 : 0;
             uint8_t prot_write = strchr(prot_str, 'W') ? 1 : 0;
 
             fputc(OPCODE_SETPERM, out);
             write_u32(out, start);
             write_u32(out, count);
-            fputc(priv_read,  out);
+            fputc(priv_read, out);
             fputc(priv_write, out);
-            fputc(prot_read,  out);
+            fputc(prot_read, out);
             fputc(prot_write, out);
+        }
+        /* TODO: do this
+        else if (starts_with_ci(s, "DUMPREGS"))
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            fputc(OPCODE_DUMPREGS, out);
+        }
+        */
+        else if (starts_with_ci(s, "REGFAULT"))
+        {
+            uint8_t id;
+            char label[32];
+            if (sscanf(s + 8, " %hhu, %31s", &id, label) != 2)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected REGFAULT <id>, <label>\nGot: %s\n",
+                        lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t addr = find_label(label, labels, label_count);
+            fputc(OPCODE_REGFAULT, out);
+            fputc(id, out);
+            write_u32(out, addr);
+        }
+        else if (starts_with_ci(s, "FAULTRET"))
+        {
+            fputc(OPCODE_FAULTRET, out);
+        }
+        else if (starts_with_ci(s, "GETFAULT"))
+        {
+            char reg[16];
+            if (sscanf(s + 8, " %15s", reg) != 1)
+            {
+                fprintf(stderr, "Syntax error line %d: expected GETFAULT <register>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            fputc(OPCODE_GETFAULT, out);
+            fputc(parse_register(reg, lineno), out);
         }
         else
         {

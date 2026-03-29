@@ -11,6 +11,17 @@
 #define VAR_CAPACITY 16384
 #define MAX_SYSCALLS 256
 
+typedef enum
+{
+    FAULT_PERM_READ = 0,
+    FAULT_PERM_WRITE = 1,
+    FAULT_BAD_SYSCALL = 2,
+    FAULT_PRIV = 3,
+    FAULT_DIV_ZERO = 4,
+    FAULT_OOB = 5,
+    FAULT_COUNT = 6  
+} Fault;
+
 typedef struct
 {
     uint8_t priv_read;
@@ -24,13 +35,6 @@ typedef enum
     MODE_PROTECTED,
     MODE_PRIVILEGED
 } Mode;
-
-typedef enum
-{
-    FAULT_ACCESS_VIOLATION,
-    FAULT_MEM_PERMISSION,
-    FAULT_BAD_SYSCALL,
-} FaultType;
 
 typedef enum
 {
@@ -141,6 +145,8 @@ typedef struct
 #define OPCODE_REGSYSCALL 0x53
 #define OPCODE_SETPERM 0x54
 #define OPCODE_GETMODE 0x55
+#define OPCODE_REGFAULT 0x56
+#define OPCODE_FAULTRET 0x57
+#define OPCODE_GETFAULT 0x58
 #define OPCODE_HALT 0xFF
 #define OPCODE_BREAK 0xFE
-

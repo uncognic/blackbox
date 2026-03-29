@@ -175,6 +175,7 @@ int main(int argc, char *argv[])
         fds_owned[i] = 0;
     }
 
+    // permissions
     Mode cur_mode = MODE_PRIVILEGED;
     uint32_t syscall_table[MAX_SYSCALLS];
     bool syscall_registered[MAX_SYSCALLS];
@@ -200,6 +201,14 @@ int main(int argc, char *argv[])
     }
 
     size_t syscall_return_pc = 0;
+
+    // faults
+    uint32_t fault_table[FAULT_COUNT];
+    bool fault_registered[FAULT_COUNT];
+    Fault current_fault = FAULT_COUNT; // no fault
+    size_t fault_return_pc = 0;
+    memset(fault_table, 0, sizeof(fault_table));
+    memset(fault_registered, 0, sizeof(fault_registered));
 
     bool breakpoints_enabled = false;
     bool debug_step = false;
@@ -231,12 +240,29 @@ int main(int argc, char *argv[])
         dbg_instructions_shown = false;
     }
 
-
-    #define REQUIRE_PRIVILEGED(name) \
-    if (cur_mode != MODE_PRIVILEGED) { \
-        fprintf(stderr, "FAULT: " name " requires PRIVILEGED mode at pc=%zu\n", pc - 1); \
-        goto fault_exit; \
+#define REQUIRE_PRIVILEGED(name)                                                     \
+    if (cur_mode != MODE_PRIVILEGED)                                                 \
+    {                                                                                \
+        RAISE_FAULT(FAULT_PRIV, name " requires PRIVILEGED mode at pc=%zu", pc - 1); \
+        break;                                                                       \
     }
+
+#define RAISE_FAULT(type, msg, ...)                             \
+    do                                                          \
+    {                                                           \
+        if (fault_registered[type])                             \
+        {                                                       \
+            current_fault = type;                               \
+            fault_return_pc = pc;                               \
+            cur_mode = MODE_PRIVILEGED;                         \
+            pc = fault_table[type];                             \
+        }                                                       \
+        else                                                    \
+        {                                                       \
+            fprintf(stderr, "FAULT: " msg "\n", ##__VA_ARGS__); \
+            goto fault_exit;                                    \
+        }                                                       \
+    } while (0)
 
     while (pc < size)
     {
@@ -717,10 +743,8 @@ int main(int argc, char *argv[])
             }
             if (registers[src] == 0)
             {
-                fprintf(stderr, "Invalid: division by zero at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                return 1;
+                RAISE_FAULT(FAULT_DIV_ZERO, "division by zero at pc=%zu", pc);
+                break;
             }
             registers[dst] /= registers[src];
             break;
@@ -846,37 +870,38 @@ int main(int argc, char *argv[])
             putchar(value);
             break;
         }
-        case OPCODE_ALLOC: REQUIRE_PRIVILEGED("ALLOC");
-        {
-            if (pc + 3 >= size)
+        case OPCODE_ALLOC:
+            REQUIRE_PRIVILEGED("ALLOC");
             {
-                fprintf(stderr, "Missing operand for ALLOC at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                free(call_stack);
-                return 1;
-            }
-
-            uint32_t elems = program[pc] | (program[pc + 1] << 8) |
-                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
-            pc += 4;
-
-            if (elems > stack_cap)
-            {
-                int64_t *tmp = realloc(stack, elems * sizeof *stack);
-                if (!tmp)
+                if (pc + 3 >= size)
                 {
-                    perror("realloc");
+                    fprintf(stderr, "Missing operand for ALLOC at pc=%zu\n", pc);
                     free(program);
                     free(stack);
                     free(call_stack);
                     return 1;
                 }
-                stack = tmp;
-                stack_cap = elems;
+
+                uint32_t elems = program[pc] | (program[pc + 1] << 8) |
+                                 (program[pc + 2] << 16) | (program[pc + 3] << 24);
+                pc += 4;
+
+                if (elems > stack_cap)
+                {
+                    int64_t *tmp = realloc(stack, elems * sizeof *stack);
+                    if (!tmp)
+                    {
+                        perror("realloc");
+                        free(program);
+                        free(stack);
+                        free(call_stack);
+                        return 1;
+                    }
+                    stack = tmp;
+                    stack_cap = elems;
+                }
+                break;
             }
-            break;
-        }
         case OPCODE_LOAD:
         {
             if (pc + 5 >= size)
@@ -899,19 +924,21 @@ int main(int argc, char *argv[])
             }
             if ((size_t)addr >= stack_cap)
             {
-                fprintf(stderr, "LOAD address out of bounds: %u at pc=%zu\n", addr, pc);
-                free(program);
-                free(stack);
-                return 1;
+                RAISE_FAULT(FAULT_OOB, "address out of bounds: %u at pc=%zu", addr, pc);
+                break;
             }
 
-            if (cur_mode == MODE_PRIVILEGED && !permissions[addr].priv_read) {
-                fprintf(stderr, "Permission denied for LOAD to address %u at pc=%zu\n", addr, pc);
-                goto fault_exit;
+            if (cur_mode == MODE_PRIVILEGED && !permissions[addr].priv_read)
+            {
+                RAISE_FAULT(FAULT_PERM_READ, "read permission denied for %s at slot %u pc=%zu",
+                            cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED", addr, pc);
+                break;
             }
-            if (cur_mode == MODE_PROTECTED && !permissions[addr].prot_read) {
-                fprintf(stderr, "Permission denied for LOAD to address %u at pc=%zu\n", addr, pc);
-                goto fault_exit;
+            if (cur_mode == MODE_PROTECTED && !permissions[addr].prot_read)
+            {
+                RAISE_FAULT(FAULT_PERM_READ, "read permission denied for %s at slot %u pc=%zu",
+                            cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED", addr, pc);
+                break;
             }
 
             registers[reg] = stack[addr];
@@ -945,13 +972,17 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            if (cur_mode == MODE_PRIVILEGED && !permissions[idx64].priv_read) {
-                fprintf(stderr, "Permission denied for LOAD to address %u at pc=%zu\n", (unsigned int)idx64, pc);
-                goto fault_exit;
+            if (cur_mode == MODE_PRIVILEGED && !permissions[idx64].priv_read)
+            {
+                RAISE_FAULT(FAULT_PERM_READ, "read permission denied for %s at slot %u pc=%zu",
+                            cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED", (unsigned int)idx64, pc);
+                break;
             }
-            if (cur_mode == MODE_PROTECTED && !permissions[idx64].prot_read) {
-                fprintf(stderr, "Permission denied for LOAD to address %u at pc=%zu\n", (unsigned int)idx64, pc);
-                goto fault_exit;
+            if (cur_mode == MODE_PROTECTED && !permissions[idx64].prot_read)
+            {
+                RAISE_FAULT(FAULT_PERM_READ, "read permission denied for %s at slot %u pc=%zu",
+                            cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED", (unsigned int)idx64, pc);
+                break;
             }
 
             registers[reg] = stack[(size_t)idx64];
@@ -979,20 +1010,21 @@ int main(int argc, char *argv[])
             }
             if ((size_t)addr >= stack_cap)
             {
-                fprintf(stderr, "STORE address out of bounds: %u at pc=%zu\n", addr,
-                        pc);
-                free(program);
-                free(stack);
-                return 1;
+                RAISE_FAULT(FAULT_OOB, "address out of bounds: %u at pc=%zu", addr, pc);
+                break;
             }
 
-            if (cur_mode == MODE_PRIVILEGED && !permissions[addr].priv_write) {
-                fprintf(stderr, "Permission denied for STORE to address %u at pc=%zu\n", addr, pc);
-                goto fault_exit;
+            if (cur_mode == MODE_PRIVILEGED && !permissions[addr].priv_write)
+            {
+                RAISE_FAULT(FAULT_PERM_WRITE, "write permission denied for %s at slot %u pc=%zu",
+                            cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED", addr, pc);
+                break;
             }
-            if (cur_mode == MODE_PROTECTED && !permissions[addr].prot_write) {
-                fprintf(stderr, "Permission denied for STORE to address %u at pc=%zu\n", addr, pc);
-                goto fault_exit;
+            if (cur_mode == MODE_PROTECTED && !permissions[addr].prot_write)
+            {
+                RAISE_FAULT(FAULT_PERM_WRITE, "write permission denied for %s at slot %u pc=%zu",
+                            cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED", addr, pc);
+                break;
             }
 
             stack[addr] = registers[reg];
@@ -1026,15 +1058,18 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-             if (cur_mode == MODE_PRIVILEGED && !permissions[idx64].priv_write) {
-                fprintf(stderr, "Permission denied for STORE to address %u at pc=%zu\n", (unsigned int)idx64, pc);
-                goto fault_exit;
+            if (cur_mode == MODE_PRIVILEGED && !permissions[idx64].priv_write)
+            {
+                RAISE_FAULT(FAULT_PERM_WRITE, "write permission denied for %s at slot %u pc=%zu",
+                            cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED", (unsigned int)idx64, pc);
+                break;
             }
-            if (cur_mode == MODE_PROTECTED && !permissions[idx64].prot_write) {
-                fprintf(stderr, "Permission denied for STORE to address %u at pc=%zu\n", (unsigned int)idx64, pc);
-                goto fault_exit;
+            if (cur_mode == MODE_PROTECTED && !permissions[idx64].prot_write)
+            {
+                RAISE_FAULT(FAULT_PERM_WRITE, "write permission denied for %s at slot %u pc=%zu",
+                            cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED", (unsigned int)idx64, pc);
+                break;
             }
-
 
             stack[(size_t)idx64] = registers[reg];
             break;
@@ -1185,231 +1220,236 @@ int main(int argc, char *argv[])
             vars[abs_idx] = registers[reg];
             break;
         }
-        case OPCODE_GROW: REQUIRE_PRIVILEGED("GROW");
-        {
-            if (pc + 3 >= size)
+        case OPCODE_GROW:
+            REQUIRE_PRIVILEGED("GROW");
             {
-                fprintf(stderr, "Missing operand for GROW at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
+                if (pc + 3 >= size)
+                {
+                    fprintf(stderr, "Missing operand for GROW at pc=%zu\n", pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
 
-            uint32_t elem = program[pc] | (program[pc + 1] << 8) |
-                            (program[pc + 2] << 16) | (program[pc + 3] << 24);
-            pc += 4;
+                uint32_t elem = program[pc] | (program[pc + 1] << 8) |
+                                (program[pc + 2] << 16) | (program[pc + 3] << 24);
+                pc += 4;
 
-            if (elem == 0)
+                if (elem == 0)
+                    break;
+
+                size_t new_cap = stack_cap + elem;
+
+                int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
+                if (!tmp)
+                {
+                    perror("realloc");
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                stack = tmp;
+                stack_cap = new_cap;
                 break;
-
-            size_t new_cap = stack_cap + elem;
-
-            int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
-            if (!tmp)
-            {
-                perror("realloc");
-                free(program);
-                free(stack);
-                return 1;
             }
-            stack = tmp;
-            stack_cap = new_cap;
-            break;
-        }
         case OPCODE_PRINT_STACKSIZE:
         {
             printf("%zu", stack_cap);
             fflush(stdout);
             break;
         }
-        case OPCODE_RESIZE: REQUIRE_PRIVILEGED("RESIZE");
-        {
-            if (pc + 3 >= size)
+        case OPCODE_RESIZE:
+            REQUIRE_PRIVILEGED("RESIZE");
             {
-                fprintf(stderr, "Missing operand for RESIZE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-
-            uint32_t new_size = program[pc] | (program[pc + 1] << 8) |
-                                (program[pc + 2] << 16) | (program[pc + 3] << 24);
-            pc += 4;
-
-            int64_t *tmp = realloc(stack, new_size * sizeof *stack);
-            if (!tmp)
-            {
-                perror("realloc");
-                free(program);
-                free(stack);
-                return 1;
-            }
-            stack = tmp;
-            stack_cap = new_size;
-            if (sp > stack_cap)
-            {
-                sp = stack_cap;
-            }
-            break;
-        }
-        case OPCODE_FREE: REQUIRE_PRIVILEGED("FREE");
-        {
-            if (pc + 3 >= size)
-            {
-                fprintf(stderr, "Missing operand for FREE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-
-            uint32_t num = program[pc] | (program[pc + 1] << 8) |
-                           (program[pc + 2] << 16) | (program[pc + 3] << 24);
-            pc += 4;
-
-            if (num == 0)
-                break;
-
-            if (num > stack_cap)
-            {
-                fprintf(stderr, "FREE size out of bounds: %u at pc=%zu\n", num, pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-
-            size_t new_cap = stack_cap - num;
-
-            int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
-            if (!tmp)
-            {
-                perror("realloc");
-                free(program);
-                free(stack);
-                return 1;
-            }
-            stack = tmp;
-            stack_cap = new_cap;
-            break;
-        }
-        case OPCODE_FOPEN: REQUIRE_PRIVILEGED("FOPEN");
-        {
-            if (pc + 2 >= size)
-            {
-                fprintf(stderr, "Missing operands for FOPEN at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-            uint8_t mode_str = program[pc++];
-            uint8_t fd = program[pc++];
-            uint8_t fname_len = program[pc++];
-
-            if (fd >= FILE_DESCRIPTORS)
-            {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-            if (fname_len == 0 || fname_len >= 255)
-            {
-                fprintf(stderr, "Invalid filename length %u at pc=%zu\n", fname_len,
-                        pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-            if (pc + fname_len > size)
-            {
-                fprintf(stderr, "Filename past end of program at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-
-            char fname[256];
-            memcpy(fname, &program[pc], fname_len);
-            fname[fname_len] = '\0';
-            pc += fname_len;
-
-            const char *mode;
-            if (mode_str == 0)
-                mode = "r";
-            else if (mode_str == 1)
-                mode = "w";
-            else if (mode_str == 2)
-                mode = "a";
-            else
-            {
-                fprintf(stderr, "Invalid mode %u at pc=%zu\n", mode_str, pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-            if (fds[fd])
-            {
-                if (fds_owned[fd])
-                    fclose(fds[fd]);
-                fds[fd] = NULL;
-                fds_owned[fd] = 0;
-            }
-
-            if (strcmp(fname, "/dev/stdout") == 0)
-            {
-                fds[fd] = stdout;
-                fds_owned[fd] = 0;
-            }
-            else if (strcmp(fname, "/dev/stderr") == 0)
-            {
-                fds[fd] = stderr;
-                fds_owned[fd] = 0;
-            }
-            else if (strcmp(fname, "/dev/stdin") == 0)
-            {
-                fds[fd] = stdin;
-                fds_owned[fd] = 0;
-            }
-            else
-            {
-                FILE *file = fopen(fname, mode);
-                if (!file)
+                if (pc + 3 >= size)
                 {
-                    perror("fopen");
+                    fprintf(stderr, "Missing operand for RESIZE at pc=%zu\n", pc);
                     free(program);
                     free(stack);
                     return 1;
                 }
-                fds[fd] = file;
-                fds_owned[fd] = 1;
+
+                uint32_t new_size = program[pc] | (program[pc + 1] << 8) |
+                                    (program[pc + 2] << 16) | (program[pc + 3] << 24);
+                pc += 4;
+
+                int64_t *tmp = realloc(stack, new_size * sizeof *stack);
+                if (!tmp)
+                {
+                    perror("realloc");
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                stack = tmp;
+                stack_cap = new_size;
+                if (sp > stack_cap)
+                {
+                    sp = stack_cap;
+                }
+                break;
             }
-            break;
-        }
-        case OPCODE_FCLOSE: REQUIRE_PRIVILEGED("FCLOSE");
-        {
-            if (pc >= size)
+        case OPCODE_FREE:
+            REQUIRE_PRIVILEGED("FREE");
             {
-                fprintf(stderr, "Missing operand for FCLOSE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                return 1;
+                if (pc + 3 >= size)
+                {
+                    fprintf(stderr, "Missing operand for FREE at pc=%zu\n", pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+
+                uint32_t num = program[pc] | (program[pc + 1] << 8) |
+                               (program[pc + 2] << 16) | (program[pc + 3] << 24);
+                pc += 4;
+
+                if (num == 0)
+                    break;
+
+                if (num > stack_cap)
+                {
+                    fprintf(stderr, "FREE size out of bounds: %u at pc=%zu\n", num, pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+
+                size_t new_cap = stack_cap - num;
+
+                int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
+                if (!tmp)
+                {
+                    perror("realloc");
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                stack = tmp;
+                stack_cap = new_cap;
+                break;
             }
-            uint8_t fd = program[pc++];
-            if (fd >= FILE_DESCRIPTORS)
+        case OPCODE_FOPEN:
+            REQUIRE_PRIVILEGED("FOPEN");
             {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
-                return 1;
+                if (pc + 2 >= size)
+                {
+                    fprintf(stderr, "Missing operands for FOPEN at pc=%zu\n", pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                uint8_t mode_str = program[pc++];
+                uint8_t fd = program[pc++];
+                uint8_t fname_len = program[pc++];
+
+                if (fd >= FILE_DESCRIPTORS)
+                {
+                    fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                if (fname_len == 0 || fname_len >= 255)
+                {
+                    fprintf(stderr, "Invalid filename length %u at pc=%zu\n", fname_len,
+                            pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                if (pc + fname_len > size)
+                {
+                    fprintf(stderr, "Filename past end of program at pc=%zu\n", pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+
+                char fname[256];
+                memcpy(fname, &program[pc], fname_len);
+                fname[fname_len] = '\0';
+                pc += fname_len;
+
+                const char *mode;
+                if (mode_str == 0)
+                    mode = "r";
+                else if (mode_str == 1)
+                    mode = "w";
+                else if (mode_str == 2)
+                    mode = "a";
+                else
+                {
+                    fprintf(stderr, "Invalid mode %u at pc=%zu\n", mode_str, pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                if (fds[fd])
+                {
+                    if (fds_owned[fd])
+                        fclose(fds[fd]);
+                    fds[fd] = NULL;
+                    fds_owned[fd] = 0;
+                }
+
+                if (strcmp(fname, "/dev/stdout") == 0)
+                {
+                    fds[fd] = stdout;
+                    fds_owned[fd] = 0;
+                }
+                else if (strcmp(fname, "/dev/stderr") == 0)
+                {
+                    fds[fd] = stderr;
+                    fds_owned[fd] = 0;
+                }
+                else if (strcmp(fname, "/dev/stdin") == 0)
+                {
+                    fds[fd] = stdin;
+                    fds_owned[fd] = 0;
+                }
+                else
+                {
+                    FILE *file = fopen(fname, mode);
+                    if (!file)
+                    {
+                        perror("fopen");
+                        free(program);
+                        free(stack);
+                        return 1;
+                    }
+                    fds[fd] = file;
+                    fds_owned[fd] = 1;
+                }
+                break;
             }
-            if (fds[fd])
+        case OPCODE_FCLOSE:
+            REQUIRE_PRIVILEGED("FCLOSE");
             {
-                if (fds_owned[fd])
-                    fclose(fds[fd]);
-                fds[fd] = NULL;
-                fds_owned[fd] = 0;
+                if (pc >= size)
+                {
+                    fprintf(stderr, "Missing operand for FCLOSE at pc=%zu\n", pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                uint8_t fd = program[pc++];
+                if (fd >= FILE_DESCRIPTORS)
+                {
+                    fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                if (fds[fd])
+                {
+                    if (fds_owned[fd])
+                        fclose(fds[fd]);
+                    fds[fd] = NULL;
+                    fds_owned[fd] = 0;
+                }
+                break;
             }
-            break;
-        }
         case OPCODE_FREAD:
         {
             if (pc + 1 >= size)
@@ -2560,63 +2600,66 @@ int main(int argc, char *argv[])
             pc = addr;
             break;
         }
-        case OPCODE_EXEC: REQUIRE_PRIVILEGED("EXEC")
-        {
-            if (pc >= size)
+        case OPCODE_EXEC:
+            REQUIRE_PRIVILEGED("EXEC")
             {
-                fprintf(stderr, "Missing dest register for EXEC at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-            uint8_t dest = program[pc++];
-            if (dest >= REGISTERS)
-            {
-                fprintf(stderr, "Invalid dest register %u for EXEC at pc=%zu\n", dest, pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-            if (pc >= size)
-            {
-                fprintf(stderr, "Missing length for EXEC at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-            uint8_t len = program[pc++];
-            if (pc + len > size)
-            {
-                fprintf(stderr, "EXEC string past end of program at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                return 1;
-            }
-            char cmd[256];
-            if (len > 255)
-                len = 255;
-            memcpy(cmd, &program[pc], len);
-            cmd[len] = '\0';
-            pc += len;
+                if (pc >= size)
+                {
+                    fprintf(stderr, "Missing dest register for EXEC at pc=%zu\n", pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                uint8_t dest = program[pc++];
+                if (dest >= REGISTERS)
+                {
+                    fprintf(stderr, "Invalid dest register %u for EXEC at pc=%zu\n", dest, pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                if (pc >= size)
+                {
+                    fprintf(stderr, "Missing length for EXEC at pc=%zu\n", pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                uint8_t len = program[pc++];
+                if (pc + len > size)
+                {
+                    fprintf(stderr, "EXEC string past end of program at pc=%zu\n", pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                char cmd[256];
+                if (len > 255)
+                    len = 255;
+                memcpy(cmd, &program[pc], len);
+                cmd[len] = '\0';
+                pc += len;
 
-            if (debug)
-                printf("[DEBUG] EXEC: %s -> r%02u\n", cmd, dest);
+                if (debug)
+                    printf("[DEBUG] EXEC: %s -> r%02u\n", cmd, dest);
 
-            int ret = system(cmd);
-            registers[dest] = (int64_t)ret;
-            break;
-        }
+                int ret = system(cmd);
+                registers[dest] = (int64_t)ret;
+                break;
+            }
 
-        case OPCODE_DROPPRIV: REQUIRE_PRIVILEGED("DROPPPRIV")
-        {
-            cur_mode = MODE_PROTECTED;
-            break;
-        }
-        
+        case OPCODE_DROPPRIV:
+            REQUIRE_PRIVILEGED("DROPPPRIV")
+            {
+                cur_mode = MODE_PROTECTED;
+                break;
+            }
+
         case OPCODE_GETMODE:
         {
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in GETMODE at pc=%zu\n", pc);
                 goto fault_exit;
             }
@@ -2624,22 +2667,23 @@ int main(int argc, char *argv[])
             break;
         }
 
-        case OPCODE_REGSYSCALL: REQUIRE_PRIVILEGED("REGSYSCALL")
-        {
-            uint8_t id = program[pc++];
-            uint32_t addr = program[pc] | (program[pc + 1] << 8) |
-                            (program[pc + 2] << 16) | (program[pc + 3] << 24);
-
-            pc += 4;
-            if (id >= MAX_SYSCALLS)
+        case OPCODE_REGSYSCALL:
+            REQUIRE_PRIVILEGED("REGSYSCALL")
             {
-                fprintf(stderr, "Invalid syscall ID %u in REGSYSCALL at pc=%zu\n", id, pc);
-                goto fault_exit;
+                uint8_t id = program[pc++];
+                uint32_t addr = program[pc] | (program[pc + 1] << 8) |
+                                (program[pc + 2] << 16) | (program[pc + 3] << 24);
+
+                pc += 4;
+                if (id >= MAX_SYSCALLS)
+                {
+                    RAISE_FAULT(FAULT_BAD_SYSCALL, "SYSCALL %u not registered at pc=%zu", id, pc);
+                    break;
+                }
+                syscall_table[id] = addr;
+                syscall_registered[id] = true;
+                break;
             }
-            syscall_table[id] = addr;
-            syscall_registered[id] = true;
-            break;   
-        }
 
         case OPCODE_SYSCALL:
         {
@@ -2668,38 +2712,86 @@ int main(int argc, char *argv[])
             break;
         }
 
-        case OPCODE_SYSRET: REQUIRE_PRIVILEGED("SYSRET")
+        case OPCODE_SYSRET:
+            REQUIRE_PRIVILEGED("SYSRET")
+            {
+                cur_mode = MODE_PROTECTED;
+                pc = syscall_return_pc;
+                break;
+            }
+
+        case OPCODE_SETPERM:
+            REQUIRE_PRIVILEGED("SETPERM")
+            {
+                uint32_t start = program[pc] | (program[pc + 1] << 8) |
+                                 (program[pc + 2] << 16) | (program[pc + 3] << 24);
+                pc += 4;
+
+                uint32_t count = program[pc] | (program[pc + 1] << 8) |
+                                 (program[pc + 2] << 16) | (program[pc + 3] << 24);
+                pc += 4;
+
+                uint8_t priv_read = program[pc++];
+                uint8_t priv_write = program[pc++];
+                uint8_t prot_read = program[pc++];
+                uint8_t prot_write = program[pc++];
+
+                for (uint32_t i = 0; i < count; i++)
+                {
+                    size_t idx = start + i;
+                    if (idx >= stack_cap)
+                        break;
+                    permissions[idx].priv_read = priv_read;
+                    permissions[idx].priv_write = priv_write;
+                    permissions[idx].prot_read = prot_read;
+                    permissions[idx].prot_write = prot_write;
+                }
+                break;
+            }
+        
+        case OPCODE_REGFAULT: REQUIRE_PRIVILEGED("REGFAULT")
         {
+            uint8_t fault_id = program[pc++];
+            uint32_t addr = program[pc] | (program[pc + 1] << 8) |
+                            (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+
+            if (fault_id >= FAULT_COUNT)
+            {
+                fprintf(stderr, "Invalid fault ID %u in REGFAULT at pc=%zu\n", fault_id, pc);
+                goto fault_exit;
+            }
+
+            fault_table[fault_id] = addr;
+            fault_registered[fault_id] = true;
+            break;
+        }
+        
+        case OPCODE_FAULTRET: REQUIRE_PRIVILEGED("FAULTRET")
+        {
+            if (current_fault == FAULT_COUNT)
+            {
+                fprintf(stderr, "FAULTRET executed but no fault is active at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+
+            current_fault = FAULT_COUNT;
             cur_mode = MODE_PROTECTED;
-            pc = syscall_return_pc;
+            pc = fault_return_pc;
             break;
         }
 
-        case OPCODE_SETPERM: REQUIRE_PRIVILEGED("SETPERM")
+        case OPCODE_GETFAULT:
         {
-            uint32_t start = program[pc] | (program[pc + 1] << 8) |
-                               (program[pc + 2] << 16) | (program[pc + 3] << 24);
-            pc += 4;
-
-            uint32_t count = program[pc] | (program[pc + 1] << 8) |
-                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
-            pc += 4;
-
-            uint8_t priv_read  = program[pc++];
-            uint8_t priv_write = program[pc++];
-            uint8_t prot_read  = program[pc++];
-            uint8_t prot_write = program[pc++];
-
-            for (uint32_t i = 0; i < count; i++) {
-                size_t idx = start + i;
-                if (idx >= stack_cap) break;
-                permissions[idx].priv_read  = priv_read;
-                permissions[idx].priv_write = priv_write;
-                permissions[idx].prot_read  = prot_read;
-                permissions[idx].prot_write = prot_write;
-            } 
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS) {
+                fprintf(stderr, "Invalid register in GETFAULT at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            registers[reg] = (int64_t)current_fault;
             break;
         }
+
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,
@@ -2711,7 +2803,7 @@ int main(int argc, char *argv[])
         }
         }
     }
-    
+
     (void)AF;
     (void)PF;
     (void)data_count;
@@ -2722,12 +2814,12 @@ int main(int argc, char *argv[])
     free(frame_base_stack);
     return 0;
 
-    fault_exit:
-        free(program);
-        free(stack);
-        free(call_stack);
-        free(vars);
-        free(frame_base_stack);
-        free(permissions);
-        return 1;
+fault_exit:
+    free(program);
+    free(stack);
+    free(call_stack);
+    free(vars);
+    free(frame_base_stack);
+    free(permissions);
+    return 1;
 }
