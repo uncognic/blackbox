@@ -13,9 +13,10 @@
 
 typedef struct
 {
-    uint8_t readable;
-    uint8_t writable;
-    uint8_t privileged_only;
+    uint8_t priv_read;
+    uint8_t priv_write;
+    uint8_t prot_read;
+    uint8_t prot_write;
 } SlotPermission;
 
 typedef enum

@@ -13,11 +13,11 @@
         ALLOC 64
 
         ; Write a value into slot 10 while still privileged
-        MOVI R00, 42
+        MOVI R00, 67
         STORE R00, 10
 
-        ; Now mark slots 10-19 as read-only (readable=1, writable=0, priv_only=0 -> flags=0b001=1)
-        SETPERM 10, 10, R
+        ; Mark slots 10-19 as read-only (RW for privileged, R for protected)
+        SETPERM 10, 10, RW/R
         SYSRET
 
 ; Protected mode code

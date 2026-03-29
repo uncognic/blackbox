@@ -193,9 +193,10 @@ int main(int argc, char *argv[])
     }
     for (size_t i = 0; i < stack_cap; i++)
     {
-        permissions[i].readable = 1;
-        permissions[i].writable = 1;
-        permissions[i].privileged_only = 0;
+        permissions[i].priv_read = 1;
+        permissions[i].priv_write = 1;
+        permissions[i].prot_read = 1;
+        permissions[i].prot_write = 1;
     }
 
     size_t syscall_return_pc = 0;
@@ -904,9 +905,12 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            if (!permissions[addr].readable || (permissions[addr].privileged_only && cur_mode != MODE_PRIVILEGED))
-            {
-                fprintf(stderr, "Permission denied for LOAD from address %u at pc=%zu\n", addr, pc);
+            if (cur_mode == MODE_PRIVILEGED && !permissions[addr].priv_read) {
+                fprintf(stderr, "Permission denied for LOAD to address %u at pc=%zu\n", addr, pc);
+                goto fault_exit;
+            }
+            if (cur_mode == MODE_PROTECTED && !permissions[addr].prot_read) {
+                fprintf(stderr, "Permission denied for LOAD to address %u at pc=%zu\n", addr, pc);
                 goto fault_exit;
             }
 
@@ -941,9 +945,12 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            if (!permissions[idxreg].readable || (permissions[idxreg].privileged_only && cur_mode != MODE_PRIVILEGED))
-            {
-                fprintf(stderr, "Permission denied for LOAD from index %u at pc=%zu\n", (unsigned int)idxreg, pc);
+            if (cur_mode == MODE_PRIVILEGED && !permissions[idx64].priv_read) {
+                fprintf(stderr, "Permission denied for LOAD to address %u at pc=%zu\n", (unsigned int)idx64, pc);
+                goto fault_exit;
+            }
+            if (cur_mode == MODE_PROTECTED && !permissions[idx64].prot_read) {
+                fprintf(stderr, "Permission denied for LOAD to address %u at pc=%zu\n", (unsigned int)idx64, pc);
                 goto fault_exit;
             }
 
@@ -979,8 +986,11 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            if (!permissions[addr].writable || (permissions[addr].privileged_only && cur_mode != MODE_PRIVILEGED))
-            {
+            if (cur_mode == MODE_PRIVILEGED && !permissions[addr].priv_write) {
+                fprintf(stderr, "Permission denied for STORE to address %u at pc=%zu\n", addr, pc);
+                goto fault_exit;
+            }
+            if (cur_mode == MODE_PROTECTED && !permissions[addr].prot_write) {
                 fprintf(stderr, "Permission denied for STORE to address %u at pc=%zu\n", addr, pc);
                 goto fault_exit;
             }
@@ -1016,11 +1026,15 @@ int main(int argc, char *argv[])
                 return 1;
             }
 
-            if (!permissions[idxreg].writable || (permissions[idxreg].privileged_only && cur_mode != MODE_PRIVILEGED))
-            {
-                fprintf(stderr, "Permission denied for STORE to index %u at pc=%zu\n", (unsigned int)idxreg, pc);
+             if (cur_mode == MODE_PRIVILEGED && !permissions[idx64].priv_write) {
+                fprintf(stderr, "Permission denied for STORE to address %u at pc=%zu\n", (unsigned int)idx64, pc);
                 goto fault_exit;
             }
+            if (cur_mode == MODE_PROTECTED && !permissions[idx64].prot_write) {
+                fprintf(stderr, "Permission denied for STORE to address %u at pc=%zu\n", (unsigned int)idx64, pc);
+                goto fault_exit;
+            }
+
 
             stack[(size_t)idx64] = registers[reg];
             break;
@@ -2656,11 +2670,6 @@ int main(int argc, char *argv[])
 
         case OPCODE_SYSRET: REQUIRE_PRIVILEGED("SYSRET")
         {
-            if (cur_mode != MODE_PRIVILEGED)
-            {
-                fprintf(stderr, "FAULT: SYSRET only allowed in privileged mode at pc=%zu\n", pc);
-                goto fault_exit;
-            }
             cur_mode = MODE_PROTECTED;
             pc = syscall_return_pc;
             break;
@@ -2676,20 +2685,19 @@ int main(int argc, char *argv[])
                              (program[pc + 2] << 16) | (program[pc + 3] << 24);
             pc += 4;
 
-            uint8_t flags = program[pc++];
+            uint8_t priv_read  = program[pc++];
+            uint8_t priv_write = program[pc++];
+            uint8_t prot_read  = program[pc++];
+            uint8_t prot_write = program[pc++];
 
-            for (uint32_t i = 0; i < count; i++)
-            {
+            for (uint32_t i = 0; i < count; i++) {
                 size_t idx = start + i;
-                if (idx >= stack_cap)
-                {
-                    fprintf(stderr, "FAULT: Permission index out of bounds: %zu at pc=%zu\n", idx, pc);
-                    goto fault_exit;
-                }
-                permissions[idx].readable = (flags >> 0) & 1;
-                permissions[idx].writable = (flags >> 1) & 1;
-                permissions[idx].privileged_only = (flags >> 2) & 1;
-            }   
+                if (idx >= stack_cap) break;
+                permissions[idx].priv_read  = priv_read;
+                permissions[idx].priv_write = priv_write;
+                permissions[idx].prot_read  = prot_read;
+                permissions[idx].prot_write = prot_write;
+            } 
             break;
         }
         default:
@@ -2703,15 +2711,7 @@ int main(int argc, char *argv[])
         }
         }
     }
-    fault_exit:
-        free(program);
-        free(stack);
-        free(call_stack);
-        free(vars);
-        free(frame_base_stack);
-        free(permissions);
-        return 1;
-
+    
     (void)AF;
     (void)PF;
     (void)data_count;
@@ -2721,4 +2721,13 @@ int main(int argc, char *argv[])
     free(vars);
     free(frame_base_stack);
     return 0;
+
+    fault_exit:
+        free(program);
+        free(stack);
+        free(call_stack);
+        free(vars);
+        free(frame_base_stack);
+        free(permissions);
+        return 1;
 }

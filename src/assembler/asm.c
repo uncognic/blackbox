@@ -2570,19 +2570,38 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "SETPERM")) {
             uint32_t start, count;
-            char perm_str[8];
-            if (sscanf(s + 7, " %u, %u, %7s", &start, &count, perm_str) != 3) {
-                fprintf(stderr, "Syntax error on line %d: expected SETPERM <start>, <count>, <r|rw|rwp>\nGot: %s\n", lineno, s);
-                fclose(in); fclose(out); return 1;
+            char perm_str[16];
+            if (sscanf(s + 7, " %u, %u, %15s", &start, &count, perm_str) != 3) {
+                fprintf(stderr, "Syntax error on line %d: expected SETPERM <start>, <count>, <priv>/<prot>\nGot: %s\n", lineno, s);
+                fclose(in); 
+                fclose(out); 
+                return 1;
             }
-            uint8_t flags = 0;
-            if (strchr(perm_str, 'R')) flags |= 1;
-            if (strchr(perm_str, 'W')) flags |= 2;
-            if (strchr(perm_str, 'P')) flags |= 4;
+
+            char *slash = strchr(perm_str, '/');
+            if (!slash) {
+                fprintf(stderr, "Syntax error on line %d: SETPERM permissions must be <priv>/<prot> e.g. rw/r\nGot: %s\n", lineno, s);
+                fclose(in); 
+                fclose(out); 
+                return 1;
+            }
+
+            *slash = '\0';
+            char *priv_str = perm_str;
+            char *prot_str = slash + 1;
+
+            uint8_t priv_read  = strchr(priv_str, 'R') ? 1 : 0;
+            uint8_t priv_write = strchr(priv_str, 'W') ? 1 : 0;
+            uint8_t prot_read  = strchr(prot_str, 'R') ? 1 : 0;
+            uint8_t prot_write = strchr(prot_str, 'W') ? 1 : 0;
+
             fputc(OPCODE_SETPERM, out);
             write_u32(out, start);
             write_u32(out, count);
-            fputc(flags, out);
+            fputc(priv_read,  out);
+            fputc(priv_write, out);
+            fputc(prot_read,  out);
+            fputc(prot_write, out);
         }
         else
         {
