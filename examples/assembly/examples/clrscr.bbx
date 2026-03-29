@@ -1,0 +1,17 @@
+%asm
+%main
+    MOVI R00, 10
+.main:
+    MOVI R01, 0
+    cmp R00, R01
+    jne loop
+    sleep 1000
+    newline 
+    newline
+    clrscr
+    write STDOUT "Screen cleared"
+    halt ok
+.loop:
+    dec R00
+    write STDOUT "HYJLuJPHVPEHuR9JlwGOlgygl3vXPg1EDxIgzHo3dnoeZsZ2UFhPa6V1UXBaw9vj7WPwNdOq4mKrv8IMPpD0zBLkWRWCArxCQ8tbVqoCd54qERtYbkDgHKKsZCxuxID507Ti04hCxxGn7UY8n0WU0KQyLVUWwlQFyWDrPvBaG5gBmUg0DIN4QTg4jsUewdsfNWByXbBnwFRBRNC2O1XZI2vREHK5cvHHFtwU3Z3w0KpKjYZh4aNyvBYeHCDiziZt2ZDK8nIzwKNAp9vZIr5OhKYYJfbWiBbAMQGL5jPtLdbwl2x70sd164oOR8qWNgMkBUdZCHFHPE7WGyub1HlGuAS85BDBhv9cLFzQVr1QTMO5MZNdLGC9rBiBI4ixy23TZ0bIvaw1xORwt5YlsI4NMECuVahPF6uK7AyWYPaquD3SzyfThKLgBpjvnc2vD7hMlmIK0LBpUNoLm2OzopAbYFbeu1lu7GT8L6rqVk6R8uawmAcuUcvCaz2d4diSlx4EBhAxuhWeBMyepwHVjvJEH90WbOITzA6R"
+    jmp main

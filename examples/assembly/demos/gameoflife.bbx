@@ -61,7 +61,7 @@
     MOVI R08, 0
     MOVI R09, 800
 
-    WRITE stdout "Start with: (1) glider seed or (2) draw your own: "
+    WRITE STDOUT "Start with: (1) glider seed or (2) draw your own: "
     READ R00
 
     MOVI R01, 2
@@ -133,7 +133,7 @@
     JMP main_loop
 
 .setup_phase:
-    WRITE stdout "WASD=move  SPACE=toggle  ENTER=start"
+    WRITE STDOUT "WASD=move  SPACE=toggle  ENTER=start"
     NEWLINE
     MOVI R12, 10
     MOVI R13, 20

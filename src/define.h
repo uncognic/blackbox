@@ -1,5 +1,6 @@
-#ifndef OPCODES_H
-#define OPCODES_H
+#pragma once
+
+#include <stdint.h>
 
 #define MAGIC 0x626378
 #define MAGIC_SIZE 3
@@ -8,6 +9,64 @@
 #define REGISTERS 99
 #define FILE_DESCRIPTORS 99
 #define VAR_CAPACITY 16384
+#define MAX_SYSCALLS 256
+
+typedef struct
+{
+    uint8_t readable;
+    uint8_t writable;
+    uint8_t privileged_only;
+} SlotPermission;
+
+typedef enum
+{
+    MODE_PROTECTED,
+    MODE_PRIVILEGED
+} Mode;
+
+typedef enum
+{
+    FAULT_ACCESS_VIOLATION,
+    FAULT_MEM_PERMISSION,
+    FAULT_BAD_SYSCALL,
+} FaultType;
+
+typedef enum
+{
+    DATA_STRING,
+    DATA_DWORD,
+    DATA_QWORD,
+    DATA_WORD,
+    DATA_BYTE
+} DataType;
+
+typedef struct
+{
+    char name[32];
+    DataType type;
+    char *str;
+    uint8_t byte;
+    uint16_t word;
+    uint32_t dword;
+    uint64_t qword;
+    uint32_t offset;
+} Data;
+
+typedef struct
+{
+    char *name;
+    char **params;
+    int paramc;
+    char **body;
+    int bodyc;
+} Macro;
+
+typedef struct
+{
+    char name[32];
+    uint32_t addr;
+    uint32_t frame_size;
+} Label;
 
 #define OPCODE_WRITE 0x01
 #define OPCODE_NEWLINE 0x02
@@ -75,7 +134,12 @@
 #define OPCODE_MOD 0x40
 #define OPCODE_JMPI 0x47
 #define OPCODE_EXEC 0x48
+#define OPCODE_SYSCALL 0x50
+#define OPCODE_SYSRET 0x51
+#define OPCODE_DROPPRIV 0x52
+#define OPCODE_REGSYSCALL 0x53
+#define OPCODE_SETPERM 0x54
+#define OPCODE_GETMODE 0x55
 #define OPCODE_HALT 0xFF
 #define OPCODE_BREAK 0xFE
 
-#endif

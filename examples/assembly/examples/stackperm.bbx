@@ -1,0 +1,39 @@
+%asm
+%main
+; Start privileged
+    ; Register syscall 0 to allocate and set permissions
+    REGSYSCALL 0, handler_setup
+
+    ; Drop to protected
+    DROPPRIV
+    JMP protected_start
+
+; Syscall handlers
+    .handler_setup:
+        ALLOC 64
+
+        ; Write a value into slot 10 while still privileged
+        MOVI R00, 42
+        STORE R00, 10
+
+        ; Now mark slots 10-19 as read-only (readable=1, writable=0, priv_only=0 -> flags=0b001=1)
+        SETPERM 10, 10, R
+        SYSRET
+
+; Protected mode code
+
+    .protected_start:
+        ; Set up memory and permissions
+        SYSCALL 0
+
+        ; Read from slot 10, should work fine
+        LOAD R00, 10
+        WRITE stdout "Read value: "
+        PRINTREG R00
+        NEWLINE
+
+        ; Try to write to slot 10, should fault
+        MOVI R01, 99
+        STORE R01, 10
+
+        HALT OK

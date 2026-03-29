@@ -1,0 +1,41 @@
+%asm
+%main
+; Start privileged
+    ; Register syscall 0 to allocate memory
+    REGSYSCALL 0, handler_alloc
+
+    ; Register syscall 1 to print a string
+    REGSYSCALL 1, handler_print
+
+    ; Drop to protected mode
+    DROPPRIV
+    JMP protected_start
+
+; Syscall handlers
+    .handler_alloc:
+        ALLOC 256
+        WRITE STDOUT, "Allocated "
+        PRINT_STACKSIZE
+        WRITE STDOUT, " bytes of memory"
+        NEWLINE
+        SYSRET
+    
+    .handler_print:
+        WRITE STDOUT, "Hello from syscall 1!"
+        NEWLINE
+        SYSRET
+
+; Protected mode code
+    .protected_start:
+        ; Execute syscall 0
+        SYSCALL 0
+
+        ; Execute syscall 1
+        SYSCALL 1
+        
+        ; Attempt to execute a privileged instruction (should fault)
+        ALLOC 256
+
+    HALT OK
+
+

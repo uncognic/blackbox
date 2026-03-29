@@ -340,9 +340,9 @@ fn emit_instruction(
             let slen = bytes[j + 1] as usize;
             j += 2;
             let fd_name = match fd {
-                1 => "stdout",
-                2 => "stderr",
-                _ => "stdout",
+                1 => "STDOUT",
+                2 => "STDERR",
+                _ => "STDOUT",
             };
             let s = if j + slen <= len {
                 String::from_utf8_lossy(&bytes[j..j + slen]).to_string()

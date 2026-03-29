@@ -174,6 +174,32 @@ int main(int argc, char *argv[])
         fds[i] = NULL;
         fds_owned[i] = 0;
     }
+
+    Mode cur_mode = MODE_PRIVILEGED;
+    uint32_t syscall_table[MAX_SYSCALLS];
+    bool syscall_registered[MAX_SYSCALLS];
+    memset(syscall_table, 0, sizeof(syscall_table));
+    memset(syscall_registered, 0, sizeof(syscall_registered));
+    SlotPermission *permissions = calloc(stack_cap, sizeof(SlotPermission));
+    if (!permissions)
+    {
+        perror("calloc");
+        free(program);
+        free(stack);
+        free(call_stack);
+        free(vars);
+        free(frame_base_stack);
+        return 1;
+    }
+    for (size_t i = 0; i < stack_cap; i++)
+    {
+        permissions[i].readable = 1;
+        permissions[i].writable = 1;
+        permissions[i].privileged_only = 0;
+    }
+
+    size_t syscall_return_pc = 0;
+
     bool breakpoints_enabled = false;
     bool debug_step = false;
     if (debug)
@@ -202,6 +228,13 @@ int main(int argc, char *argv[])
         }
         debug = debug_step;
         dbg_instructions_shown = false;
+    }
+
+
+    #define REQUIRE_PRIVILEGED(name) \
+    if (cur_mode != MODE_PRIVILEGED) { \
+        fprintf(stderr, "FAULT: " name " requires PRIVILEGED mode at pc=%zu\n", pc - 1); \
+        goto fault_exit; \
     }
 
     while (pc < size)
@@ -812,7 +845,7 @@ int main(int argc, char *argv[])
             putchar(value);
             break;
         }
-        case OPCODE_ALLOC:
+        case OPCODE_ALLOC: REQUIRE_PRIVILEGED("ALLOC");
         {
             if (pc + 3 >= size)
             {
@@ -870,6 +903,13 @@ int main(int argc, char *argv[])
                 free(stack);
                 return 1;
             }
+
+            if (!permissions[addr].readable || (permissions[addr].privileged_only && cur_mode != MODE_PRIVILEGED))
+            {
+                fprintf(stderr, "Permission denied for LOAD from address %u at pc=%zu\n", addr, pc);
+                goto fault_exit;
+            }
+
             registers[reg] = stack[addr];
             break;
         }
@@ -900,6 +940,13 @@ int main(int argc, char *argv[])
                 free(stack);
                 return 1;
             }
+
+            if (!permissions[idxreg].readable || (permissions[idxreg].privileged_only && cur_mode != MODE_PRIVILEGED))
+            {
+                fprintf(stderr, "Permission denied for LOAD from index %u at pc=%zu\n", (unsigned int)idxreg, pc);
+                goto fault_exit;
+            }
+
             registers[reg] = stack[(size_t)idx64];
             break;
         }
@@ -931,6 +978,13 @@ int main(int argc, char *argv[])
                 free(stack);
                 return 1;
             }
+
+            if (!permissions[addr].writable || (permissions[addr].privileged_only && cur_mode != MODE_PRIVILEGED))
+            {
+                fprintf(stderr, "Permission denied for STORE to address %u at pc=%zu\n", addr, pc);
+                goto fault_exit;
+            }
+
             stack[addr] = registers[reg];
             break;
         }
@@ -961,6 +1015,13 @@ int main(int argc, char *argv[])
                 free(stack);
                 return 1;
             }
+
+            if (!permissions[idxreg].writable || (permissions[idxreg].privileged_only && cur_mode != MODE_PRIVILEGED))
+            {
+                fprintf(stderr, "Permission denied for STORE to index %u at pc=%zu\n", (unsigned int)idxreg, pc);
+                goto fault_exit;
+            }
+
             stack[(size_t)idx64] = registers[reg];
             break;
         }
@@ -1110,7 +1171,7 @@ int main(int argc, char *argv[])
             vars[abs_idx] = registers[reg];
             break;
         }
-        case OPCODE_GROW:
+        case OPCODE_GROW: REQUIRE_PRIVILEGED("GROW");
         {
             if (pc + 3 >= size)
             {
@@ -1147,7 +1208,7 @@ int main(int argc, char *argv[])
             fflush(stdout);
             break;
         }
-        case OPCODE_RESIZE:
+        case OPCODE_RESIZE: REQUIRE_PRIVILEGED("RESIZE");
         {
             if (pc + 3 >= size)
             {
@@ -1177,7 +1238,7 @@ int main(int argc, char *argv[])
             }
             break;
         }
-        case OPCODE_FREE:
+        case OPCODE_FREE: REQUIRE_PRIVILEGED("FREE");
         {
             if (pc + 3 >= size)
             {
@@ -1216,7 +1277,7 @@ int main(int argc, char *argv[])
             stack_cap = new_cap;
             break;
         }
-        case OPCODE_FOPEN:
+        case OPCODE_FOPEN: REQUIRE_PRIVILEGED("FOPEN");
         {
             if (pc + 2 >= size)
             {
@@ -1309,7 +1370,7 @@ int main(int argc, char *argv[])
             }
             break;
         }
-        case OPCODE_FCLOSE:
+        case OPCODE_FCLOSE: REQUIRE_PRIVILEGED("FCLOSE");
         {
             if (pc >= size)
             {
@@ -2485,7 +2546,7 @@ int main(int argc, char *argv[])
             pc = addr;
             break;
         }
-        case OPCODE_EXEC:
+        case OPCODE_EXEC: REQUIRE_PRIVILEGED("EXEC")
         {
             if (pc >= size)
             {
@@ -2531,6 +2592,106 @@ int main(int argc, char *argv[])
             registers[dest] = (int64_t)ret;
             break;
         }
+
+        case OPCODE_DROPPRIV: REQUIRE_PRIVILEGED("DROPPPRIV")
+        {
+            cur_mode = MODE_PROTECTED;
+            break;
+        }
+        
+        case OPCODE_GETMODE:
+        {
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS) {
+                fprintf(stderr, "Invalid register in GETMODE at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            registers[reg] = (cur_mode == MODE_PROTECTED) ? 0 : 1;
+            break;
+        }
+
+        case OPCODE_REGSYSCALL: REQUIRE_PRIVILEGED("REGSYSCALL")
+        {
+            uint8_t id = program[pc++];
+            uint32_t addr = program[pc] | (program[pc + 1] << 8) |
+                            (program[pc + 2] << 16) | (program[pc + 3] << 24);
+
+            pc += 4;
+            if (id >= MAX_SYSCALLS)
+            {
+                fprintf(stderr, "Invalid syscall ID %u in REGSYSCALL at pc=%zu\n", id, pc);
+                goto fault_exit;
+            }
+            syscall_table[id] = addr;
+            syscall_registered[id] = true;
+            break;   
+        }
+
+        case OPCODE_SYSCALL:
+        {
+            if (cur_mode != MODE_PROTECTED)
+            {
+                fprintf(stderr, "FAULT: SYSCALL only allowed in protected mode at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+
+            uint8_t id = program[pc++];
+            if (id >= MAX_SYSCALLS)
+            {
+                fprintf(stderr, "FAULT: Invalid syscall ID %u at pc=%zu\n", id, pc);
+                goto fault_exit;
+            }
+
+            if (!syscall_registered[id])
+            {
+                fprintf(stderr, "FAULT: SYSCALL %u not registered at pc=%zu\n", id, pc);
+                goto fault_exit;
+            }
+
+            syscall_return_pc = pc;
+            cur_mode = MODE_PRIVILEGED;
+            pc = syscall_table[id];
+            break;
+        }
+
+        case OPCODE_SYSRET: REQUIRE_PRIVILEGED("SYSRET")
+        {
+            if (cur_mode != MODE_PRIVILEGED)
+            {
+                fprintf(stderr, "FAULT: SYSRET only allowed in privileged mode at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            cur_mode = MODE_PROTECTED;
+            pc = syscall_return_pc;
+            break;
+        }
+
+        case OPCODE_SETPERM: REQUIRE_PRIVILEGED("SETPERM")
+        {
+            uint32_t start = program[pc] | (program[pc + 1] << 8) |
+                               (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+
+            uint32_t count = program[pc] | (program[pc + 1] << 8) |
+                             (program[pc + 2] << 16) | (program[pc + 3] << 24);
+            pc += 4;
+
+            uint8_t flags = program[pc++];
+
+            for (uint32_t i = 0; i < count; i++)
+            {
+                size_t idx = start + i;
+                if (idx >= stack_cap)
+                {
+                    fprintf(stderr, "FAULT: Permission index out of bounds: %zu at pc=%zu\n", idx, pc);
+                    goto fault_exit;
+                }
+                permissions[idx].readable = (flags >> 0) & 1;
+                permissions[idx].writable = (flags >> 1) & 1;
+                permissions[idx].privileged_only = (flags >> 2) & 1;
+            }   
+            break;
+        }
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,
@@ -2542,6 +2703,14 @@ int main(int argc, char *argv[])
         }
         }
     }
+    fault_exit:
+        free(program);
+        free(stack);
+        free(call_stack);
+        free(vars);
+        free(frame_base_stack);
+        free(permissions);
+        return 1;
 
     (void)AF;
     (void)PF;

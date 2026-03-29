@@ -1,7 +1,7 @@
 # Blackbox VM Instruction Set Architecture
 - WRITE: Write a string to a stream  
   - Syntax: WRITE <stream> "<string>"  
-  - Encoding: OPCODE_WRITE, 1 byte fd (stdout or stderr), 1 byte length (max 255), then string bytes.  
+  - Encoding: OPCODE_WRITE, 1 byte fd (STDOUT or STDERR), 1 byte length (max 255), then string bytes.  
 - NEWLINE: Print newline  
   - Syntax: NEWLINE  
   - Encoding: OPCODE_NEWLINE  
@@ -220,3 +220,34 @@
   - Invocation: `%name [arg1 arg2 ...]`
   - Local labels: Use `@@label` inside the macro body. Each expansion uniquifies them (e.g. `M1_label`, `M2_label`) to avoid collisions.
   - Nesting: Macros may invoke other macros. Recursive expansion is capped at a depth of 32.
+
+## Privileges
+- REGSYSCALL: Register a syscall handler
+  - Syntax: `REGSYSCALL <id>, <label>`
+  - Encoding: `OPCODE_REGSYSCALL`, 1 byte id, 4-byte address
+  - Behavior: Registers the address of `label` as the handler for syscall `id`. Must be called in PRIVILEGED mode before dropping to PROTECTED. Up to 256 syscall ids (0-255) are supported.
+  - Privilege: PRIVILEGED only
+
+- SYSCALL: Invoke a syscall handler
+  - Syntax: `SYSCALL <id>`
+  - Encoding: `OPCODE_SYSCALL`, 1 byte id
+  - Behavior: Saves the return address, elevates to PRIVILEGED mode, and jumps to the handler registered for `id`. Execution resumes after the SYSCALL instruction when the handler calls SYSRET. Faults if no handler is registered for `id`.
+  - Privilege: PROTECTED only
+
+- SYSRET: Return from a syscall handler
+  - Syntax: `SYSRET`
+  - Encoding: `OPCODE_SYSRET`
+  - Behavior: Drops back to PROTECTED mode and resumes execution at the return address saved by the corresponding SYSCALL.
+  - Privilege: PRIVILEGED only
+
+- DROPPRIV: Drop to protected mode
+  - Syntax: `DROPPRIV`
+  - Encoding: `OPCODE_DROPPRIV`
+  - Behavior: Switches the VM from PRIVILEGED to PROTECTED mode. One-way — there is no way back to PRIVILEGED mode except through a registered syscall handler.
+  - Privilege: PRIVILEGED only
+
+- GETMODE: Get current privilege mode
+  - Syntax: `GETMODE <reg>`
+  - Encoding: `OPCODE_GETMODE`, 1 byte register
+  - Behavior: Stores the current mode in the specified register. 1 = PRIVILEGED, 0 = PROTECTED.
+  - Privilege: any

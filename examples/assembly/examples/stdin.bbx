@@ -5,7 +5,7 @@
     loadstr $prompt, R01
     printstr R01
     readstr R00          ; Read user input, store the pointer in R00
-    write stdout "Hello, "
+    write STDOUT "Hello, "
     printstr R00         ; Print what user typed
     newline
     halt ok

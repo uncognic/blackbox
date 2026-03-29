@@ -1,0 +1,15 @@
+%asm
+%main
+    write STDOUT "Calling function..."
+    NEWLINE
+    CALL func
+    write STDOUT "Back in main"
+    NEWLINE
+    write STDOUT "Success"
+    HALT OK
+.func:
+    write STDOUT "In function"
+    NEWLINE
+    write STDOUT "Calling RET"
+    NEWLINE
+    RET

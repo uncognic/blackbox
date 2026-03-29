@@ -219,7 +219,7 @@ fn parse_char_operand(tok: &str) -> Result<Operand, String> {
 
 fn parse_fd_literal_operand(tok: &str) -> Result<Operand, String> {
     let t = tok.trim();
-    if t.eq_ignore_ascii_case("stdout") {
+    if t.eq_ignore_ascii_case("STDOUT") {
         return Ok(Operand::Imm(1));
     }
     if t.eq_ignore_ascii_case("stderr") {

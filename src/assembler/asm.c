@@ -741,10 +741,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             char fd_str[16];
             char *str_start;
 
-            if (sscanf(s + 5, " %15s", fd_str) != 1)
+            if (sscanf(s + 5, " %15[^, \t]", fd_str) != 1)
             {
                 fprintf(stderr,
-                        "Syntax error on line %d: expected WRITE <stdout|stderr> "
+                        "Syntax error on line %d: expected WRITE <STDOUT|STDERR> "
                         "\"<string>\"\n",
                         lineno);
                 fclose(in);
@@ -752,11 +752,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             uint8_t fd;
-            if (equals_ci(fd_str, "stdout"))
+            if (equals_ci(fd_str, "STDOUT"))
             {
                 fd = 1;
             }
-            else if (equals_ci(fd_str, "stderr"))
+            else if (equals_ci(fd_str, "STDERR"))
             {
                 fd = 2;
             }
@@ -764,7 +764,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 fprintf(stderr,
                         "Invalid file descriptor on line %d: %s (expected "
-                        "stdout or stderr)\n",
+                        "STDOUT or stderr)\n",
                         lineno, fd_str);
                 fclose(in);
                 fclose(out);
@@ -2495,6 +2495,94 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 printf("[DEBUG] EXEC -> %.*s (dest=%s)\n", (int)len, str_start, regname);
             }
+        }
+        else if (starts_with_ci(s, "REGSYSCALL"))
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            uint8_t id;
+            char label[32];
+            if (sscanf(s + 10, " %hhu, %31s", &id, label) != 2)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected REGSYSCALL <id>, <label>\nGot: %s\n",
+                        lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint32_t addr = find_label(label, labels, label_count);
+            fputc(OPCODE_REGSYSCALL, out);
+            fputc(id, out);
+            write_u32(out, addr);
+        }
+        else if (starts_with_ci(s, "SYSCALL"))
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            uint8_t id;
+            if (sscanf(s + 7, " %hhu", &id) != 1)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected SYSCALL <id>\nGot: %s\n",
+                        lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            fputc(OPCODE_SYSCALL, out);
+            fputc(id, out);
+        }
+        else if (starts_with_ci(s, "SYSRET"))
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            fputc(OPCODE_SYSRET, out);
+        }
+        else if (starts_with_ci(s, "DROPPRIV"))
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            fputc(OPCODE_DROPPRIV, out);
+        }
+        else if (starts_with_ci(s, "GETMODE"))
+        {
+            char reg[16];
+            if (sscanf(s + 7, " %15s", reg) != 1)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected GETMODE <register>\nGot: %s\n",
+                        lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            fputc(OPCODE_GETMODE, out);
+            fputc(parse_register(reg, lineno), out);
+        }
+        else if (starts_with_ci(s, "SETPERM")) {
+            uint32_t start, count;
+            char perm_str[8];
+            if (sscanf(s + 7, " %u, %u, %7s", &start, &count, perm_str) != 3) {
+                fprintf(stderr, "Syntax error on line %d: expected SETPERM <start>, <count>, <r|rw|rwp>\nGot: %s\n", lineno, s);
+                fclose(in); fclose(out); return 1;
+            }
+            uint8_t flags = 0;
+            if (strchr(perm_str, 'R')) flags |= 1;
+            if (strchr(perm_str, 'W')) flags |= 2;
+            if (strchr(perm_str, 'P')) flags |= 4;
+            fputc(OPCODE_SETPERM, out);
+            write_u32(out, start);
+            write_u32(out, count);
+            fputc(flags, out);
         }
         else
         {
