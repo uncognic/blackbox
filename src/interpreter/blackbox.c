@@ -2797,6 +2797,20 @@ int main(int argc, char *argv[])
             print_regs(registers, REGISTERS);
             break;
         }
+
+        case OPCODE_PRINTCHAR:
+        {
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in PRINTCHAR at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            int64_t val = registers[reg];
+            putchar((char)registers[reg]);
+            fflush(stdout);
+            break;
+        }
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,

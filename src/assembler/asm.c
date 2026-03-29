@@ -1201,6 +1201,19 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             fputc(OPCODE_PRINT_STACKSIZE, out);
         }
+        else if (starts_with_ci(s, "PRINTCHAR"))
+        {
+            char reg[16];
+            if (sscanf(s + 9, " %15s", reg) != 1)
+            {
+                fprintf(stderr, "Syntax error line %d: expected PRINTCHAR <register>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            fputc(OPCODE_PRINTCHAR, out);
+            fputc(parse_register(reg, lineno), out);
+        }
         else if (starts_with_ci(s, "print"))
         {
             if (debug)
@@ -2649,6 +2662,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_GETFAULT, out);
             fputc(parse_register(reg, lineno), out);
         }
+        
         else
         {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno,

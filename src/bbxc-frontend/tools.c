@@ -372,6 +372,8 @@ size_t instr_size(const char *line)
         return 2;
     else if (starts_with_ci(line, "DUMPREGS"))
         return 1;
+    else if (starts_with_ci(line, "PRINTCHAR"))
+        return 2;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }

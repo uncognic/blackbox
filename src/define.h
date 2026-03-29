@@ -149,5 +149,6 @@ typedef struct
 #define OPCODE_FAULTRET 0x57
 #define OPCODE_GETFAULT 0x58
 #define OPCODE_DUMPREGS 0x59
+#define OPCODE_PRINTCHAR 0x5A
 #define OPCODE_HALT 0xFF
 #define OPCODE_BREAK 0xFE

@@ -215,6 +215,11 @@
   - Syntax: `DUMPREGS`
   - Encoding: `OPCODE_DUMPREGS`
   - Behavior: Prints the current values of all registers to stderr (for debugging purposes)
+
+ - PRINTCHAR: Print a single character
+  - Syntax: `PRINTCHAR <reg|imm>`
+  - Encoding: `OPCODE_PRINTCHAR`, 1 byte register or 4 byte immediate
+  - Behavior: Prints the ASCII character corresponding to the value in the register or the immediate value.
 ## Macros
 - %include: Inline another source file before macro processing
   - Syntax: `%include "path/to/file.bbx"`
