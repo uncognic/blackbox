@@ -251,3 +251,21 @@
   - Encoding: `OPCODE_GETMODE`, 1 byte register
   - Behavior: Stores the current mode in the specified register. 1 = PRIVILEGED, 0 = PROTECTED.
   - Privilege: any
+
+- REGFAULT: Register a fault handler
+  - Syntax: `REGFAULT <id>, <label>`
+  - Encoding: `OPCODE_REGFAULT`, 1 byte id, 4-byte address
+  - Behavior: Registers the address of `label` as the handler for fault `id`. When a fault with that id is raised, the VM jumps to the handler. Up to 256 fault ids (0-255) are supported.
+  - Privilege: PRIVILEGED only
+
+- FAULTRET: Return from a fault handler
+  - Syntax: `FAULTRET`
+  - Encoding: `OPCODE_FAULTRET`
+  - Behavior: Returns from a fault handler back to the point of execution where the fault occurred. Can only be used within a fault handler.
+  - Privilege: PRIVILEGED only
+
+- GETFAULT: Get current fault id
+  - Syntax: `GETFAULT <reg>`
+  - Encoding: `OPCODE_GETFAULT`, 1 byte register
+  - Behavior: Stores the id of the current fault being handled in the specified register.
+  - Privilege: any
