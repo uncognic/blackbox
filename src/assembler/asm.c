@@ -2606,7 +2606,6 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(prot_read, out);
             fputc(prot_write, out);
         }
-        /* TODO: do this
         else if (starts_with_ci(s, "DUMPREGS"))
         {
             if (debug)
@@ -2615,7 +2614,6 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             fputc(OPCODE_DUMPREGS, out);
         }
-        */
         else if (starts_with_ci(s, "REGFAULT"))
         {
             uint8_t id;

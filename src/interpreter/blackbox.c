@@ -2791,7 +2791,12 @@ int main(int argc, char *argv[])
             registers[reg] = (int64_t)current_fault;
             break;
         }
-
+        
+        case OPCODE_DUMPREGS:
+        {
+            print_regs(registers, REGISTERS);
+            break;
+        }
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,

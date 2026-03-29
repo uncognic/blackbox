@@ -206,10 +206,15 @@
    - Behavior: Records the number of `vars` slots the label requires. The assembler uses this value when emitting `CALL <label>` (if the CALL omits an explicit size) and writes the 4-byte `frame_size` after the CALL instruction in the bytecode. 
  - BREAK: see [debugger.md](../debugger.md)
 
- - exec: Execute system command
-  - Syntax: `exec "<command>" <register>` (register is optional)
+ - EXEC: Execute system command
+  - Syntax: `EXEC "<command>" <register>` (register is optional)
   - Encoding: `OPCODE_EXEC`, 1 byte dest register, 1 byte len, len bytes of command
   - Behavior: Executes the specified system command and stores the exit code in the destination register.
+
+ - DUMPREGS: Print all register values (for debugging)
+  - Syntax: `DUMPREGS`
+  - Encoding: `OPCODE_DUMPREGS`
+  - Behavior: Prints the current values of all registers to stderr (for debugging purposes)
 ## Macros
 - %include: Inline another source file before macro processing
   - Syntax: `%include "path/to/file.bbx"`
