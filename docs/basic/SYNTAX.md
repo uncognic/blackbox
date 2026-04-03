@@ -90,6 +90,15 @@ ENDWHILE
 
 Condition operators:
 - `==`, `!=`, `<`, `<=`, `>`, `>=`
+- Logical chaining: `AND`, `OR` (case-insensitive)
+
+Example with logical chaining:
+
+```basic
+IF X > 0 AND X < 10 OR X == 42:
+    PRINT "matched"
+ENDIF
+```
 
 ## Program termination
 ```basic

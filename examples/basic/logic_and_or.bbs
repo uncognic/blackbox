@@ -1,0 +1,26 @@
+VAR A = 6
+VAR B = 2
+VAR C = 9
+
+PRINT "== IF with AND =="
+IF A > B AND C >= A:
+    PRINT "AND branch is true"
+ELSE:
+    PRINT "AND branch is false"
+ENDIF
+
+PRINT "== IF with OR =="
+IF A < B OR C == 9:
+    PRINT "OR branch is true"
+ELSE:
+    PRINT "OR branch is false"
+ENDIF
+
+PRINT "== WHILE with OR and AND =="
+WHILE A > 0 AND A > 3 OR C != 9:
+    PRINT "loop A=", A
+    A = A - 1
+ENDWHILE
+
+PRINT "done"
+HALT OK

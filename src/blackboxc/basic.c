@@ -366,106 +366,150 @@ static int emit_expr_p(const char *s, const char **end,
     return 0;
 }
 
-// where op is one of ==, !=, <, >, <=, >=
-// emits cmp and the inverse label jmp, so that body runs when condition is true
 static int emit_condition(const char *s, SymbolTable *st, RegAlloc *ra,
                           OutBuf *ob, int debug,
-                          const char *skip_label)
+                          const char *skip_label,
+                          unsigned long *uid)
 {
     const char *p = s;
-    int lreg;
-    if (emit_expr_p(p, &p, st, ra, ob, debug, &lreg))
-        return 1;
-    p = skip_ws(p);
 
-    // parse operator
-    char op[3] = {0};
-    if (strncmp(p, "==", 2) == 0 || strncmp(p, "= ", 1) == 0 || *p == '=')
+    for (const char *q = p; *q; q++)
     {
-        op[0] = '=';
-        op[1] = '=';
-        p += (*p == '=' && *(p + 1) == '=') ? 2 : 1;
+        if (starts_with_ci(q, "OR") &&
+            (q == p || !(isalnum((unsigned char)q[-1]) || q[-1] == '_')) &&
+            !(isalnum((unsigned char)q[2]) || q[2] == '_'))
+        {
+            size_t left_len = (size_t)(q - p);
+            char *left = (char *)malloc(left_len + 1);
+            if (!left)
+            {
+                fprintf(stderr, "Out of memory while parsing condition\n");
+                return 1;
+            }
+            memcpy(left, p, left_len);
+            left[left_len] = '\0';
+
+            char next_or_label[64];
+            char pass_label[64];
+            snprintf(next_or_label, sizeof(next_or_label), "_or_next_%lu", (*uid)++);
+            snprintf(pass_label, sizeof(pass_label), "_or_pass_%lu", (*uid)++);
+
+            if (emit_condition(left, st, ra, ob, debug, next_or_label, uid))
+            {
+                free(left);
+                return 1;
+            }
+            free(left);
+
+            EMIT_CODE(ob, "    JMP %s", pass_label);
+            EMIT_CODE(ob, ".%s:", next_or_label);
+
+            if (emit_condition(skip_ws(q + 2), st, ra, ob, debug, skip_label, uid))
+                return 1;
+
+            EMIT_CODE(ob, ".%s:", pass_label);
+            return 0;
+        }
     }
-    else if (strncmp(p, "!=", 2) == 0)
+
+    while (1)
     {
-        op[0] = '!';
-        op[1] = '=';
-        p += 2;
-    }
-    else if (strncmp(p, "<=", 2) == 0)
-    {
-        op[0] = '<';
-        op[1] = '=';
-        p += 2;
-    }
-    else if (strncmp(p, ">=", 2) == 0)
-    {
-        op[0] = '>';
-        op[1] = '=';
-        p += 2;
-    }
-    else if (*p == '<')
-    {
-        op[0] = '<';
-        p++;
-    }
-    else if (*p == '>')
-    {
-        op[0] = '>';
-        p++;
-    }
-    else
-    {
-        fprintf(stderr, "Condition error: expected comparison operator, got '%s'\n", p);
+        int lreg;
+        if (emit_expr_p(p, &p, st, ra, ob, debug, &lreg))
+            return 1;
+        p = skip_ws(p);
+
+        char op[3] = {0};
+        if (strncmp(p, "==", 2) == 0)
+        {
+            op[0] = '=';
+            op[1] = '=';
+            p += 2;
+        }
+        else if (strncmp(p, "!=", 2) == 0)
+        {
+            op[0] = '!';
+            op[1] = '=';
+            p += 2;
+        }
+        else if (strncmp(p, "<=", 2) == 0)
+        {
+            op[0] = '<';
+            op[1] = '=';
+            p += 2;
+        }
+        else if (strncmp(p, ">=", 2) == 0)
+        {
+            op[0] = '>';
+            op[1] = '=';
+            p += 2;
+        }
+        else if (*p == '=')
+        {
+            op[0] = '=';
+            op[1] = '=';
+            p++;
+        }
+        else if (*p == '<')
+        {
+            op[0] = '<';
+            p++;
+        }
+        else if (*p == '>')
+        {
+            op[0] = '>';
+            p++;
+        }
+        else
+        {
+            fprintf(stderr, "Condition error: expected comparison operator near '%s'\n", p);
+            ralloc_release(ra, lreg);
+            return 1;
+        }
+        p = skip_ws(p);
+
+        int rreg;
+        if (emit_expr_p(p, &p, st, ra, ob, debug, &rreg))
+        {
+            ralloc_release(ra, lreg);
+            return 1;
+        }
+
+        char ln[4], rn[4];
+        reg_name(lreg, ln);
+        reg_name(rreg, rn);
+
+        const char *next = skip_ws(p);
+        int is_and = starts_with_ci(next, "AND") &&
+                     !(isalnum((unsigned char)next[3]) || next[3] == '_');
+
+        EMIT_CODE(ob, "    CMP %s, %s", strcmp(op, ">") == 0 || strcmp(op, "<=") == 0 ? rn : ln,
+                  strcmp(op, ">") == 0 || strcmp(op, "<=") == 0 ? ln : rn);
+
+        if (strcmp(op, "==") == 0)
+            EMIT_CODE(ob, "    JNE %s", skip_label);
+        else if (strcmp(op, "!=") == 0)
+            EMIT_CODE(ob, "    JE  %s", skip_label);
+        else if (strcmp(op, "<") == 0)
+            EMIT_CODE(ob, "    JGE %s", skip_label);
+        else if (strcmp(op, ">=") == 0)
+            EMIT_CODE(ob, "    JL  %s", skip_label);
+        else if (strcmp(op, ">") == 0)
+            EMIT_CODE(ob, "    JGE %s", skip_label);
+        else if (strcmp(op, "<=") == 0)
+            EMIT_CODE(ob, "    JL  %s", skip_label);
+
         ralloc_release(ra, lreg);
-        return 1;
-    }
-    p = skip_ws(p);
+        ralloc_release(ra, rreg);
 
-    int rreg;
-    if (emit_expr_p(p, &p, st, ra, ob, debug, &rreg))
-    {
-        ralloc_release(ra, lreg);
-        return 1;
-    }
+        if (is_and)
+        {
+            p = skip_ws(next + 3);
+            continue;
+        }
 
-    char ln[4], rn[4];
-    reg_name(lreg, ln);
-    reg_name(rreg, rn);
-
-    if (strcmp(op, "==") == 0)
-    {
-        EMIT_CODE(ob, "    CMP %s, %s", ln, rn);
-        EMIT_CODE(ob, "    JNE %s", skip_label);
+        break;
     }
-    else if (strcmp(op, "!=") == 0)
-    {
-        EMIT_CODE(ob, "    CMP %s, %s", ln, rn);
-        EMIT_CODE(ob, "    JE  %s", skip_label);
-    }
-    else if (strcmp(op, "<") == 0)
-    {
-        EMIT_CODE(ob, "    CMP %s, %s", ln, rn);
-        EMIT_CODE(ob, "    JGE %s", skip_label);
-    }
-    else if (strcmp(op, ">=") == 0)
-    {
-        EMIT_CODE(ob, "    CMP %s, %s", ln, rn);
-        EMIT_CODE(ob, "    JL  %s", skip_label);
-    }
-    else if (strcmp(op, ">") == 0)
-    {
-        EMIT_CODE(ob, "    CMP %s, %s", rn, ln);
-        EMIT_CODE(ob, "    JGE %s", skip_label);
-    }
-    else if (strcmp(op, "<=") == 0)
-    {
-        EMIT_CODE(ob, "    CMP %s, %s", rn, ln);
-        EMIT_CODE(ob, "    JL  %s", skip_label);
-    }
-
-    ralloc_release(ra, lreg);
-    ralloc_release(ra, rreg);
 
     return 0;
 }
@@ -972,7 +1016,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             snprintf(b.else_label, sizeof(b.else_label), ".%s", else_label);
             b.loop_label[0] = '\0';
 
-            if (emit_condition(s + 3, &st, &ra, &ob, debug, b.end_label + 1))
+            if (emit_condition(s + 3, &st, &ra, &ob, debug, b.end_label + 1, &uid))
             {
                 result = 1;
                 break;
@@ -1043,7 +1087,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
             EMIT_CODE(&ob, "%s:", b.loop_label);
 
-            if (emit_condition(s + 6, &st, &ra, &ob, debug, b.end_label + 1))
+            if (emit_condition(s + 6, &st, &ra, &ob, debug, b.end_label + 1, &uid))
             {
                 result = 1;
                 break;
