@@ -1,6 +1,6 @@
 #include "asm.h"
 #include "../define.h"
-#include "../bbxc-frontend/tools.h"
+#include "tools.h"
 #include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>

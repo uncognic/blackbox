@@ -1,29 +1,25 @@
-.PHONY: all clean copy compiler assembler interpreter rust disassembler
+.PHONY: all clean compiler interpreter disassembler copy
 
-all: rust compiler interpreter disassembler copy
+CC ?= gcc
+CFLAGS ?= -Wall -Wextra -O2
+
+all: compiler interpreter disassembler copy
 
 compiler:
-	$(MAKE) -C src/assembler
-
-assembler: compiler
+	$(CC) $(CFLAGS) src/blackboxc/compiler.c src/blackboxc/asm.c src/blackboxc/tools.c -Isrc/blackboxc -o src/blackboxc/bbxc
 
 interpreter:
-	$(MAKE) -C src/interpreter
-
-rust:
-	cargo build --release --manifest-path=src/bbxc-blackbox/Cargo.toml
+	$(CC) $(CFLAGS) src/blackbox/blackbox.c src/blackbox/debug.c src/blackboxc/tools.c -Isrc/blackbox -Isrc/blackboxc -o src/blackbox/bbx
 
 disassembler:
 	cargo build --release --manifest-path=src/bbx-disasm/Cargo.toml
 
 copy:
-	cp src/interpreter/bbx .
-	cp src/assembler/bbxc .
+	cp src/blackbox/bbx .
+	cp src/blackboxc/bbxc .
 	cp target/release/bbxd .
 
 clean:
-	$(MAKE) -C src/interpreter clean || true
-	$(MAKE) -C src/assembler clean || true
-	cargo clean --manifest-path=src/bbxc-blackbox/Cargo.toml || true
-	cargo clean --manifest-path=src/bbx-disasm/Cargo.toml || true
 	rm -f bbx bbxc bbxd
+	rm -f src/blackbox/bbx src/blackboxc/bbxc
+	cargo clean --manifest-path=src/bbx-disasm/Cargo.toml || true

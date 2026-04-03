@@ -4,7 +4,7 @@
 #include <string.h>
 #include "../define.h"
 #include "tools.h"
-#include "../assembler/asm.h" 
+#include "asm.h"
 
 extern int compile(const char *input, const char *output, int debug);
 
@@ -78,36 +78,15 @@ int main(int argc, char *argv[])
     }
 
     rewind(in);
-
-    if (is_asm)
+    if (debug)
     {
-        fclose(in);
-        if (debug)
-        {
-            printf("Debug mode ON\n");
-            printf("[DEBUG] Input file: %s\n", input_file);
-            printf("[DEBUG] Output file: %s\n", output_file);
-            printf("[DEBUG] Pathway: assembly\n");
-        }
-        int result = assemble_file(input_file, output_file, debug);
-        if (result == 0)
-            printf("Assembly successful.\n");
-        return result;
+        printf("Debug mode ON\n");
+        printf("[DEBUG] Input file: %s\n", input_file);
+        printf("[DEBUG] Output file: %s\n", output_file);
+        printf("[DEBUG] Pathway: assembly\n");
     }
-    else
-    {
-        if (debug)
-        {
-            printf("Debug mode ON\n");
-            printf("[DEBUG] Input file: %s\n", input_file);
-            printf("[DEBUG] Output file: %s\n", output_file);
-            printf("[DEBUG] Pathway: source code\n");
-        }
-        fclose(in);
-
-        int res = compile(input_file, output_file, debug);
-        if (res == 0)
-            printf("Compilation successful (blackbox).\n");
-        return res;
-    }
+    int result = assemble_file(input_file, output_file, debug);
+    if (result == 0)
+        printf("Assembly successful.\n");
+    return result;
 }

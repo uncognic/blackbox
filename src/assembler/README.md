@@ -1,2 +1,0 @@
-# assembler
-This directory contains the source code for the Blackbox assembler, which compiles `.bbx` assembly files into `.bcx` bytecode files that can be executed by the Blackbox interpreter (`bbx`).

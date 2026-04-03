@@ -5,6 +5,8 @@
 #include <ctype.h>
 #include "tools.h"
 #include "../define.h"
+#include <stdbool.h>
+#include <stdarg.h>
 #ifdef _WIN32
 #include <windows.h>
 #include <bcrypt.h>
@@ -13,6 +15,173 @@
 #include <fcntl.h>
 #include <unistd.h>
 #endif
+
+static char *append_text(char *buf, size_t *len, size_t *cap, const char *text)
+{
+    size_t add_len = strlen(text);
+    if (*len + add_len + 1 > *cap)
+    {
+        size_t new_cap = *cap ? *cap : 4096;
+        while (*len + add_len + 1 > new_cap)
+            new_cap *= 2;
+        char *new_buf = realloc(buf, new_cap);
+        if (!new_buf)
+            return NULL;
+        buf = new_buf;
+        *cap = new_cap;
+    }
+    memcpy(buf + *len, text, add_len);
+    *len += add_len;
+    buf[*len] = '\0';
+    return buf;
+}
+
+static char *preprocess_includes_impl(const char *input, int depth)
+{
+    if (depth > 32)
+    {
+        fprintf(stderr, "Error: include nesting too deep\n");
+        return NULL;
+    }
+
+    const char *slash = strrchr(input, '/');
+    const char *backslash = strrchr(input, '\\');
+    const char *sep = slash;
+    if (!sep || (backslash && backslash > sep))
+        sep = backslash;
+
+    char base_dir[4096];
+    if (sep)
+    {
+        size_t dir_len = (size_t)(sep - input);
+        if (dir_len >= sizeof base_dir)
+            dir_len = sizeof base_dir - 1;
+        memcpy(base_dir, input, dir_len);
+        base_dir[dir_len] = '\0';
+    }
+    else
+    {
+        base_dir[0] = '\0';
+    }
+
+    FILE *in = fopen(input, "rb");
+    if (!in)
+    {
+        perror("fopen");
+        return NULL;
+    }
+
+    char *buf = malloc(4096);
+    if (!buf)
+    {
+        fclose(in);
+        return NULL;
+    }
+    size_t len = 0;
+    size_t cap = 4096;
+    buf[0] = '\0';
+
+    char line[8192];
+    while (fgets(line, sizeof line, in))
+    {
+        char *copy = strdup(line);
+        if (!copy)
+        {
+            free(buf);
+            fclose(in);
+            return NULL;
+        }
+
+        char *s = trim(copy);
+        char *comment = strchr(s, ';');
+        if (comment)
+            *comment = '\0';
+        s = trim(s);
+
+        if (starts_with_ci(s, "%include"))
+        {
+            char *p = s + 8;
+            while (*p && isspace((unsigned char)*p))
+                p++;
+
+            if (*p != '"')
+            {
+                fprintf(stderr, "Error: malformed %%include directive\n");
+                free(copy);
+                free(buf);
+                fclose(in);
+                return NULL;
+            }
+
+            char *end = strchr(p + 1, '"');
+            if (!end)
+            {
+                fprintf(stderr, "Error: malformed %%include directive\n");
+                free(copy);
+                free(buf);
+                fclose(in);
+                return NULL;
+            }
+
+            char saved = *end;
+            *end = '\0';
+
+            char include_path[4096];
+            if (base_dir && base_dir[0] != '\0')
+                snprintf(include_path, sizeof include_path, "%s/%s", base_dir, p + 1);
+            else
+                snprintf(include_path, sizeof include_path, "%s", p + 1);
+
+            char *included = preprocess_includes_impl(include_path, depth + 1);
+            if (!included)
+            {
+                free(copy);
+                free(buf);
+                fclose(in);
+                return NULL;
+            }
+
+            char *next = append_text(buf, &len, &cap, included);
+            free(included);
+            if (!next)
+            {
+                free(copy);
+                free(buf);
+                fclose(in);
+                return NULL;
+            }
+            buf = next;
+
+            *end = saved;
+            free(copy);
+            continue;
+        }
+
+        char *next = append_text(buf, &len, &cap, line);
+        if (!next)
+        {
+            free(copy);
+            free(buf);
+            fclose(in);
+            return NULL;
+        }
+        buf = next;
+        free(copy);
+    }
+
+    fclose(in);
+    return buf;
+}
+
+char *preprocess_includes(const char *input)
+{
+    return preprocess_includes_impl(input, 0);
+}
+
+void preprocess_includes_free(char *buf)
+{
+    free(buf);
+}
 
 uint32_t find_label(const char *name, Label *labels, size_t count)
 {

@@ -1,7 +1,5 @@
 [workspace]
 members = [
-    "src/bbxc-asm",
-    "src/bbx-disasm",
-    "src/bbxc-blackbox"
+    "src/bbx-disasm"
 ]
 resolver = "3"
