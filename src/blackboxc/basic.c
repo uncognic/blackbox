@@ -1205,6 +1205,66 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
+        if (starts_with_ci(s, "LABEL "))
+        {
+            const char *name = skip_ws(s + 6);
+            EMIT_CODE(&ob, ".%s:", name);
+            if (debug)
+                printf("[BASIC] LABEL %s\n", name);
+            continue;
+        }
+
+        if (starts_with_ci(s, "GOTO "))
+        {
+            const char *name = skip_ws(s + 5);
+            EMIT_CODE(&ob, "    JMP %s", name);
+            if (debug)
+                printf("[BASIC] GOTO %s\n", name);
+            continue;
+        }
+
+        if (starts_with_ci(s, "CALL "))
+        {
+            const char *name = skip_ws(s + 5);
+            EMIT_CODE(&ob, "    CALL %s", name);
+            if (debug)
+                printf("[BASIC] CALL %s\n", name);
+            continue;
+        }
+
+        if (equals_ci(s, "RETURN"))
+        {
+            EMIT_CODE(&ob, "    RET");
+            if (debug)
+                printf("[BASIC] RETURN\n");
+            continue;
+        }
+
+        if (starts_with_ci(s, "INPUT "))
+        {
+            const char *name = skip_ws(s + 6);
+            Variable *v = sym_find(&st, name);
+            if (!v)
+            {
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                result = 1;
+                break;
+            }
+            int reg = ralloc_acquire(&ra);
+            char rn[4];
+            reg_name(reg, rn);
+            if (v->type == VAR_STR)
+                EMIT_CODE(&ob, "    READSTR %s", rn);
+            else
+                EMIT_CODE(&ob, "    READ %s", rn);
+            if (v->type == VAR_INT)
+                EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+            ralloc_release(&ra, reg);
+            if (debug)
+                printf("[BASIC] INPUT %s\n", name);
+            continue;
+        }
+
         fprintf(stderr, "Unknown statement on line %d: %s\n", lineno, s);
         result = 1;
         break;

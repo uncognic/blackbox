@@ -27,11 +27,7 @@ Data model:
 - Strings (stored in `%data`, loaded/printed as string pointers)
 
 ## Not full parity with assembly
-BASIC is intentionally a subset frontend. Assembly still exposes lower-level VM features that BASIC does not model directly, including:
-- Manual section/label control
-- Macros
-- Privilege/syscall/fault instructions
-- Direct low-level memory and device-style instruction use
+BASIC is currently not fully featured compared to the assembly pathway. It will be at some point, but for now you may find that some things are easier to do in assembly. 
 
 You can still drop to assembly for specific instructions using `ASM:` blocks.
 

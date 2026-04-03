@@ -1,0 +1,6 @@
+CALL program
+HALT OK
+
+LABEL program
+    PRINT "In program"
+    RETURN
