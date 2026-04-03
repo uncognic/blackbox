@@ -127,7 +127,7 @@ static char *preprocess_includes_impl(const char *input, int depth)
             *end = '\0';
 
             char include_path[4096];
-            if (base_dir && base_dir[0] != '\0')
+            if (base_dir[0] != '\0')
                 snprintf(include_path, sizeof include_path, "%s/%s", base_dir, p + 1);
             else
                 snprintf(include_path, sizeof include_path, "%s", p + 1);

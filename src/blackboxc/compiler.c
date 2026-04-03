@@ -60,7 +60,6 @@ int main(int argc, char *argv[])
     }
 
     char line[8192];
-    int is_asm = 0;
     while (fgets(line, sizeof(line), in))
     {
         char *s = trim(line);
@@ -70,10 +69,6 @@ int main(int argc, char *argv[])
         s = trim(s);
         if (*s == '\0')
             continue;
-        if (starts_with_ci(s, "%asm"))
-        {
-            is_asm = 1;
-        }
         break;
     }
 

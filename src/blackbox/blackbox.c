@@ -2625,7 +2625,7 @@ int main(int argc, char *argv[])
                     free(stack);
                     return 1;
                 }
-                uint8_t len = program[pc++];
+                unsigned int len = program[pc++];
                 if (pc + len > size)
                 {
                     fprintf(stderr, "EXEC string past end of program at pc=%zu\n", pc);
@@ -2670,7 +2670,7 @@ int main(int argc, char *argv[])
         case OPCODE_REGSYSCALL:
             REQUIRE_PRIVILEGED("REGSYSCALL")
             {
-                uint8_t id = program[pc++];
+                unsigned int id = program[pc++];
                 uint32_t addr = program[pc] | (program[pc + 1] << 8) |
                                 (program[pc + 2] << 16) | (program[pc + 3] << 24);
 
@@ -2693,7 +2693,7 @@ int main(int argc, char *argv[])
                 goto fault_exit;
             }
 
-            uint8_t id = program[pc++];
+            unsigned int id = program[pc++];
             if (id >= MAX_SYSCALLS)
             {
                 fprintf(stderr, "FAULT: Invalid syscall ID %u at pc=%zu\n", id, pc);
@@ -2806,7 +2806,6 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Invalid register in PRINTCHAR at pc=%zu\n", pc);
                 goto fault_exit;
             }
-            int64_t val = registers[reg];
             putchar((char)registers[reg]);
             fflush(stdout);
             break;
