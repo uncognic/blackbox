@@ -16,10 +16,11 @@ A small, Turing-complete bytecode virtual machine with an assembly language. It 
 
 ## Build
 ### Unix-like:
-1. Ensure you have a C compiler (preferably `gcc`), `make`, and the Rust toolchain installed.
+1. Ensure you have `clang`, `make`, and the Rust toolchain installed.
 2. Run `make` in the project directory
+
 ### Windows MSVC
-1. Ensure you have atleast Visual Studio 2022 with the "Desktop development with C++" workload installed.
+1. Ensure you have atleast Visual Studio 2022 with the "Desktop development with C++" workload and "C++ Clang compiler for Windows" component installed.
 2. Ensure you have the Rust programming language installed.
 3. Open the Developer Command Prompt for Visual Studio.
 4. Run `build.bat` in the project directory.

@@ -1,6 +1,6 @@
 .PHONY: all clean compiler interpreter disassembler copy
 
-CC ?= gcc
+CC = clang
 CFLAGS ?= -Wall -Wextra -O2
 
 all: compiler interpreter disassembler copy

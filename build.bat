@@ -19,14 +19,14 @@ if /I "%~1"=="clean" (
 )
 
 echo Building compiler...
-cl /nologo /I "%SRC%\blackboxc" "%SRC%\blackboxc\compiler.c" "%SRC%\blackboxc\asm.c" "%SRC%\blackboxc\tools.c" bcrypt.lib /Fe:"%ROOT%\bbxc.exe"
+clang-cl /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%\blackboxc" "%SRC%\blackboxc\compiler.c" "%SRC%\blackboxc\asm.c" "%SRC%\blackboxc\tools.c" bcrypt.lib /Fe:"%ROOT%\bbxc.exe"
 if errorlevel 1 (
     echo Failed to build compiler
     exit /b 1
 )
 
 echo Building interpreter...
-cl /nologo /I "%SRC%\blackbox" /I "%SRC%\blackboxc" "%SRC%\blackbox\blackbox.c" "%SRC%\blackbox\debug.c" "%SRC%\blackboxc\tools.c" bcrypt.lib /Fe:"%ROOT%\bbx.exe"
+clang-cl /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%\blackbox" /I "%SRC%\blackboxc" "%SRC%\blackbox\blackbox.c" "%SRC%\blackbox\debug.c" "%SRC%\blackboxc\tools.c" bcrypt.lib /Fe:"%ROOT%\bbx.exe"
 if errorlevel 1 (
     echo Failed to build interpreter
     exit /b 1
