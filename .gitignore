@@ -41,3 +41,4 @@ src/tools.o
 bbx-disassembler
 bbxd
 new.bbx
+test.bbs

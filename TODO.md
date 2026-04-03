@@ -1,0 +1,5 @@
+- BASIC feature parity with assembly pathway
+- BASIC functions
+- BASIC arrays and structured types
+- BASIC libraries/includes (once we get functions)
+- fix errors being wrong when BASIC exits with an error

@@ -1,0 +1,10 @@
+PRINT "Before ASM"
+
+ASM:
+    MOVI R01, 65 ; ASCII code for 'A'
+    PRINTCHAR R01
+ENDASM
+
+PRINT
+PRINT "After ASM"
+HALT OK

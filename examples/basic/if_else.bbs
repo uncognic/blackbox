@@ -1,0 +1,7 @@
+VAR X = 10
+IF X >= 10:
+    PRINT "X is at least 10"
+ELSE:
+    PRINT "X is below 10"
+ENDIF
+HALT OK

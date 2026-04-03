@@ -1,0 +1,10 @@
+VAR A = 7
+VAR B = 3
+VAR C = A * B + 2
+WRITE "A = "
+PRINT A
+WRITE "B = "
+PRINT B
+WRITE "C = A*B+2 = " // use WRITE to avoid newline
+PRINT C
+HALT OK
