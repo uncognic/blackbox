@@ -8,6 +8,58 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdarg.h>
+
+static char g_emit_ctx[512];
+
+static const char *block_kind_name(BlockKind kind)
+{
+    switch (kind)
+    {
+    case BLOCK_IF:
+        return "IF";
+    case BLOCK_WHILE:
+        return "WHILE";
+    case BLOCK_FOR:
+        return "FOR";
+    default:
+        return "UNKNOWN";
+    }
+}
+
+static void set_emit_context(int lineno, const char *stmt, const BlockStack *bs)
+{
+    if (!stmt)
+        stmt = "";
+
+    char snippet[192];
+    size_t n = strlen(stmt);
+    if (n >= sizeof(snippet))
+        n = sizeof(snippet) - 1;
+    memcpy(snippet, stmt, n);
+    snippet[n] = '\0';
+
+    if (bs && bs->top > 0)
+    {
+        Block *top = (Block *)&bs->items[bs->top - 1];
+        if (top->kind == BLOCK_FOR && top->for_var_name[0] != '\0')
+        {
+            snprintf(g_emit_ctx, sizeof(g_emit_ctx),
+                     "BASIC line %d | block=%s(%s) | src=%s",
+                     lineno, block_kind_name(top->kind), top->for_var_name, snippet);
+        }
+        else
+        {
+            snprintf(g_emit_ctx, sizeof(g_emit_ctx),
+                     "BASIC line %d | block=%s | src=%s",
+                     lineno, block_kind_name(top->kind), snippet);
+        }
+        return;
+    }
+
+    snprintf(g_emit_ctx, sizeof(g_emit_ctx),
+             "BASIC line %d | src=%s", lineno, snippet);
+}
 
 static int ralloc_acquire(RegAlloc *ra)
 {
@@ -152,13 +204,38 @@ static int outbuf_append(char **buf, size_t *len, size_t *cap, const char *txt)
         if (outbuf_append(&(ob)->data_sec, &(ob)->data_len, &(ob)->data_cap, _tmp)) \
             return 1;                                                               \
     } while (0)
-#define EMIT_CODE(ob, fmt, ...)                                                     \
-    do                                                                              \
-    {                                                                               \
-        char _tmp[512];                                                             \
-        snprintf(_tmp, sizeof(_tmp), fmt "\n", ##__VA_ARGS__);                      \
-        if (outbuf_append(&(ob)->code_sec, &(ob)->code_len, &(ob)->code_cap, _tmp)) \
-            return 1;                                                               \
+
+static int emit_code_comment(OutBuf *ob, const char *detail, const char *fmt, ...)
+{
+    char ins[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(ins, sizeof(ins), fmt, ap);
+    va_end(ap);
+
+    char line[1024];
+    if (detail && *detail)
+        snprintf(line, sizeof(line), "%s ; %s | %s\n\n", ins, g_emit_ctx[0] ? g_emit_ctx : "BASIC", detail);
+    else
+        snprintf(line, sizeof(line), "%s ; %s\n\n", ins, g_emit_ctx[0] ? g_emit_ctx : "BASIC");
+
+    if (outbuf_append(&ob->code_sec, &ob->code_len, &ob->code_cap, line))
+        return 1;
+    return 0;
+}
+
+#define EMIT_CODE(ob, fmt, ...)                                \
+    do                                                         \
+    {                                                          \
+        if (emit_code_comment((ob), NULL, fmt, ##__VA_ARGS__)) \
+            return 1;                                          \
+    } while (0)
+
+#define EMIT_CODE_META(ob, meta, fmt, ...)                       \
+    do                                                           \
+    {                                                            \
+        if (emit_code_comment((ob), (meta), fmt, ##__VA_ARGS__)) \
+            return 1;                                            \
     } while (0)
 
 static int emit_expr(const char *s, SymbolTable *st, RegAlloc *ra, OutBuf *ob, int debug, int *out_reg);
@@ -272,10 +349,10 @@ static int emit_atom(const char *s, const char **end, SymbolTable *st, RegAlloc 
         reg_name(reg, rn);
 
         if (v->type == VAR_INT)
-            EMIT_CODE(ob, "    LOADVAR %s, %u", rn, v->slot);
+            EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
         else
         {
-            EMIT_CODE(ob, "    LOADVAR %s, %u", rn, v->slot);
+            EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
         }
         *out_reg = reg;
         return 0;
@@ -632,12 +709,12 @@ static int emit_write_values(const char *arg,
 
             if (v->type == VAR_STR)
             {
-                EMIT_CODE(ob, "    LOADVAR %s, %u", rn, v->slot);
+                EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
                 EMIT_CODE(ob, "    PRINTSTR %s", rn);
             }
             else
             {
-                EMIT_CODE(ob, "    LOADVAR %s, %u", rn, v->slot);
+                EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
                 EMIT_CODE(ob, "    PRINTREG %s", rn);
             }
 
@@ -727,6 +804,8 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         if (*s == '\0')
             continue;
 
+        set_emit_context(lineno, s, &bs);
+
         if (equals_ci(s, "ASM:"))
         {
             in_asm_block = true;
@@ -741,7 +820,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
         if (in_asm_block)
         {
-            EMIT_CODE(&ob, "%s", s);
+            EMIT_CODE_META(&ob, "inline ASM block", "%s", s);
             continue;
         }
 
@@ -834,7 +913,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 char ern[4];
                 reg_name(ereg, ern);
 
-                EMIT_CODE(&ob, "    STOREVAR %s, %u", ern, v->slot);
+                EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", ern, v->slot);
                 ralloc_release(&ra, ereg);
                 (void)reg;
                 ralloc_release(&ra, reg);
@@ -888,7 +967,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 char rn[4];
                 reg_name(reg, rn);
                 EMIT_CODE(&ob, "    LOADSTR $%s, %s", data_name, rn);
-                EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+                EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
                 ralloc_release(&ra, reg);
                 if (debug)
                     printf("[BASIC] VAR string %s -> $%s\n", name, data_name);
@@ -917,7 +996,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 }
                 char ern[4];
                 reg_name(ereg, ern);
-                EMIT_CODE(&ob, "    STOREVAR %s, %u", ern, v->slot);
+                EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", ern, v->slot);
                 ralloc_release(&ra, ereg);
                 if (debug)
                 {
@@ -1021,7 +1100,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                         }
                         char ern[4];
                         reg_name(ereg, ern);
-                        EMIT_CODE(&ob, "    STOREVAR %s, %u", ern, v->slot);
+                        EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", ern, v->slot);
                         ralloc_release(&ra, ereg);
                         if (debug)
                             printf("[BASIC] ASSIGN %s -> slot %u\n", name, v->slot);
@@ -1339,12 +1418,12 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             if (v->type == VAR_STR)
             {
                 EMIT_CODE(&ob, "    READSTR %s", rn);
-                EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+                EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
             }
             else
             {
                 EMIT_CODE(&ob, "    READ %s", rn);
-                EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+                EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
             }
             ralloc_release(&ra, reg);
             if (debug)
@@ -1491,7 +1570,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
             char irn[4];
             reg_name(ireg, irn);
-            EMIT_CODE(&ob, "    STOREVAR %s, %u", irn, v->slot);
+            EMIT_CODE_META(&ob, var_name, "    STOREVAR %s, %u", irn, v->slot);
             ralloc_release(&ra, ireg);
 
             int lreg;
@@ -1505,7 +1584,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
             char lrn[4];
             reg_name(lreg, lrn);
-            EMIT_CODE(&ob, "    STOREVAR %s, %u", lrn, limit_slot);
+            EMIT_CODE_META(&ob, "for-limit", "    STOREVAR %s, %u", lrn, limit_slot);
             ralloc_release(&ra, lreg);
 
             int sreg;
@@ -1519,7 +1598,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
             char srn[4];
             reg_name(sreg, srn);
-            EMIT_CODE(&ob, "    STOREVAR %s, %u", srn, step_slot);
+            EMIT_CODE_META(&ob, "for-step", "    STOREVAR %s, %u", srn, step_slot);
             ralloc_release(&ra, sreg);
 
             char loop_label[64], end_label[64], neg_check_label[64], body_label[64];
@@ -1569,20 +1648,20 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             reg_name(var_r, var_rn);
             reg_name(limit_r, limit_rn);
 
-            EMIT_CODE(&ob, "    LOADVAR %s, %u", step_rn, step_slot);
+            EMIT_CODE_META(&ob, "for-step", "    LOADVAR %s, %u", step_rn, step_slot);
             EMIT_CODE(&ob, "    MOVI %s, 0", zero_rn);
             EMIT_CODE(&ob, "    CMP %s, %s", step_rn, zero_rn);
             EMIT_CODE(&ob, "    JL %s", neg_check_label);
 
-            EMIT_CODE(&ob, "    LOADVAR %s, %u", var_rn, v->slot);
-            EMIT_CODE(&ob, "    LOADVAR %s, %u", limit_rn, limit_slot);
+            EMIT_CODE_META(&ob, var_name, "    LOADVAR %s, %u", var_rn, v->slot);
+            EMIT_CODE_META(&ob, "for-limit", "    LOADVAR %s, %u", limit_rn, limit_slot);
             EMIT_CODE(&ob, "    CMP %s, %s", limit_rn, var_rn);
             EMIT_CODE(&ob, "    JL %s", b.end_label + 1);
             EMIT_CODE(&ob, "    JMP %s", body_label);
 
             EMIT_CODE(&ob, ".%s:", neg_check_label);
-            EMIT_CODE(&ob, "    LOADVAR %s, %u", var_rn, v->slot);
-            EMIT_CODE(&ob, "    LOADVAR %s, %u", limit_rn, limit_slot);
+            EMIT_CODE_META(&ob, var_name, "    LOADVAR %s, %u", var_rn, v->slot);
+            EMIT_CODE_META(&ob, "for-limit", "    LOADVAR %s, %u", limit_rn, limit_slot);
             EMIT_CODE(&ob, "    CMP %s, %s", var_rn, limit_rn);
             EMIT_CODE(&ob, "    JL %s", b.end_label + 1);
             EMIT_CODE(&ob, ".%s:", body_label);
@@ -1666,10 +1745,10 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             reg_name(var_r, vrn);
             reg_name(step_r, srn2);
 
-            EMIT_CODE(&ob, "    LOADVAR %s, %u", vrn, b.for_var_slot);
-            EMIT_CODE(&ob, "    LOADVAR %s, %u", srn2, b.for_step_slot);
+            EMIT_CODE_META(&ob, b.for_var_name, "    LOADVAR %s, %u", vrn, b.for_var_slot);
+            EMIT_CODE_META(&ob, "for-step", "    LOADVAR %s, %u", srn2, b.for_step_slot);
             EMIT_CODE(&ob, "    ADD %s, %s", vrn, srn2);
-            EMIT_CODE(&ob, "    STOREVAR %s, %u", vrn, b.for_var_slot);
+            EMIT_CODE_META(&ob, b.for_var_name, "    STOREVAR %s, %u", vrn, b.for_var_slot);
             EMIT_CODE(&ob, "    JMP %s", b.loop_label + 1);
             EMIT_CODE(&ob, "%s:", b.end_label);
 
@@ -1711,9 +1790,9 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
             char rn[4];
             reg_name(reg, rn);
-            EMIT_CODE(&ob, "    LOADVAR %s, %u", rn, v->slot);
-            EMIT_CODE(&ob, "    INC %s", rn); 
-            EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+            EMIT_CODE_META(&ob, name, "    LOADVAR %s, %u", rn, v->slot);
+            EMIT_CODE(&ob, "    INC %s", rn);
+            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
             continue;
         }
@@ -1749,9 +1828,9 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
             char rn[4];
             reg_name(reg, rn);
-            EMIT_CODE(&ob, "    LOADVAR %s, %u", rn, v->slot);
-            EMIT_CODE(&ob, "    DEC %s", rn); 
-            EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+            EMIT_CODE_META(&ob, name, "    LOADVAR %s, %u", rn, v->slot);
+            EMIT_CODE(&ob, "    DEC %s", rn);
+            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
             continue;
         }
