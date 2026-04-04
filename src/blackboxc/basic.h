@@ -3,6 +3,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 int preprocess_basic(const char *input, const char *output, int debug);
 
 typedef enum
@@ -80,3 +84,7 @@ typedef struct
     Block items[BLOCK_STACK_MAX];
     int   top;
 } BlockStack;
+
+#ifdef __cplusplus
+}
+#endif

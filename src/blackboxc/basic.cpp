@@ -117,7 +117,7 @@ static Variable *sym_add_int(SymbolTable *symtab, const char *name)
     if (symtab->count + 1 >= symtab->cap)
     {
         size_t new_cap = symtab->cap ? symtab->cap * 2 : 16;
-        Variable *nv = realloc(symtab->vars, new_cap * sizeof(Variable));
+        Variable *nv = (Variable *)realloc(symtab->vars, new_cap * sizeof(Variable));
         if (!nv)
         {
             return NULL;
@@ -137,7 +137,7 @@ static Variable *sym_add_str(SymbolTable *symtab, const char *name, const char *
     if (symtab->count + 1 >= symtab->cap)
     {
         size_t new_cap = symtab->cap ? symtab->cap * 2 : 16;
-        Variable *nv = realloc(symtab->vars, new_cap * sizeof(Variable));
+        Variable *nv = (Variable *)realloc(symtab->vars, new_cap * sizeof(Variable));
         if (!nv)
         {
             return NULL;
@@ -186,7 +186,7 @@ static int outbuf_append(char **buf, size_t *len, size_t *cap, const char *txt)
         size_t new_cap = (*cap) ? (*cap * 2) : 4096;
         while (new_cap < *len + txtlen + 2)
             new_cap *= 2;
-        char *nb = realloc(*buf, new_cap);
+        char *nb = (char *)realloc(*buf, new_cap);
         if (!nb)
             return 1;
         *buf = nb;

@@ -1,3 +1,15 @@
+// This should print:
+
+// == IF with AND ==
+// AND branch is true
+// == IF with OR ==
+// OR branch is true
+// == WHILE with OR and AND ==
+// loop A=6
+// loop A=5
+// loop A=4
+// done
+
 VAR A = 6
 VAR B = 2
 VAR C = 9
@@ -24,3 +36,5 @@ ENDWHILE
 
 PRINT "done"
 HALT OK
+
+
