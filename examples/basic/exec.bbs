@@ -1,0 +1,3 @@
+VAR result = 0
+EXEC "echo Hello, World!", result
+PRINT "Command result: ", result

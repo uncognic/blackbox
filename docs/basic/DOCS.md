@@ -23,6 +23,7 @@ Supported statements and blocks:
 - `DEC name` (decrements variable)
 - `RANDOM name, min, max` (stores random integer in variable)
 - `SLEEP time` (sleeps for given milliseconds, or if given a register, sleeps for that many milliseconds stored in the register)
+- `EXEC command, result` (executes system command, stores exit code in result variable)
 - Inline assembly block: `ASM:` ... `ENDASM`
 
 Expressions:

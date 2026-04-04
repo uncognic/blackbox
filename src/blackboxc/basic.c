@@ -1473,6 +1473,126 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
+        if (starts_with_ci(s, "EXEC"))
+        {
+            const char *arg = s + 4;
+
+            if (*arg != '\0' && !isspace((unsigned char)*arg))
+            {
+                fprintf(stderr, "Syntax error line %d: expected EXEC \"<command>\", <var>\n", lineno);
+                result = 1;
+                break;
+            }
+
+            arg = skip_ws(arg);
+
+            if (*arg != '"')
+            {
+                fprintf(stderr, "Syntax error line %d: expected EXEC \"<command>\", <var>\n", lineno);
+                result = 1;
+                break;
+            }
+
+            const char *str_start = arg + 1;
+            const char *str_end = strchr(str_start, '"');
+            if (!str_end)
+            {
+                fprintf(stderr, "Syntax error line %d: missing closing quote for EXEC\n", lineno);
+                result = 1;
+                break;
+            }
+
+            size_t len = (size_t)(str_end - str_start);
+            if (len > 255)
+                len = 255;
+
+            const char *after = skip_ws(str_end + 1);
+
+            char varname[64];
+            int have_dest = 0;
+            Variable *v = NULL;
+
+            if (*after != '\0')
+            {
+                if (*after == ',')
+                    after = skip_ws(after + 1);
+                else
+                {
+                    fprintf(stderr, "Syntax error line %d: expected ',' before EXEC destination\n", lineno);
+                    result = 1;
+                    break;
+                }
+
+                size_t nlen = 0;
+                while ((isalnum((unsigned char)after[nlen]) || after[nlen] == '_') && nlen < sizeof(varname) - 1)
+                    nlen++;
+                if (nlen == 0)
+                {
+                    fprintf(stderr, "Syntax error line %d: expected EXEC destination variable\n", lineno);
+                    result = 1;
+                    break;
+                }
+                memcpy(varname, after, nlen);
+                varname[nlen] = '\0';
+                after = skip_ws(after + nlen);
+                if (*after != '\0')
+                {
+                    fprintf(stderr, "Syntax error line %d: unexpected tokens after EXEC destination\n", lineno);
+                    result = 1;
+                    break;
+                }
+                v = sym_find(&st, varname);
+                if (!v)
+                {
+                    fprintf(stderr, "Undefined variable '%s' on line %d\n", varname, lineno);
+                    result = 1;
+                    break;
+                }
+                if (v->is_const)
+                {
+                    fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, varname);
+                    result = 1;
+                    break;
+                }
+                if (v->type != VAR_INT)
+                {
+                    fprintf(stderr, "Type error line %d: EXEC destination '%s' must be integer\n", lineno, varname);
+                    result = 1;
+                    break;
+                }
+                have_dest = 1;
+            }
+
+            int reg = ralloc_acquire(&ra);
+            if (reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+
+            EMIT_CODE(&ob, "    EXEC \"%.*s\", %s", (int)len, str_start, rn);
+
+            if (have_dest)
+            {
+                EMIT_CODE_META(&ob, varname, "    STOREVAR %s, %u", rn, v->slot);
+            }
+
+            ralloc_release(&ra, reg);
+
+            if (debug)
+            {
+                if (have_dest)
+                    printf("[BASIC] EXEC \"%.*s\" -> %s\n", (int)len, str_start, varname);
+                else
+                    printf("[BASIC] EXEC \"%.*s\"\n", (int)len, str_start);
+            }
+
+            continue;
+        }
+
         if (starts_with_ci(s, "INPUT "))
         {
             const char *name = skip_ws(s + 6);
