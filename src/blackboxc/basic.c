@@ -1680,6 +1680,81 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] NEXT %s\n", b.for_var_name);
             continue;
         }
+        if (starts_with_ci(s, "INC"))
+        {
+            const char *name = skip_ws(s + 4);
+            Variable *v = sym_find(&st, name);
+            if (!v)
+            {
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                result = 1;
+                break;
+            }
+            if (v->is_const)
+            {
+                fprintf(stderr, "Error line %d: cannot INC CONST '%s'\n", lineno, name);
+                result = 1;
+                break;
+            }
+            if (v->type != VAR_INT)
+            {
+                fprintf(stderr, "Type error line %d: cannot INC non-integer variable '%s'\n", lineno, name);
+                result = 1;
+                break;
+            }
+            int reg = ralloc_acquire(&ra);
+            if (reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers on line %d\n", lineno);
+                result = 1;
+                break;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    LOADVAR %s, %u", rn, v->slot);
+            EMIT_CODE(&ob, "    INC %s", rn); 
+            EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+            ralloc_release(&ra, reg);
+            continue;
+        }
+
+        if (starts_with_ci(s, "DEC"))
+        {
+            const char *name = skip_ws(s + 4);
+            Variable *v = sym_find(&st, name);
+            if (!v)
+            {
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                result = 1;
+                break;
+            }
+            if (v->is_const)
+            {
+                fprintf(stderr, "Error line %d: cannot DEC CONST '%s'\n", lineno, name);
+                result = 1;
+                break;
+            }
+            if (v->type != VAR_INT)
+            {
+                fprintf(stderr, "Type error line %d: cannot DEC non-integer variable '%s'\n", lineno, name);
+                result = 1;
+                break;
+            }
+            int reg = ralloc_acquire(&ra);
+            if (reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers on line %d\n", lineno);
+                result = 1;
+                break;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    LOADVAR %s, %u", rn, v->slot);
+            EMIT_CODE(&ob, "    DEC %s", rn); 
+            EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+            ralloc_release(&ra, reg);
+            continue;
+        }
 
         fprintf(stderr, "Unknown statement on line %d: %s\n", lineno, s);
         result = 1;

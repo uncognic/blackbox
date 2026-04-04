@@ -129,7 +129,13 @@ PRINT test
 WRITE "You entered the string: "
 PRINT string
 ```
-
+### INC / DEC
+```basic
+FOR VAR I = 10 TO 0 STEP 0
+    DEC I
+NEXT I
+```
+This example uses `DEC` instead of `STEP -1` to count down. You can also use `INC` to count up.
 Notes:
 - `STEP` is optional and defaults to `1`.
 - `NEXT` may be used as `NEXT` or `NEXT <var>`.

@@ -1,0 +1,7 @@
+FOR VAR I = 10 TO 0 STEP 0
+    DEC I
+NEXT I
+
+PRINT "Done"
+
+HALT OK

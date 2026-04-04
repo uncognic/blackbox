@@ -18,6 +18,8 @@ Supported statements and blocks:
 - `HALT [OK|BAD|number]`
 - `LABEL, CALL, RETURN, GOTO`
 - `INPUT name` (reads an integer or string from input, stores in variable)
+- `INC name` (increments variable)
+- `DEC name` (decrements variable)
 - Inline assembly block: `ASM:` ... `ENDASM`
 
 Expressions:
