@@ -3104,6 +3104,58 @@ int main(int argc, char *argv[])
             registers[reg] = (int64_t)start_addr;
             break;
         }
+        case OPCODE_GETENV:
+        {
+            if (pc + 1 >= size)
+            {
+                fprintf(stderr, "Missing operands for GETENV at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            uint8_t reg = program[pc++];
+            uint8_t envlen = program[pc++];
+            if (pc + envlen > size)
+            {
+                fprintf(stderr, "Environment variable name past end of program at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            char envname[256];
+            if (envlen > sizeof(envname) - 1)
+                envlen = sizeof(envname) - 1;
+            memcpy(envname, &program[pc], envlen);
+            envname[envlen] = '\0';
+            pc += envlen;
+
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in GETENV at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+
+            char *env_value = getenv(envname);
+            if (!env_value)
+            {
+                RAISE_FAULT(FAULT_ENV_VAR_NOT_FOUND, "Environment variable %s not found in GETENV at pc=%zu", envname, pc);
+                break;
+            }
+
+            size_t value_len = strlen(env_value);
+            if (str_heap_size > 0x7FFFFFFF || str_heap_size + value_len + 1 > 0x7FFFFFFF)
+            {
+                fprintf(stderr, "String heap too large at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            if (ensure_u8_capacity(&str_heap, &str_heap_cap, str_heap_size + value_len + 1))
+            {
+                perror("realloc");
+                goto fault_exit;
+            }
+            uint32_t start_addr = 0x80000000u | (uint32_t)str_heap_size;
+            memcpy(&str_heap[str_heap_size], env_value, value_len);
+            str_heap_size += value_len;
+            str_heap[str_heap_size++] = 0;
+            registers[reg] = (int64_t)start_addr;
+            break;
+        }
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,

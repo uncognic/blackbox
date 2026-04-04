@@ -261,6 +261,10 @@
   - Syntax: `GETARG <reg>, <index>`
   - Encoding: `OPCODE_GETARG`, 1 byte register, 4 byte unsigned index
   - Behavior: Stores the string heap pointer to the command-line argument at the specified index in the specified register
+- GETENV: Get environment variable
+  - Syntax: `GETENV <reg>, "<varname>"`
+  - Encoding: `OPCODE_GETENV`, 1 byte register, 1 byte varname length, then varname bytes
+  - Behavior: Retrieves the value of the specified environment variable and stores it as a string pointer
 ## Macros
 - %include: Inline another source file before macro processing
   - Syntax: `%include "path/to/file.bbx"`

@@ -32,7 +32,7 @@ Protected code requests privileged operations by calling `SYSCALL <id>`. The VM 
 Arguments can be passed to handlers via registers by convention (e.g. `R00`=arg0, `R01`=arg1).
 
 ### Fault handling
-If a protected instruction is attempted in PROTECTED mode, or if a memory access violates permissions, the VM raises a fault. You can define handlers for faults with `REGFAULT` and the VM will jump to them when faults occur. This allows protected code to handle faults gracefully.
+If a protected instruction is attempted in PROTECTED mode, if a memory access violates permissions, or any of the various faults, the VM raises a fault. You can define handlers for faults with `REGFAULT` and the VM will jump to them when faults occur. This allows protected code to handle faults gracefully. See the `Fault` enum in `define.h` for fault types.
 
 ## Instruction set
 See [isa.md](isa.md)

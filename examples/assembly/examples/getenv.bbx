@@ -1,0 +1,25 @@
+%asm
+%main
+; Start privileged
+    ; Register fault 6 (FAULT_ENV_VAR_NOT_FOUND) to handler_fault
+    REGFAULT 6, handler_fault
+    
+    ; Jump to protected code
+    DROPPRIV
+    JMP protected_start
+
+; Handlers
+    .handler_fault:
+        ; Handle the environment variable not found fault by printing a message and returning
+        WRITE STDOUT, "Caught an environment variable not found fault!"
+        NEWLINE
+        FAULTRET
+    
+; Protected code
+    .protected_start:
+        GETENV R00, "TEST_ENV_VAR" ; This should fail
+        GETENV R01, "PATH" ; This should succeed and store the string heap pointer to the PATH environment variable in R01
+        PRINTSTR R01 ; Print the PATH environment variable
+        NEWLINE
+        HALT OK
+        

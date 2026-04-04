@@ -19,7 +19,8 @@ typedef enum
     FAULT_PRIV = 3,
     FAULT_DIV_ZERO = 4,
     FAULT_OOB = 5,
-    FAULT_COUNT = 6  
+    FAULT_ENV_VAR_NOT_FOUND = 6,
+    FAULT_COUNT = 7
 } Fault;
 
 typedef struct
@@ -160,5 +161,6 @@ typedef struct
 #define OPCODE_SHR 0x61
 #define OPCODE_GETARG 0x63
 #define OPCODE_GETARGC 0x64
+#define OPCODE_GETENV 0x65
 #define OPCODE_HALT 0xFF
 #define OPCODE_BREAK 0xFE

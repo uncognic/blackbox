@@ -515,6 +515,31 @@ size_t instr_size(const char *line)
         return 6; // opcode + reg + u32 index
     else if (starts_with_ci(line, "GETARGC"))
         return 2; // opcode + reg
+    else if (starts_with_ci(line, "GETENV"))
+    {
+        const char *comma = strchr(line + 6, ',');
+        if (!comma)
+            return 3;
+        const char *p = comma + 1;
+        while (*p && isspace((unsigned char)*p))
+            p++;
+        size_t len = 0;
+        if (*p == '"')
+        {
+            const char *end = strchr(p + 1, '"');
+            if (!end)
+                return 3;
+            len = (size_t)(end - (p + 1));
+        }
+        else
+        {
+            while (p[len] && p[len] != '\r' && p[len] != '\n' && !isspace((unsigned char)p[len]))
+                len++;
+        }
+        if (len > 255)
+            len = 255;
+        return 3 + len;
+    }
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }

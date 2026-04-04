@@ -2876,6 +2876,71 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(parse_register(reg, lineno), out);
             write_u32(out, idx);
         }
+        else if (starts_with_ci(s, "GETENV"))
+        {
+            char reg[16];
+            char varname[256];
+            char *comma = strchr(s + 6, ',');
+            if (!comma || sscanf(s + 6, " %15[^,]", reg) != 1)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected GETENV <register>, <varname>\nGot: %s\n",
+                        lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+
+            const char *p = comma + 1;
+            while (*p && isspace((unsigned char)*p))
+                p++;
+
+            if (*p == '"')
+            {
+                const char *end = strchr(p + 1, '"');
+                if (!end)
+                {
+                    fprintf(stderr,
+                            "Syntax error on line %d: expected GETENV <register>, \"<varname>\"\nGot: %s\n",
+                            lineno, line);
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                size_t len = (size_t)(end - (p + 1));
+                if (len >= sizeof(varname))
+                    len = sizeof(varname) - 1;
+                memcpy(varname, p + 1, len);
+                varname[len] = '\0';
+            }
+            else
+            {
+                if (sscanf(p, " %255s", varname) != 1)
+                {
+                    fprintf(stderr,
+                            "Syntax error on line %d: expected GETENV <register>, <varname>\nGot: %s\n",
+                            lineno, line);
+                    fclose(in);
+                    fclose(out);
+                    return 1;
+                }
+                char *end = varname + strlen(varname) - 1;
+                while (end > varname && (*end == '\r' || *end == '\n'))
+                {
+                    *end = '\0';
+                    end--;
+                }
+            }
+
+            fputc(OPCODE_GETENV, out);
+            fputc(parse_register(reg, lineno), out);
+            uint8_t len = (uint8_t)strlen(varname);
+            fputc(len, out);
+            for (size_t i = 0; i < len; i++)
+            {
+                fputc((uint8_t)varname[i], out);
+            }
+        }
 
         else
         {
