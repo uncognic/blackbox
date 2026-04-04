@@ -88,6 +88,25 @@ WHILE X != 0:
 ENDWHILE
 ```
 
+### FOR / NEXT
+```basic
+FOR I = 10 TO 0 STEP -1
+    PRINT I
+NEXT I
+```
+
+You can also declare the loop variable inline:
+```basic
+FOR VAR I = 10 TO 0 STEP -1
+    PRINT I
+NEXT I
+```
+
+Notes:
+- `STEP` is optional and defaults to `1`.
+- `NEXT` may be used as `NEXT` or `NEXT <var>`.
+- Positive and negative steps are both supported.
+
 Condition operators:
 - `==`, `!=`, `<`, `<=`, `>`, `>=`
 - Logical chaining: `AND`, `OR` (case-insensitive)

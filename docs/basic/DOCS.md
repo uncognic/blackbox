@@ -13,6 +13,8 @@ Supported statements and blocks:
 - `WRITE [value[, value...]]`
 - `IF <condition>:` ... `ELSE:` ... `ENDIF`
 - `WHILE <condition>:` ... `ENDWHILE`
+- `FOR <name> = <expr> TO <expr> [STEP <expr>]` ... `NEXT [name]`
+	(or inline declaration: `FOR VAR <name> = ...`)
 - `HALT [OK|BAD|number]`
 - Inline assembly block: `ASM:` ... `ENDASM`
 

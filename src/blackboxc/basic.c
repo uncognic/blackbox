@@ -170,6 +170,39 @@ static const char *skip_ws(const char *s)
     return s;
 }
 
+static const char *find_keyword_token(const char *s, const char *kw)
+{
+    size_t n = strlen(kw);
+    for (const char *p = s; *p; p++)
+    {
+        if (!starts_with_ci(p, kw))
+            continue;
+
+        int left_ok = (p == s) || !(isalnum((unsigned char)p[-1]) || p[-1] == '_');
+        int right_ok = !(isalnum((unsigned char)p[n]) || p[n] == '_');
+        if (left_ok && right_ok)
+            return p;
+    }
+    return NULL;
+}
+
+static char *dup_trim_range(const char *start, const char *end)
+{
+    while (start < end && isspace((unsigned char)*start))
+        start++;
+    while (end > start && isspace((unsigned char)*(end - 1)))
+        end--;
+
+    size_t len = (size_t)(end - start);
+    char *out = (char *)malloc(len + 1);
+    if (!out)
+        return NULL;
+
+    memcpy(out, start, len);
+    out[len] = '\0';
+    return out;
+}
+
 static int emit_atom(const char *s, const char **end, SymbolTable *st, RegAlloc *ra, OutBuf *ob, int debug, int *out_reg)
 {
     s = skip_ws(s);
@@ -1308,6 +1341,335 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] INPUT %s\n", name);
             continue;
         }
+        if (starts_with_ci(s, "FOR "))
+        {
+            size_t slen = strlen(s);
+            if (slen > 0 && s[slen - 1] == ':')
+                s[slen - 1] = '\0';
+
+            const char *p = skip_ws(s + 4);
+            int inline_decl = 0;
+            if (starts_with_ci(p, "VAR") &&
+                !(isalnum((unsigned char)p[3]) || p[3] == '_'))
+            {
+                inline_decl = 1;
+                p = skip_ws(p + 3);
+            }
+
+            if (!isalpha((unsigned char)*p) && *p != '_')
+            {
+                fprintf(stderr, "Syntax error line %d: expected FOR [VAR] <identifier> = <expr> TO <expr> [STEP <expr>]\n", lineno);
+                result = 1;
+                break;
+            }
+
+            char var_name[64];
+            size_t vlen = 0;
+            while ((isalnum((unsigned char)*p) || *p == '_') && vlen < sizeof(var_name) - 1)
+                var_name[vlen++] = *p++;
+            var_name[vlen] = '\0';
+
+            p = skip_ws(p);
+            if (*p != '=')
+            {
+                fprintf(stderr, "Syntax error line %d: expected '=' in FOR statement\n", lineno);
+                result = 1;
+                break;
+            }
+
+            const char *init_start = skip_ws(p + 1);
+            const char *to_kw = find_keyword_token(init_start, "TO");
+            if (!to_kw)
+            {
+                fprintf(stderr, "Syntax error line %d: expected TO in FOR statement\n", lineno);
+                result = 1;
+                break;
+            }
+
+            const char *to_rhs = skip_ws(to_kw + 2);
+            const char *step_kw = find_keyword_token(to_rhs, "STEP");
+
+            char *init_expr = dup_trim_range(init_start, to_kw);
+            char *limit_expr = dup_trim_range(to_rhs, step_kw ? step_kw : (to_rhs + strlen(to_rhs)));
+            char *step_expr = step_kw ? dup_trim_range(step_kw + 4, to_rhs + strlen(to_rhs)) : strdup("1");
+
+            if (!init_expr || !limit_expr || !step_expr)
+            {
+                free(init_expr);
+                free(limit_expr);
+                free(step_expr);
+                fprintf(stderr, "Out of memory while parsing FOR statement\n");
+                result = 1;
+                break;
+            }
+
+            if (*init_expr == '\0' || *limit_expr == '\0' || *step_expr == '\0')
+            {
+                free(init_expr);
+                free(limit_expr);
+                free(step_expr);
+                fprintf(stderr, "Syntax error line %d: FOR requires init, TO limit, and STEP expressions\n", lineno);
+                result = 1;
+                break;
+            }
+
+            Variable *v = sym_find(&st, var_name);
+            if (inline_decl)
+            {
+                if (v)
+                {
+                    free(init_expr);
+                    free(limit_expr);
+                    free(step_expr);
+                    fprintf(stderr, "Error line %d: variable '%s' already defined\n", lineno, var_name);
+                    result = 1;
+                    break;
+                }
+
+                v = sym_add_int(&st, var_name);
+                if (!v)
+                {
+                    free(init_expr);
+                    free(limit_expr);
+                    free(step_expr);
+                    fprintf(stderr, "Out of memory\n");
+                    result = 1;
+                    break;
+                }
+            }
+            else if (!v)
+            {
+                free(init_expr);
+                free(limit_expr);
+                free(step_expr);
+                fprintf(stderr,
+                        "Undefined variable '%s' on line %d (declare it first with VAR, or use FOR VAR %s = ...)\n",
+                        var_name, lineno, var_name);
+                result = 1;
+                break;
+            }
+            if (v->is_const)
+            {
+                free(init_expr);
+                free(limit_expr);
+                free(step_expr);
+                fprintf(stderr, "Error line %d: cannot use CONST '%s' as FOR control variable\n", lineno, var_name);
+                result = 1;
+                break;
+            }
+            if (v->type != VAR_INT)
+            {
+                free(init_expr);
+                free(limit_expr);
+                free(step_expr);
+                fprintf(stderr, "Type error line %d: FOR control variable '%s' must be integer\n", lineno, var_name);
+                result = 1;
+                break;
+            }
+
+            uint32_t limit_slot = st.next_slot++;
+            uint32_t step_slot = st.next_slot++;
+
+            int ireg;
+            if (emit_expr(init_expr, &st, &ra, &ob, debug, &ireg))
+            {
+                free(init_expr);
+                free(limit_expr);
+                free(step_expr);
+                result = 1;
+                break;
+            }
+            char irn[4];
+            reg_name(ireg, irn);
+            EMIT_CODE(&ob, "    STOREVAR %s, %u", irn, v->slot);
+            ralloc_release(&ra, ireg);
+
+            int lreg;
+            if (emit_expr(limit_expr, &st, &ra, &ob, debug, &lreg))
+            {
+                free(init_expr);
+                free(limit_expr);
+                free(step_expr);
+                result = 1;
+                break;
+            }
+            char lrn[4];
+            reg_name(lreg, lrn);
+            EMIT_CODE(&ob, "    STOREVAR %s, %u", lrn, limit_slot);
+            ralloc_release(&ra, lreg);
+
+            int sreg;
+            if (emit_expr(step_expr, &st, &ra, &ob, debug, &sreg))
+            {
+                free(init_expr);
+                free(limit_expr);
+                free(step_expr);
+                result = 1;
+                break;
+            }
+            char srn[4];
+            reg_name(sreg, srn);
+            EMIT_CODE(&ob, "    STOREVAR %s, %u", srn, step_slot);
+            ralloc_release(&ra, sreg);
+
+            char loop_label[64], end_label[64], neg_check_label[64], body_label[64];
+            snprintf(loop_label, sizeof(loop_label), "for_%lu", uid);
+            snprintf(end_label, sizeof(end_label), "endfor_%lu", uid);
+            snprintf(neg_check_label, sizeof(neg_check_label), "for_neg_%lu", uid);
+            snprintf(body_label, sizeof(body_label), "for_body_%lu", uid);
+            uid++;
+
+            Block b;
+            memset(&b, 0, sizeof(b));
+            b.kind = BLOCK_FOR;
+            b.for_var_slot = v->slot;
+            b.for_limit_slot = limit_slot;
+            b.for_step_slot = step_slot;
+            strncpy(b.for_var_name, var_name, sizeof(b.for_var_name) - 1);
+            snprintf(b.loop_label, sizeof(b.loop_label), ".%s", loop_label);
+            snprintf(b.end_label, sizeof(b.end_label), ".%s", end_label);
+
+            EMIT_CODE(&ob, "%s:", b.loop_label);
+
+            int step_r = ralloc_acquire(&ra);
+            int zero_r = ralloc_acquire(&ra);
+            int var_r = ralloc_acquire(&ra);
+            int limit_r = ralloc_acquire(&ra);
+            if (step_r < 0 || zero_r < 0 || var_r < 0 || limit_r < 0)
+            {
+                if (step_r >= 0)
+                    ralloc_release(&ra, step_r);
+                if (zero_r >= 0)
+                    ralloc_release(&ra, zero_r);
+                if (var_r >= 0)
+                    ralloc_release(&ra, var_r);
+                if (limit_r >= 0)
+                    ralloc_release(&ra, limit_r);
+                free(init_expr);
+                free(limit_expr);
+                free(step_expr);
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+
+            char step_rn[4], zero_rn[4], var_rn[4], limit_rn[4];
+            reg_name(step_r, step_rn);
+            reg_name(zero_r, zero_rn);
+            reg_name(var_r, var_rn);
+            reg_name(limit_r, limit_rn);
+
+            EMIT_CODE(&ob, "    LOADVAR %s, %u", step_rn, step_slot);
+            EMIT_CODE(&ob, "    MOVI %s, 0", zero_rn);
+            EMIT_CODE(&ob, "    CMP %s, %s", step_rn, zero_rn);
+            EMIT_CODE(&ob, "    JL %s", neg_check_label);
+
+            EMIT_CODE(&ob, "    LOADVAR %s, %u", var_rn, v->slot);
+            EMIT_CODE(&ob, "    LOADVAR %s, %u", limit_rn, limit_slot);
+            EMIT_CODE(&ob, "    CMP %s, %s", limit_rn, var_rn);
+            EMIT_CODE(&ob, "    JL %s", b.end_label + 1);
+            EMIT_CODE(&ob, "    JMP %s", body_label);
+
+            EMIT_CODE(&ob, ".%s:", neg_check_label);
+            EMIT_CODE(&ob, "    LOADVAR %s, %u", var_rn, v->slot);
+            EMIT_CODE(&ob, "    LOADVAR %s, %u", limit_rn, limit_slot);
+            EMIT_CODE(&ob, "    CMP %s, %s", var_rn, limit_rn);
+            EMIT_CODE(&ob, "    JL %s", b.end_label + 1);
+            EMIT_CODE(&ob, ".%s:", body_label);
+
+            ralloc_release(&ra, step_r);
+            ralloc_release(&ra, zero_r);
+            ralloc_release(&ra, var_r);
+            ralloc_release(&ra, limit_r);
+
+            bstack_push(&bs, b);
+
+            if (debug)
+                printf("[BASIC] FOR %s = (%s) TO (%s) STEP (%s)\n", var_name, init_expr, limit_expr, step_expr);
+
+            free(init_expr);
+            free(limit_expr);
+            free(step_expr);
+            continue;
+        }
+
+        if (starts_with_ci(s, "NEXT"))
+        {
+            const char *arg = skip_ws(s + 4);
+
+            Block *top = bstack_peek(&bs);
+            if (!top || top->kind != BLOCK_FOR)
+            {
+                fprintf(stderr, "Error line %d: NEXT without FOR\n", lineno);
+                result = 1;
+                break;
+            }
+
+            if (*arg)
+            {
+                char next_var[64];
+                size_t nlen = 0;
+                while ((isalnum((unsigned char)arg[nlen]) || arg[nlen] == '_') && nlen < sizeof(next_var) - 1)
+                    nlen++;
+                if (nlen == 0)
+                {
+                    fprintf(stderr, "Syntax error line %d: expected NEXT [<identifier>]\n", lineno);
+                    result = 1;
+                    break;
+                }
+
+                memcpy(next_var, arg, nlen);
+                next_var[nlen] = '\0';
+                arg = skip_ws(arg + nlen);
+                if (*arg != '\0')
+                {
+                    fprintf(stderr, "Syntax error line %d: expected NEXT [<identifier>]\n", lineno);
+                    result = 1;
+                    break;
+                }
+
+                if (!equals_ci(next_var, top->for_var_name))
+                {
+                    fprintf(stderr, "Error line %d: NEXT variable '%s' does not match FOR variable '%s'\n",
+                            lineno, next_var, top->for_var_name);
+                    result = 1;
+                    break;
+                }
+            }
+
+            Block b = bstack_pop(&bs);
+
+            int var_r = ralloc_acquire(&ra);
+            int step_r = ralloc_acquire(&ra);
+            if (var_r < 0 || step_r < 0)
+            {
+                if (var_r >= 0)
+                    ralloc_release(&ra, var_r);
+                if (step_r >= 0)
+                    ralloc_release(&ra, step_r);
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+
+            char vrn[4], srn2[4];
+            reg_name(var_r, vrn);
+            reg_name(step_r, srn2);
+
+            EMIT_CODE(&ob, "    LOADVAR %s, %u", vrn, b.for_var_slot);
+            EMIT_CODE(&ob, "    LOADVAR %s, %u", srn2, b.for_step_slot);
+            EMIT_CODE(&ob, "    ADD %s, %s", vrn, srn2);
+            EMIT_CODE(&ob, "    STOREVAR %s, %u", vrn, b.for_var_slot);
+            EMIT_CODE(&ob, "    JMP %s", b.loop_label + 1);
+            EMIT_CODE(&ob, "%s:", b.end_label);
+
+            ralloc_release(&ra, var_r);
+            ralloc_release(&ra, step_r);
+
+            if (debug)
+                printf("[BASIC] NEXT %s\n", b.for_var_name);
+            continue;
+        }
 
         fprintf(stderr, "Unknown statement on line %d: %s\n", lineno, s);
         result = 1;
@@ -1319,7 +1681,9 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
     if (bs.top > 0 && result == 0)
     {
         fprintf(stderr, "Error: unclosed block (%s)\n",
-                bs.items[bs.top - 1].kind == BLOCK_IF ? "IF" : "WHILE");
+                bs.items[bs.top - 1].kind == BLOCK_IF
+                    ? "IF"
+                    : (bs.items[bs.top - 1].kind == BLOCK_WHILE ? "WHILE" : "FOR"));
         result = 1;
     }
 
