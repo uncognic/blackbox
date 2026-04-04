@@ -15,6 +15,7 @@ Supported statements and blocks:
 - `WHILE <condition>:` ... `ENDWHILE`
 - `FOR <name> = <expr> TO <expr> [STEP <expr>]` ... `NEXT [name]`
 	(or inline declaration: `FOR VAR <name> = ...`)
+- `BREAK` (exits innermost loop)
 - `HALT [OK|BAD|number]`
 - `LABEL, CALL, RETURN, GOTO`
 - `INPUT name` (reads an integer or string from input, stores in variable)

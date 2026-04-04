@@ -141,6 +141,13 @@ Notes:
 - `NEXT` may be used as `NEXT` or `NEXT <var>`.
 - Positive and negative steps are both supported.
 
+### BREAK
+```basic
+WHILE 0 == 0:
+    PRINT "This will print once, then break."
+    BREAK
+ENDWHILE
+```
 Condition operators:
 - `==`, `!=`, `<`, `<=`, `>`, `>=`
 - Logical chaining: `AND`, `OR` (case-insensitive)

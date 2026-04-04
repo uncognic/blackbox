@@ -1,0 +1,6 @@
+WHILE 0 == 0:
+    PRINT "This will print once, then break."
+    BREAK
+ENDWHILE
+
+HALT OK

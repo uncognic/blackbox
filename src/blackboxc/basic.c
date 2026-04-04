@@ -1844,6 +1844,31 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
+        if (equals_ci(s, "BREAK"))
+        {
+            Block *target = NULL;
+            for (int i = bs.top - 1; i >= 0; i--)
+            {
+                if (bs.items[i].kind == BLOCK_WHILE || bs.items[i].kind == BLOCK_FOR)
+                {
+                    target = &bs.items[i];
+                    break;
+                }
+            }
+
+            if (!target)
+            {
+                fprintf(stderr, "Error line %d: BREAK outside WHILE or FOR loop\n", lineno);
+                result = 1;
+                break;
+            }
+
+            EMIT_CODE(&ob, "    JMP %s", target->end_label + 1);
+            if (debug)
+                printf("[BASIC] BREAK\n");
+            continue;
+        }
+
         fprintf(stderr, "Unknown statement on line %d: %s\n", lineno, s);
         result = 1;
         break;
