@@ -5,11 +5,13 @@
 | |_) | | (_| | (__|   <| |_) | (_) >  <
 |____/|_|\__,_|\___|_|\_\_.__/ \___/_/\_\
 ```
-A small, Turing-complete bytecode virtual machine with an assembly language. It also features a disassembler/decompiler and debugger.
+A small, Turing-complete bytecode virtual machine with an assembly and BASIC-like language. It also features a disassembler/decompiler and debugger.
 
 ## Links
 - Docs (assembly): [docs/DOCS.md](docs/DOCS.md)
+- Docs (BASIC): [docs/basic/DOCS.md](docs/basic/DOCS.md)
 - ISA reference (assembly): [docs/ISA.md](docs/ISA.md)  
+- BASIC syntax reference: [docs/basic/SYNTAX.md](docs/basic/SYNTAX.md)
 - Debugger [docs/DEBUGGER.md](docs/DEBUGGER.md)
 - Examples: [examples/](examples/)
 - License: [LICENSE](LICENSE)
@@ -27,9 +29,14 @@ A small, Turing-complete bytecode virtual machine with an assembly language. It 
 
 ## Examples
 
-Assemble and run the Hello World example:
+Assemble and run the Hello World example in Assembly:
 ```sh
 ./bbxc examples/helloworld.bbx hello.bcx
+./bbx hello.bcx
+```
+Compile and run the Hello World example in BASIC:
+```sh
+./bbxc examples/basic/helloworld.bbs hello.bcx
 ./bbx hello.bcx
 ```
 
