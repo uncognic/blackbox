@@ -361,13 +361,69 @@ static int emit_atom(const char *s, const char **end, SymbolTable *st, RegAlloc 
     fprintf(stderr, "Expression error: unexpected character '%c'\n", *s);
     return 1;
 }
+static int emit_unary(const char *s, const char **end,
+                      SymbolTable *st, RegAlloc *ra, OutBuf *ob, int debug,
+                      int *out_reg)
+{
+    s = skip_ws(s);
+    if (*s == '~')
+    {
+        s++;
+        int reg;
+        if (emit_unary(s, end, st, ra, ob, debug, &reg))
+            return 1;
+        char rn[4];
+        reg_name(reg, rn);
+        EMIT_CODE(ob, "    NOT %s", rn);
+        *out_reg = reg;
+        return 0;
+    }
+    return emit_atom(s, end, st, ra, ob, debug, out_reg);
+}
+static int emit_bitwise(const char *s, const char **end,
+                        SymbolTable *st, RegAlloc *ra, OutBuf *ob, int debug,
+                        int *out_reg)
+{
+    int lreg;
+    if (emit_unary(s, end, st, ra, ob, debug, &lreg))
+        return 1;
+    s = skip_ws(*end);
 
+    while (*s == '&' || *s == '|' || *s == '^')
+    {
+        char op = *s++;
+        s = skip_ws(s);
+        int rreg;
+        if (emit_unary(s, end, st, ra, ob, debug, &rreg))
+        {
+            ralloc_release(ra, lreg);
+            return 1;
+        }
+        s = skip_ws(*end);
+
+        char ln[4], rn[4];
+        reg_name(lreg, ln);
+        reg_name(rreg, rn);
+
+        if (op == '&')
+            EMIT_CODE(ob, "    AND %s, %s", ln, rn);
+        else if (op == '|')
+            EMIT_CODE(ob, "    OR %s, %s", ln, rn);
+        else
+            EMIT_CODE(ob, "    XOR %s, %s", ln, rn);
+
+        ralloc_release(ra, rreg);
+    }
+    *end = s;
+    *out_reg = lreg;
+    return 0;
+}
 static int emit_mul(const char *s, const char **end,
                     SymbolTable *st, RegAlloc *ra, OutBuf *ob, int debug,
                     int *out_reg)
 {
     int lreg;
-    if (emit_atom(s, end, st, ra, ob, debug, &lreg))
+    if (emit_bitwise(s, end, st, ra, ob, debug, &lreg))
         return 1;
     s = skip_ws(*end);
 
@@ -376,7 +432,7 @@ static int emit_mul(const char *s, const char **end,
         char op = *s++;
         s = skip_ws(s);
         int rreg;
-        if (emit_atom(s, end, st, ra, ob, debug, &rreg))
+        if (emit_bitwise(s, end, st, ra, ob, debug, &rreg))
         {
             ralloc_release(ra, lreg);
             return 1;

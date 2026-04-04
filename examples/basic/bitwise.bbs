@@ -1,0 +1,43 @@
+// bitwise ops test
+VAR a = 0b1100  // not supported, use literals
+a = 12      // 1100 in binary
+VAR b = 10      // 1010 in binary
+
+VAR and_result = a & b
+VAR or_result  = a | b
+VAR xor_result = a ^ b
+VAR not_result = ~a
+
+WRITE "a & b = "
+PRINT and_result    // expect 8  (1000)
+
+WRITE "a | b = "
+PRINT or_result     // expect 14 (1110)
+
+WRITE "a ^ b = "
+PRINT xor_result    // expect 6  (0110)
+
+WRITE "~a = "
+PRINT not_result    // expect -13 (bitwise NOT of 12 in two's complement)
+
+// in expression
+VAR flags = 7       // 0111
+VAR mask  = 5       // 0101
+VAR masked = flags & mask
+WRITE "flags & mask = "
+PRINT masked        // expect 5
+
+// in condition
+IF flags & mask == 5:
+    PRINT "mask check passed"
+ENDIF
+
+// chained
+VAR c = a & b | 3
+WRITE "a & b | 3 = "
+PRINT c             // expect 11 (8 | 3)
+
+// unary NOT in expression
+VAR d = ~0
+WRITE "~0 = "
+PRINT d             // expect -1

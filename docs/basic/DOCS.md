@@ -32,6 +32,7 @@ Expressions:
 - Operators: `+`, `-`, `*`, `/`, `%`
 - Parentheses for grouping
 - Comparison operators in conditions: `==`, `!=`, `<`, `<=`, `>`, `>=`
+- Bitwise operators: `&`, `|`, `^`, `~`
 
 Data model:
 - Integers (64-bit VM register/slot model)
