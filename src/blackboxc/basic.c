@@ -2080,6 +2080,13 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] BREAK\n");
             continue;
         }
+        if (equals_ci(s, "CLRSCR"))
+        {
+            EMIT_CODE(&ob, "    CLRSCR");
+            if (debug)
+                printf("[BASIC] CLRSCR\n");
+            continue;
+        }
 
         fprintf(stderr, "Unknown statement on line %d: %s\n", lineno, s);
         result = 1;
