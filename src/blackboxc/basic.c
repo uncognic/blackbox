@@ -1473,6 +1473,48 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         if (starts_with_ci(s, "INPUT "))
         {
             const char *name = skip_ws(s + 6);
+
+            if (*name == '"')
+            {
+                const char *str_end = strchr(name + 1, '"');
+                if (!str_end)
+                {
+                    fprintf(stderr, "Syntax error line %d: unterminated string in INPUT\n", lineno);
+                    result = 1;
+                    break;
+                }
+
+                size_t prompt_len = (size_t)(str_end - name + 1);
+                char *prompt_arg = (char *)malloc(prompt_len + 1);
+                if (!prompt_arg)
+                {
+                    fprintf(stderr, "Out of memory while parsing INPUT prompt on line %d\n", lineno);
+                    result = 1;
+                    break;
+                }
+
+                memcpy(prompt_arg, name, prompt_len);
+                prompt_arg[prompt_len] = '\0';
+
+                if (emit_write_values(prompt_arg, &st, &ra, &ob, debug, lineno, &uid, "WRITE"))
+                {
+                    free(prompt_arg);
+                    result = 1;
+                    break;
+                }
+                free(prompt_arg);
+
+                name = skip_ws(str_end + 1);
+                if (*name != ',')
+                {
+                    fprintf(stderr, "Syntax error line %d: expected ',' after INPUT prompt\n", lineno);
+                    result = 1;
+                    break;
+                }
+
+                name = skip_ws(name + 1);
+            }
+
             Variable *v = sym_find(&st, name);
             if (!v)
             {

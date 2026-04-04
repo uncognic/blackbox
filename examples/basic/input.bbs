@@ -1,10 +1,8 @@
 VAR test = 0
-WRITE "Enter a number: "
-INPUT test
+INPUT "Enter a number: ", test
 
 VAR string = ""
-WRITE "Enter a string: "
-INPUT string
+INPUT "Enter a string: ", string
 
 WRITE "You entered the number: "
 PRINT test

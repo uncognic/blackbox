@@ -79,6 +79,21 @@ ELSE:
     PRINT "small"
 ENDIF
 ```
+### ELSE IF
+```basic
+IF y < 5:
+    PRINT "y is less than 5"
+ELSE IF y > 5:
+    PRINT "y is greater than 5"
+    IF y == 10:
+        PRINT "y is exactly 10"
+    ELSE IF y == 15:
+        PRINT "y is exactly 15"
+    ELSE:
+        PRINT "y is something else"
+    ENDIF
+ENDIF
+```
 
 ### WHILE / ENDWHILE
 ```basic
@@ -102,7 +117,7 @@ FOR VAR I = 10 TO 0 STEP -1
 NEXT I
 ```
 
-### Labels
+## Labels
 ```basic
 CALL program
 HALT OK
@@ -113,15 +128,13 @@ LABEL program
 ```
 You can also use GOTO if you don't want to return.
 
-### INPUT 
+## INPUT 
 ```basic
 VAR test = 0
-WRITE "Enter a number: "
-INPUT test
+INPUT "Enter a number: ", test
 
 VAR string = ""
-WRITE "Enter a string: "
-INPUT string
+INPUT "Enter a string: ", string
 
 WRITE "You entered the number: "
 PRINT test
@@ -129,7 +142,7 @@ PRINT test
 WRITE "You entered the string: "
 PRINT string
 ```
-### INC / DEC
+## INC / DEC
 ```basic
 FOR VAR I = 10 TO 0 STEP 0
     DEC I
