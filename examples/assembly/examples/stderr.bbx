@@ -1,0 +1,22 @@
+%asm
+%data
+    STR $OUT_MSG, "stdout message"
+    STR $ERR_MSG, "stderr message"
+%main
+    LOADSTR $OUT_MSG, R01 ; stdout message
+    PRINTSTR R01
+    NEWLINE
+
+    LOADSTR $ERR_MSG, R01 ; stderr message
+    EPRINTSTR R01
+    NEWLINE
+
+    MOVI R02, 123
+    PRINTREG R02 ; print 123
+    MOVI R03, 10
+    PRINTCHAR R03 ; print newline (ascii 10)
+
+    EPRINTREG R02 ; print 123 to stderr
+    EPRINTCHAR R03 ; print newline to stderr
+
+    HALT OK

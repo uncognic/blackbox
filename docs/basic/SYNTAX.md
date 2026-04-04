@@ -75,6 +75,21 @@ Prints values without appending a newline.
 WRITE "x=", X
 ```
 
+### EWRITE
+Same as `WRITE`, but sends output to `stderr`.
+
+```basic
+EWRITE "error: x=", X
+```
+
+### EPRINT
+Same as `PRINT`, but sends output to `stderr` and appends a newline.
+
+```basic
+EPRINT "fatal: invalid value"
+EPRINT "x=", X
+```
+
 ## Conditions and loops
 ### IF / ELSE / ENDIF
 ```basic

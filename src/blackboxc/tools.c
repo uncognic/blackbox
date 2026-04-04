@@ -312,6 +312,8 @@ size_t instr_size(const char *line)
         return 1;
     else if (starts_with_ci(line, "PRINTREG"))
         return 2;
+    else if (starts_with_ci(line, "EPRINTREG"))
+        return 2;
     else if (starts_with_ci(line, "PRINT"))
         return 2;
     else if (starts_with_ci(line, "WRITE"))
@@ -475,6 +477,8 @@ size_t instr_size(const char *line)
     }
     else if (starts_with_ci(line, "PRINTSTR"))
         return 2;
+    else if (starts_with_ci(line, "EPRINTSTR"))
+        return 2;
     else if (starts_with_ci(line, "HALT"))
     {
         char operand[32];
@@ -549,6 +553,8 @@ size_t instr_size(const char *line)
     else if (starts_with_ci(line, "DUMPREGS"))
         return 1;
     else if (starts_with_ci(line, "PRINTCHAR"))
+        return 2;
+    else if (starts_with_ci(line, "EPRINTCHAR"))
         return 2;
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);

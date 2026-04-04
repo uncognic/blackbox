@@ -684,7 +684,8 @@ static int emit_write_values(const char *arg,
                              SymbolTable *st, RegAlloc *ra, OutBuf *ob,
                              int debug, int lineno,
                              unsigned long *uid,
-                             const char *stmt_name)
+                             const char *stmt_name,
+                             int to_stderr)
 {
     while (*arg)
     {
@@ -715,7 +716,10 @@ static int emit_write_values(const char *arg,
             reg_name(reg, rn);
 
             EMIT_CODE(ob, "    LOADSTR $%s, %s", data_name, rn);
-            EMIT_CODE(ob, "    PRINTSTR %s", rn);
+            if (to_stderr)
+                EMIT_CODE(ob, "    EPRINTSTR %s", rn);
+            else
+                EMIT_CODE(ob, "    PRINTSTR %s", rn);
             ralloc_release(ra, reg);
 
             if (debug)
@@ -733,7 +737,10 @@ static int emit_write_values(const char *arg,
 
             char rn[4];
             reg_name(reg, rn);
-            EMIT_CODE(ob, "    PRINTREG %s", rn);
+            if (to_stderr)
+                EMIT_CODE(ob, "    EPRINTREG %s", rn);
+            else
+                EMIT_CODE(ob, "    PRINTREG %s", rn);
             ralloc_release(ra, reg);
 
             if (debug)
@@ -1330,7 +1337,30 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
             arg = skip_ws(arg);
 
-            if (*arg != '\0' && emit_write_values(arg, &st, &ra, &ob, debug, lineno, &uid, "WRITE"))
+            if (*arg != '\0' && emit_write_values(arg, &st, &ra, &ob, debug, lineno, &uid, "WRITE", 0))
+            {
+                result = 1;
+                break;
+            }
+
+            continue;
+        }
+
+        // EWRITE (WRITE to stderr, no trailing newline)
+        if (starts_with_ci(s, "EWRITE"))
+        {
+            const char *arg = s + 6;
+
+            if (*arg != '\0' && !isspace((unsigned char)*arg))
+            {
+                fprintf(stderr, "Syntax error line %d: expected EWRITE [<value>[, ...]]\n", lineno);
+                result = 1;
+                break;
+            }
+
+            arg = skip_ws(arg);
+
+            if (*arg != '\0' && emit_write_values(arg, &st, &ra, &ob, debug, lineno, &uid, "EWRITE", 1))
             {
                 result = 1;
                 break;
@@ -1353,7 +1383,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
             arg = skip_ws(arg);
 
-            if (*arg != '\0' && emit_write_values(arg, &st, &ra, &ob, debug, lineno, &uid, "PRINT"))
+            if (*arg != '\0' && emit_write_values(arg, &st, &ra, &ob, debug, lineno, &uid, "PRINT", 0))
             {
                 result = 1;
                 break;
@@ -1375,6 +1405,46 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
             if (debug)
                 printf("[BASIC] PRINT <newline>\n");
+
+            continue;
+        }
+
+        // EPRINT (EWRITE but with a trailing newline)
+        if (starts_with_ci(s, "EPRINT"))
+        {
+            const char *arg = s + 6;
+
+            if (*arg != '\0' && !isspace((unsigned char)*arg))
+            {
+                fprintf(stderr, "Syntax error line %d: expected EPRINT [<value>[, ...]]\n", lineno);
+                result = 1;
+                break;
+            }
+
+            arg = skip_ws(arg);
+
+            if (*arg != '\0' && emit_write_values(arg, &st, &ra, &ob, debug, lineno, &uid, "EPRINT", 1))
+            {
+                result = 1;
+                break;
+            }
+
+            int nl_reg = ralloc_acquire(&ra);
+            if (nl_reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+
+            char nl_rn[4];
+            reg_name(nl_reg, nl_rn);
+            EMIT_CODE(&ob, "    MOVI %s, 10", nl_rn);
+            EMIT_CODE(&ob, "    EPRINTCHAR %s", nl_rn);
+            ralloc_release(&ra, nl_reg);
+
+            if (debug)
+                printf("[BASIC] EPRINT <newline>\n");
 
             continue;
         }
@@ -1675,7 +1745,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 memcpy(prompt_arg, name, prompt_len);
                 prompt_arg[prompt_len] = '\0';
 
-                if (emit_write_values(prompt_arg, &st, &ra, &ob, debug, lineno, &uid, "WRITE"))
+                if (emit_write_values(prompt_arg, &st, &ra, &ob, debug, lineno, &uid, "WRITE", 0))
                 {
                     free(prompt_arg);
                     result = 1;

@@ -1,0 +1,9 @@
+VAR X = 42
+
+WRITE "stdout: "
+PRINT X
+
+EWRITE "stderr: "
+EPRINT X
+
+HALT OK

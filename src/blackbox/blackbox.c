@@ -772,6 +772,28 @@ int main(int argc, char *argv[])
             fflush(stdout);
             break;
         }
+        case OPCODE_EPRINTREG:
+        {
+            if (pc >= size)
+            {
+                fprintf(stderr, "Missing operand for EPRINTREG at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register");
+                free(program);
+                free(stack);
+                return 1;
+            }
+            fprintf(stderr, "%lld", (long long)registers[reg]);
+            fflush(stderr);
+            break;
+        }
         case OPCODE_MOV_REG:
         {
             if (pc + 2 >= size)
@@ -1743,6 +1765,59 @@ int main(int argc, char *argv[])
                 printf("%s", &data_table[val]);
             }
             fflush(stdout);
+            break;
+        }
+        case OPCODE_EPRINTSTR:
+        {
+            if (pc >= size)
+            {
+                fprintf(stderr, "Missing operand for EPRINTSTR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in EPRINTSTR at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+
+            uint32_t val = (uint32_t)registers[reg];
+            if (val & 0x80000000)
+            {
+                size_t offset = val & 0x7FFFFFFF;
+                if (offset >= stack_cap)
+                {
+                    fprintf(stderr, "Stack offset out of bounds: %zu at pc=%zu\n", offset, pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                size_t i = offset;
+                while (i < sp)
+                {
+                    char c = (char)stack[i];
+                    if (c == '\0')
+                        break;
+                    fputc(c, stderr);
+                    i++;
+                }
+            }
+            else
+            {
+                if (val >= data_table_size)
+                {
+                    fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", val, pc);
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                fprintf(stderr, "%s", &data_table[val]);
+            }
+            fflush(stderr);
             break;
         }
         case OPCODE_NOT:
@@ -2841,6 +2916,18 @@ int main(int argc, char *argv[])
             }
             putchar((char)registers[reg]);
             fflush(stdout);
+            break;
+        }
+        case OPCODE_EPRINTCHAR:
+        {
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in EPRINTCHAR at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            fputc((char)registers[reg], stderr);
+            fflush(stderr);
             break;
         }
         default:

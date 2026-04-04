@@ -11,6 +11,8 @@ Supported statements and blocks:
 - `name = <expr>`
 - `PRINT [value[, value...]]`
 - `WRITE [value[, value...]]`
+- `EPRINT [value[, value...]]` (same as PRINT, but to stderr)
+- `EWRITE [value[, value...]]` (same as WRITE, but to stderr)
 - `IF <condition>:` ... `ELSE:` ... `ENDIF`
 - `WHILE <condition>:` ... `ENDWHILE`
 - `FOR <name> = <expr> TO <expr> [STEP <expr>]` ... `NEXT [name]`

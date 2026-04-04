@@ -849,6 +849,24 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_PRINTSTR, out);
             fputc(reg, out);
         }
+        else if (starts_with_ci(s, "eprintstr"))
+        {
+            if (debug)
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            char regname[16];
+            if (sscanf(s + 9, " %15s", regname) != 1)
+            {
+                fprintf(stderr,
+                        "Syntax error line %d: expected EPRINTSTR <register>\n",
+                        lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t reg = parse_register(regname, lineno);
+            fputc(OPCODE_EPRINTSTR, out);
+            fputc(reg, out);
+        }
         else if (starts_with_ci(s, "loadbyte"))
         {
             if (debug)
@@ -1193,6 +1211,37 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_PRINTREG, out);
             fputc(reg, out);
         }
+        else if (starts_with_ci(s, "eprintreg"))
+        {
+            if (debug)
+            {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
+            char regname[16];
+
+            if (sscanf(s + 9, " %7s", regname) != 1)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected EPRINTREG "
+                        "<register>\nGot: %s\n",
+                        lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            for (int i = 0; regname[i]; i++)
+            {
+                if (regname[i] == '\r' || regname[i] == '\n')
+                {
+                    regname[i] = '\0';
+                    break;
+                }
+            }
+            uint8_t reg = parse_register(regname, lineno);
+
+            fputc(OPCODE_EPRINTREG, out);
+            fputc(reg, out);
+        }
         else if (starts_with_ci(s, "print_stacksize"))
         {
             if (debug)
@@ -1212,6 +1261,19 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_PRINTCHAR, out);
+            fputc(parse_register(reg, lineno), out);
+        }
+        else if (starts_with_ci(s, "EPRINTCHAR"))
+        {
+            char reg[16];
+            if (sscanf(s + 10, " %15s", reg) != 1)
+            {
+                fprintf(stderr, "Syntax error line %d: expected EPRINTCHAR <register>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            fputc(OPCODE_EPRINTCHAR, out);
             fputc(parse_register(reg, lineno), out);
         }
         else if (starts_with_ci(s, "print"))

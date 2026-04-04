@@ -220,6 +220,22 @@
   - Syntax: `PRINTCHAR <reg|imm>`
   - Encoding: `OPCODE_PRINTCHAR`, 1 byte register or 4 byte immediate
   - Behavior: Prints the ASCII character corresponding to the value in the register or the immediate value.
+
+ - EPRINTREG: Print register value to stderr (for debugging)
+  - Syntax: `EPRINTREG <reg>`
+  - Encoding: `OPCODE_EPRINTREG`, 1 byte register
+  - Behavior: Prints the value of the specified register to stderr (for debugging purposes)
+
+ - EPRINTSTR: Print string to stderr (for debugging)
+  - Syntax: `EPRINTSTR <reg>`
+  - Encoding: `OPCODE_EPRINTSTR`, 1 byte register
+  - Behavior: Prints the string pointed to by the specified register to stderr (for debugging purposes)
+
+ - EPRINTCHAR: Print character to stderr (for debugging)
+  - Syntax: `EPRINTCHAR <reg>`
+  - Encoding: `OPCODE_EPRINTCHAR`, 1 byte register
+  - Behavior: Prints the ASCII character corresponding to the value in the register to stderr (for debugging purposes)
+
 ## Macros
 - %include: Inline another source file before macro processing
   - Syntax: `%include "path/to/file.bbx"`
