@@ -2930,6 +2930,43 @@ int main(int argc, char *argv[])
             fflush(stderr);
             break;
         }
+        case OPCODE_SHL:
+        {
+            uint8_t reg = program[pc++];
+            uint64_t shift = read_u64(program, &pc);
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in SHL at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            if (shift >= 64)
+                registers[reg] = 0;
+            else
+                registers[reg] = registers[reg] << shift;
+            break;
+        }
+        case OPCODE_SHR:
+        {
+            uint8_t reg = program[pc++];
+            uint64_t shift = read_u64(program, &pc);
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in SHR at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            if (shift >= 64)
+            {
+                if (registers[reg] < 0)
+                    registers[reg] = -1;
+                else
+                    registers[reg] = 0;
+            }
+            else
+            {
+                registers[reg] = registers[reg] >> shift;
+            }
+            break;
+        }
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,

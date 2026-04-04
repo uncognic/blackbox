@@ -145,6 +145,14 @@
   - Syntax: `XOR <dst>, <src>`  
   - Encoding: `OPCODE_XOR`, 1 byte dst, 1 byte src  
   - Behavior: bitwise XOR - computes `dst = dst ^ src`.
+- SHL: Shift left  
+  - Syntax: `SHL <register>, <shift>`  
+  - Encoding: `OPCODE_SHL`, 1 byte register, 8-byte unsigned shift amount  
+  - Behavior: shifts the register value left by the given count; shift count is encoded as a 64-bit immediate.
+- SHR: Arithmetic shift right  
+  - Syntax: `SHR <register>, <shift>`  
+  - Encoding: `OPCODE_SHR`, 1 byte register, 8-byte unsigned shift amount  
+  - Behavior: shifts the register value right by the given count; preserves sign for negative values, and the shift count is encoded as a 64-bit immediate.
 - READSTR: Read string from stdin
   - Syntax: `READSTR <register>
   - Encoding: `OPCODE_READSTR`, 1 byte register

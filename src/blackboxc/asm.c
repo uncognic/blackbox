@@ -2734,7 +2734,73 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_GETFAULT, out);
             fputc(parse_register(reg, lineno), out);
         }
-        
+        else if (starts_with_ci(s, "SHL"))
+        {
+            char reg[16];
+            char amount[32];
+            char *comma = strchr(s + 3, ',');
+            if (!comma || sscanf(s + 3, " %15[^,]", reg) != 1 ||
+                sscanf(comma + 1, " %31s", amount) != 1)
+            {
+                fprintf(stderr, "Syntax error line %d: expected SHL <register>, <shift>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            if (amount[0] == '-')
+            {
+                fprintf(stderr, "Syntax error line %d: shift count must be non-negative\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            char *end;
+            uint64_t shift = strtoull(amount, &end, 0);
+            if (*end != '\0')
+            {
+                fprintf(stderr, "Syntax error line %d: invalid shift count '%s'\n", lineno, amount);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            fputc(OPCODE_SHL, out);
+            fputc(parse_register(reg, lineno), out);
+            write_u64(out, (uint64_t)shift);
+        }
+        else if (starts_with_ci(s, "SHR"))
+        {
+            char reg[16];
+            char amount[32];
+            char *comma = strchr(s + 3, ',');
+            if (!comma || sscanf(s + 3, " %15[^,]", reg) != 1 ||
+                sscanf(comma + 1, " %31s", amount) != 1)
+            {
+                fprintf(stderr, "Syntax error line %d: expected SHR <register>, <shift>\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            if (amount[0] == '-')
+            {
+                fprintf(stderr, "Syntax error line %d: shift count must be non-negative\n", lineno);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            char *end;
+            uint64_t shift = strtoull(amount, &end, 0);
+            if (*end != '\0')
+            {
+                fprintf(stderr, "Syntax error line %d: invalid shift count '%s'\n", lineno, amount);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            fputc(OPCODE_SHR, out);
+            fputc(parse_register(reg, lineno), out);
+            write_u64(out, (uint64_t)shift);
+        }
+
         else
         {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno,
