@@ -102,6 +102,34 @@ FOR VAR I = 10 TO 0 STEP -1
 NEXT I
 ```
 
+### Labels
+```basic
+CALL program
+HALT OK
+
+LABEL program
+    PRINT "In program"
+    RETURN
+```
+You can also use GOTO if you don't want to return.
+
+### INPUT 
+```basic
+VAR test = 0
+WRITE "Enter a number: "
+INPUT test
+
+VAR string = ""
+WRITE "Enter a string: "
+INPUT string
+
+WRITE "You entered the number: "
+PRINT test
+
+WRITE "You entered the string: "
+PRINT string
+```
+
 Notes:
 - `STEP` is optional and defaults to `1`.
 - `NEXT` may be used as `NEXT` or `NEXT <var>`.

@@ -1,0 +1,13 @@
+VAR test = 0
+WRITE "Enter a number: "
+INPUT test
+
+VAR string = ""
+WRITE "Enter a string: "
+INPUT string
+
+WRITE "You entered the number: "
+PRINT test
+
+WRITE "You entered the string: "
+PRINT string

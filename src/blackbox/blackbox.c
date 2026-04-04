@@ -2046,6 +2046,10 @@ int main(int argc, char *argv[])
                 registers[reg] = 0;
             else
                 registers[reg] = (int64_t)v;
+            
+            // drain remainder of line so next readstr gets a clean buffer
+            int c;
+            while ((c = getchar()) != EOF && c != '\n');
             break;
         }
         case OPCODE_READCHAR:

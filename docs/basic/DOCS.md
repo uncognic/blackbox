@@ -16,6 +16,8 @@ Supported statements and blocks:
 - `FOR <name> = <expr> TO <expr> [STEP <expr>]` ... `NEXT [name]`
 	(or inline declaration: `FOR VAR <name> = ...`)
 - `HALT [OK|BAD|number]`
+- `LABEL, CALL, RETURN, GOTO`
+- `INPUT name` (reads an integer or string from input, stores in variable)
 - Inline assembly block: `ASM:` ... `ENDASM`
 
 Expressions:

@@ -275,7 +275,7 @@ static int emit_atom(const char *s, const char **end, SymbolTable *st, RegAlloc 
             EMIT_CODE(ob, "    LOADVAR %s, %u", rn, v->slot);
         else
         {
-            EMIT_CODE(ob, "    LOADSTR $%s, %s", v->data_name, rn);
+            EMIT_CODE(ob, "    LOADVAR %s, %u", rn, v->slot);
         }
         *out_reg = reg;
         return 0;
@@ -632,7 +632,7 @@ static int emit_write_values(const char *arg,
 
             if (v->type == VAR_STR)
             {
-                EMIT_CODE(ob, "    LOADSTR $%s, %s", v->data_name, rn);
+                EMIT_CODE(ob, "    LOADVAR %s, %u", rn, v->slot);
                 EMIT_CODE(ob, "    PRINTSTR %s", rn);
             }
             else
@@ -883,7 +883,13 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name);
                 EMIT_DATA(&ob, "    STR $%s, \"%.*s\"",
                           data_name, (int)(str_end - str_start), str_start);
-                sym_add_str(&st, name, data_name);
+                Variable *v = sym_add_str(&st, name, data_name);
+                int reg = ralloc_acquire(&ra);
+                char rn[4];
+                reg_name(reg, rn);
+                EMIT_CODE(&ob, "    LOADSTR $%s, %s", data_name, rn);
+                EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+                ralloc_release(&ra, reg);
                 if (debug)
                     printf("[BASIC] VAR string %s -> $%s\n", name, data_name);
             }
@@ -1331,11 +1337,15 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             char rn[4];
             reg_name(reg, rn);
             if (v->type == VAR_STR)
+            {
                 EMIT_CODE(&ob, "    READSTR %s", rn);
-            else
-                EMIT_CODE(&ob, "    READ %s", rn);
-            if (v->type == VAR_INT)
                 EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+            }
+            else
+            {
+                EMIT_CODE(&ob, "    READ %s", rn);
+                EMIT_CODE(&ob, "    STOREVAR %s, %u", rn, v->slot);
+            }
             ralloc_release(&ra, reg);
             if (debug)
                 printf("[BASIC] INPUT %s\n", name);
