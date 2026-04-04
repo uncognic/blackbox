@@ -389,9 +389,28 @@ static int emit_bitwise(const char *s, const char **end,
         return 1;
     s = skip_ws(*end);
 
-    while (*s == '&' || *s == '|' || *s == '^')
+    while (*s == '&' || *s == '|' || *s == '^' ||
+           (s[0] == '<' && s[1] == '<') ||
+           (s[0] == '>' && s[1] == '>'))
     {
-        char op = *s++;
+        char op[3] = {0};
+        if (*s == '&' || *s == '|' || *s == '^')
+        {
+            op[0] = *s++;
+        }
+        else if (s[0] == '<' && s[1] == '<')
+        {
+            op[0] = '<';
+            op[1] = '<';
+            s += 2;
+        }
+        else
+        {
+            op[0] = '>';
+            op[1] = '>';
+            s += 2;
+        }
+
         s = skip_ws(s);
         int rreg;
         if (emit_unary(s, end, st, ra, ob, debug, &rreg))
@@ -405,12 +424,16 @@ static int emit_bitwise(const char *s, const char **end,
         reg_name(lreg, ln);
         reg_name(rreg, rn);
 
-        if (op == '&')
+        if (op[0] == '&')
             EMIT_CODE(ob, "    AND %s, %s", ln, rn);
-        else if (op == '|')
+        else if (op[0] == '|')
             EMIT_CODE(ob, "    OR %s, %s", ln, rn);
-        else
+        else if (op[0] == '^')
             EMIT_CODE(ob, "    XOR %s, %s", ln, rn);
+        else if (op[0] == '<')
+            EMIT_CODE(ob, "    SHL %s, %s", ln, rn);
+        else
+            EMIT_CODE(ob, "    SHR %s, %s", ln, rn);
 
         ralloc_release(ra, rreg);
     }
@@ -2418,8 +2441,10 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 int step_r = ralloc_acquire(&ra);
                 if (var_r < 0 || step_r < 0)
                 {
-                    if (var_r >= 0) ralloc_release(&ra, var_r);
-                    if (step_r >= 0) ralloc_release(&ra, step_r);
+                    if (var_r >= 0)
+                        ralloc_release(&ra, var_r);
+                    if (step_r >= 0)
+                        ralloc_release(&ra, step_r);
                     fprintf(stderr, "Out of scratch registers\n");
                     result = 1;
                     break;

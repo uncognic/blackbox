@@ -43,6 +43,7 @@ Supported expression atoms:
 Supported arithmetic operators:
 - `*`, `/`, `%` (higher precedence)
 - `+`, `-` (lower precedence)
+- `<<`, `>>` (shift operators)
 
 Example:
 
