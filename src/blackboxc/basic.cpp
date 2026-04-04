@@ -2,13 +2,48 @@
 #include "tools.h"
 #include "../define.h"
 
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <string.h>
-#include <stdbool.h>
-#include <stdarg.h>
+#include <cctype>
+#include <cstdio>
+#include <cstdlib>
+#include <cstdint>
+#include <cstring>
+#include <cstdarg>
+#include <string>
+
+template <typename T>
+static T *grow_array(T *ptr, size_t count)
+{
+    return static_cast<T *>(realloc(ptr, count * sizeof(T)));
+}
+
+static void copy_cstr(char *dst, size_t dst_size, const char *src)
+{
+    if (dst_size == 0)
+        return;
+    snprintf(dst, dst_size, "%s", src ? src : "");
+}
+
+static char *dup_cpp_string(const std::string &s)
+{
+    char *out = static_cast<char *>(malloc(s.size() + 1));
+    if (!out)
+        return nullptr;
+    memcpy(out, s.c_str(), s.size() + 1);
+    return out;
+}
+
+static std::string trim_copy(const std::string &s)
+{
+    size_t start = 0;
+    while (start < s.size() && isspace((unsigned char)s[start]))
+        start++;
+
+    size_t end = s.size();
+    while (end > start && isspace((unsigned char)s[end - 1]))
+        end--;
+
+    return s.substr(start, end - start);
+}
 
 static char g_emit_ctx[512];
 
@@ -88,7 +123,7 @@ static void reg_name(int reg, char *buf)
 
 static void sym_init(SymbolTable *symtab)
 {
-    symtab->vars = NULL;
+    symtab->vars = nullptr;
     symtab->count = 0;
     symtab->cap = 0;
     symtab->next_slot = 0;
@@ -97,7 +132,7 @@ static void sym_init(SymbolTable *symtab)
 static void sym_free(SymbolTable *symtab)
 {
     free(symtab->vars);
-    symtab->vars = NULL;
+    symtab->vars = nullptr;
     symtab->count = 0;
     symtab->cap = 0;
     symtab->next_slot = 0;
@@ -110,24 +145,24 @@ static Variable *sym_find(SymbolTable *symtab, const char *name)
         if (strcmp(symtab->vars[i].name, name) == 0)
             return &symtab->vars[i];
     }
-    return NULL;
+    return nullptr;
 }
 static Variable *sym_add_int(SymbolTable *symtab, const char *name)
 {
     if (symtab->count + 1 >= symtab->cap)
     {
         size_t new_cap = symtab->cap ? symtab->cap * 2 : 16;
-        Variable *nv = (Variable *)realloc(symtab->vars, new_cap * sizeof(Variable));
+        Variable *nv = grow_array(symtab->vars, new_cap);
         if (!nv)
         {
-            return NULL;
+            return nullptr;
         }
         symtab->vars = nv;
         symtab->cap = new_cap;
     }
     Variable *var = &symtab->vars[symtab->count++];
-    memset(var, 0, sizeof(*var));
-    strncpy(var->name, name, sizeof(var->name) - 1);
+    std::memset(var, 0, sizeof(*var));
+    copy_cstr(var->name, sizeof(var->name), name);
     var->type = VAR_INT;
     var->slot = symtab->next_slot++;
     return var;
@@ -137,62 +172,62 @@ static Variable *sym_add_str(SymbolTable *symtab, const char *name, const char *
     if (symtab->count + 1 >= symtab->cap)
     {
         size_t new_cap = symtab->cap ? symtab->cap * 2 : 16;
-        Variable *nv = (Variable *)realloc(symtab->vars, new_cap * sizeof(Variable));
+        Variable *nv = grow_array(symtab->vars, new_cap);
         if (!nv)
         {
-            return NULL;
+            return nullptr;
         }
         symtab->vars = nv;
         symtab->cap = new_cap;
     }
     Variable *var = &symtab->vars[symtab->count++];
-    memset(var, 0, sizeof(*var));
-    strncpy(var->name, name, sizeof(var->name) - 1);
+    std::memset(var, 0, sizeof(*var));
+    copy_cstr(var->name, sizeof(var->name), name);
     var->type = VAR_STR;
     var->is_const = is_const;
     if (!is_const)
         var->slot = symtab->next_slot++;
-    strncpy(var->data_name, data_name, sizeof(var->data_name) - 1);
+    copy_cstr(var->data_name, sizeof(var->data_name), data_name);
     return var;
 }
 
 static void outbuf_init(OutBuf *out)
 {
-    out->data_sec = NULL;
+    out->data_sec = nullptr;
     out->data_len = 0;
     out->data_cap = 0;
 
-    out->code_sec = NULL;
+    out->code_sec = nullptr;
     out->code_len = 0;
     out->code_cap = 0;
 }
 static void outbuf_free(OutBuf *out)
 {
     free(out->data_sec);
-    out->data_sec = NULL;
+    out->data_sec = nullptr;
     out->data_len = 0;
     out->data_cap = 0;
 
     free(out->code_sec);
-    out->code_sec = NULL;
+    out->code_sec = nullptr;
     out->code_len = 0;
     out->code_cap = 0;
 }
 static int outbuf_append(char **buf, size_t *len, size_t *cap, const char *txt)
 {
-    size_t txtlen = strlen(txt);
+    size_t txtlen = std::strlen(txt);
     if (*len + txtlen + 1 > *cap)
     {
         size_t new_cap = (*cap) ? (*cap * 2) : 4096;
         while (new_cap < *len + txtlen + 2)
             new_cap *= 2;
-        char *nb = (char *)realloc(*buf, new_cap);
+        char *nb = grow_array(*buf, new_cap);
         if (!nb)
             return 1;
         *buf = nb;
         *cap = new_cap;
     }
-    memcpy(*buf + *len, txt, txtlen);
+    std::memcpy(*buf + *len, txt, txtlen);
     *len += txtlen;
     (*buf)[*len] = '\0';
     return 0;
@@ -249,6 +284,19 @@ static const char *skip_ws(const char *s)
     return s;
 }
 
+static bool parse_identifier(const char *p, const char **next, std::string &out)
+{
+    size_t n = 0;
+    while (isalnum((unsigned char)p[n]) || p[n] == '_')
+        n++;
+    if (n == 0)
+        return false;
+    out.assign(p, n);
+    if (next)
+        *next = p + n;
+    return true;
+}
+
 static const char *find_keyword_token(const char *s, const char *kw)
 {
     size_t n = strlen(kw);
@@ -262,7 +310,7 @@ static const char *find_keyword_token(const char *s, const char *kw)
         if (left_ok && right_ok)
             return p;
     }
-    return NULL;
+    return nullptr;
 }
 
 static char *dup_trim_range(const char *start, const char *end)
@@ -272,14 +320,8 @@ static char *dup_trim_range(const char *start, const char *end)
     while (end > start && isspace((unsigned char)*(end - 1)))
         end--;
 
-    size_t len = (size_t)(end - start);
-    char *out = (char *)malloc(len + 1);
-    if (!out)
-        return NULL;
-
-    memcpy(out, start, len);
-    out[len] = '\0';
-    return out;
+    std::string s(start, (size_t)(end - start));
+    return dup_cpp_string(s);
 }
 
 static int emit_atom(const char *s, const char **end, SymbolTable *st, RegAlloc *ra, OutBuf *ob, int debug, int *out_reg)
@@ -328,17 +370,19 @@ static int emit_atom(const char *s, const char **end, SymbolTable *st, RegAlloc 
 
     if (isalpha((unsigned char)*s) || *s == '_')
     {
-        char name[64];
-        size_t i = 0;
-        while ((isalnum((unsigned char)*s) || *s == '_') && i < sizeof(name) - 1)
-            name[i++] = *s++;
-        name[i] = '\0';
-        *end = s;
+        std::string name;
+        const char *next = s;
+        if (!parse_identifier(s, &next, name))
+        {
+            fprintf(stderr, "Expression error: expected identifier\n");
+            return 1;
+        }
+        *end = next;
 
-        Variable *v = sym_find(st, name);
+        Variable *v = sym_find(st, name.c_str());
         if (!v)
         {
-            fprintf(stderr, "Undefined variable '%s'\n", name);
+            fprintf(stderr, "Undefined variable '%s'\n", name.c_str());
             return 1;
         }
         int reg = ralloc_acquire(ra);
@@ -569,26 +613,15 @@ static int emit_condition(const char *s, SymbolTable *st, RegAlloc *ra,
             !(isalnum((unsigned char)q[2]) || q[2] == '_'))
         {
             size_t left_len = (size_t)(q - p);
-            char *left = (char *)malloc(left_len + 1);
-            if (!left)
-            {
-                fprintf(stderr, "Out of memory while parsing condition\n");
-                return 1;
-            }
-            memcpy(left, p, left_len);
-            left[left_len] = '\0';
+            std::string left(p, left_len);
 
             char next_or_label[64];
             char pass_label[64];
             snprintf(next_or_label, sizeof(next_or_label), "_or_next_%lu", (*uid)++);
             snprintf(pass_label, sizeof(pass_label), "_or_pass_%lu", (*uid)++);
 
-            if (emit_condition(left, st, ra, ob, debug, next_or_label, uid))
-            {
-                free(left);
+            if (emit_condition(left.c_str(), st, ra, ob, debug, next_or_label, uid))
                 return 1;
-            }
-            free(left);
 
             EMIT_CODE(ob, "    JMP %s", pass_label);
             EMIT_CODE(ob, ".%s:", next_or_label);
@@ -715,16 +748,17 @@ static int emit_write_values(const char *arg,
         const char *arg_start = skip_ws(arg);
         if (isalpha((unsigned char)*arg_start) || *arg_start == '_')
         {
-            char name[64];
-            size_t i = 0;
+            std::string name;
             const char *p = arg_start;
-            while ((isalnum((unsigned char)*p) || *p == '_') && i < sizeof(name) - 1)
-                name[i++] = *p++;
-            name[i] = '\0';
+            if (!parse_identifier(arg_start, &p, name))
+            {
+                fprintf(stderr, "Syntax error line %d: expected identifier in %s\n", lineno, stmt_name);
+                return 1;
+            }
 
             if (*skip_ws(p) == '\0' || *skip_ws(p) == ',')
             {
-                Variable *v = sym_find(st, name);
+                Variable *v = sym_find(st, name.c_str());
                 if (v && v->type == VAR_STR)
                 {
                     int reg = ralloc_acquire(ra);
@@ -749,7 +783,7 @@ static int emit_write_values(const char *arg,
                     ralloc_release(ra, reg);
 
                     if (debug)
-                        printf("[BASIC] %s %s\n", stmt_name, name);
+                        printf("[BASIC] %s %s\n", stmt_name, name.c_str());
 
                     arg = skip_ws(p);
                     goto emit_write_values_next_arg;
@@ -920,7 +954,6 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         // CONST name = value/"string"
         if (starts_with_ci(s, "CONST "))
         {
-            char name[64];
             char *eq = strchr(s + 6, '=');
 
             if (!eq)
@@ -931,31 +964,27 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 break;
             }
 
-            char lhs[128];
-            size_t lhslen = (size_t)(eq - (s + 6));
-
-            if (lhslen >= sizeof(lhs))
+            std::string name = trim_copy(std::string(s + 6, (size_t)(eq - (s + 6))));
+            if (name.empty())
             {
-                lhslen = sizeof(lhs) - 1; // truncate if too long
-            }
-
-            memcpy(lhs, s + 6, lhslen);
-            lhs[lhslen] = '\0';
-            strncpy(name, trim(lhs), sizeof(name) - 1);
-
-            if (sym_find(&st, name))
-            {
-                fprintf(stderr, "Error line %d: variable '%s' already defined\n", lineno, name);
+                fprintf(stderr, "Syntax error line %d: expected CONST <name> = <value>\n", lineno);
                 result = 1;
                 break;
             }
 
-            char *rhs = trim(eq + 1);
-
-            if (rhs[0] == '"')
+            if (sym_find(&st, name.c_str()))
             {
-                char *str_start = rhs + 1;
-                char *str_end = strchr(str_start, '"');
+                fprintf(stderr, "Error line %d: variable '%s' already defined\n", lineno, name.c_str());
+                result = 1;
+                break;
+            }
+
+            std::string rhs = trim_copy(eq + 1);
+
+            if (!rhs.empty() && rhs[0] == '"')
+            {
+                const char *str_start = rhs.c_str() + 1;
+                const char *str_end = strchr(str_start, '"');
                 if (!str_end)
                 {
                     fprintf(stderr, "Syntax error line %d: unterminated string literal\n", lineno);
@@ -966,12 +995,12 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
                 // generate unique data label
                 char data_name[64];
-                snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name);
+                snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name.c_str());
 
                 EMIT_DATA(&ob, "    STR $%s, \"%.*s\"",
                           data_name, (int)(str_end - str_start), str_start);
 
-                Variable *v = sym_add_str(&st, name, data_name, 1);
+                Variable *v = sym_add_str(&st, name.c_str(), data_name, 1);
                 if (!v)
                 {
                     fprintf(stderr, "Out of memory\n");
@@ -979,11 +1008,11 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                     break;
                 }
                 if (debug)
-                    printf("[BASIC] CONST string %s -> $%s\n", name, data_name);
+                    printf("[BASIC] CONST string %s -> $%s\n", name.c_str(), data_name);
             }
             else
             {
-                Variable *v = sym_add_int(&st, name);
+                Variable *v = sym_add_int(&st, name.c_str());
                 if (!v)
                 {
                     fprintf(stderr, "Out of memory\n");
@@ -997,7 +1026,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 reg_name(reg, rn);
 
                 int ereg;
-                if (emit_expr(rhs, &st, &ra, &ob, debug, &ereg))
+                if (emit_expr(rhs.c_str(), &st, &ra, &ob, debug, &ereg))
                 {
                     result = 1;
                     break;
@@ -1005,13 +1034,13 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 char ern[4];
                 reg_name(ereg, ern);
 
-                EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", ern, v->slot);
+                EMIT_CODE_META(&ob, name.c_str(), "    STOREVAR %s, %u", ern, v->slot);
                 ralloc_release(&ra, ereg);
                 (void)reg;
                 ralloc_release(&ra, reg);
 
                 if (debug)
-                    printf("[BASIC] CONST int %s -> slot %u\n", name, v->slot);
+                    printf("[BASIC] CONST int %s -> slot %u\n", name.c_str(), v->slot);
             }
             continue;
         }
@@ -1028,22 +1057,19 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 break;
             }
 
-            char lhs[64];
-            size_t lhslen = (size_t)(eq - (s + 4));
-            if (lhslen >= sizeof(lhs))
+            std::string name = trim_copy(std::string(s + 4, (size_t)(eq - (s + 4))));
+            std::string rhs = trim_copy(eq + 1);
+            if (name.empty())
             {
-                lhslen = sizeof(lhs) - 1; // truncate if too long
+                fprintf(stderr, "Syntax error line %d: expected VAR <name> = <value>\n", lineno);
+                result = 1;
+                break;
             }
-            memcpy(lhs, s + 4, lhslen);
-            lhs[lhslen] = '\0';
-            char *name = trim(lhs);
 
-            char *rhs = trim(eq + 1);
-
-            if (*rhs == '"')
+            if (!rhs.empty() && rhs[0] == '"')
             {
-                char *str_start = rhs + 1;
-                char *str_end = strchr(str_start, '"');
+                const char *str_start = rhs.c_str() + 1;
+                const char *str_end = strchr(str_start, '"');
                 if (!str_end)
                 {
                     fprintf(stderr, "Syntax error line %d: unterminated string\n", lineno);
@@ -1051,29 +1077,29 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                     break;
                 }
                 char data_name[64];
-                snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name);
+                snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name.c_str());
                 EMIT_DATA(&ob, "    STR $%s, \"%.*s\"",
                           data_name, (int)(str_end - str_start), str_start);
-                Variable *v = sym_add_str(&st, name, data_name, 0);
+                Variable *v = sym_add_str(&st, name.c_str(), data_name, 0);
                 int reg = ralloc_acquire(&ra);
                 char rn[4];
                 reg_name(reg, rn);
                 EMIT_CODE(&ob, "    LOADSTR $%s, %s", data_name, rn);
-                EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+                EMIT_CODE_META(&ob, name.c_str(), "    STOREVAR %s, %u", rn, v->slot);
                 ralloc_release(&ra, reg);
                 if (debug)
-                    printf("[BASIC] VAR string %s -> $%s\n", name, data_name);
+                    printf("[BASIC] VAR string %s -> $%s\n", name.c_str(), data_name);
             }
             else
             {
-                Variable *v = sym_find(&st, name);
+                Variable *v = sym_find(&st, name.c_str());
                 if (v)
                 {
-                    fprintf(stderr, "Error line %d: variable '%s' already defined\n", lineno, name);
+                    fprintf(stderr, "Error line %d: variable '%s' already defined\n", lineno, name.c_str());
                     result = 1;
                     break;
                 }
-                v = sym_add_int(&st, name);
+                v = sym_add_int(&st, name.c_str());
                 if (!v)
                 {
                     fprintf(stderr, "Out of memory\n");
@@ -1081,18 +1107,18 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                     break;
                 }
                 int ereg;
-                if (emit_expr(rhs, &st, &ra, &ob, debug, &ereg))
+                if (emit_expr(rhs.c_str(), &st, &ra, &ob, debug, &ereg))
                 {
                     result = 1;
                     break;
                 }
                 char ern[4];
                 reg_name(ereg, ern);
-                EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", ern, v->slot);
+                EMIT_CODE_META(&ob, name.c_str(), "    STOREVAR %s, %u", ern, v->slot);
                 ralloc_release(&ra, ereg);
                 if (debug)
                 {
-                    printf("[BASIC] VAR int %s -> slot %u\n", name, v->slot);
+                    printf("[BASIC] VAR int %s -> slot %u\n", name.c_str(), v->slot);
                 }
             }
             continue;
@@ -1111,40 +1137,37 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
             if (eq)
             {
-                char lhs[64];
                 size_t lhslen = (size_t)(eq - s);
-                if (lhslen < sizeof(lhs))
+                if (lhslen < 64)
                 {
-                    memcpy(lhs, s, lhslen);
-                    lhs[lhslen] = '\0';
-                    char *name = trim(lhs);
-                    Variable *v = sym_find(&st, name);
+                    std::string name = trim_copy(std::string(s, lhslen));
+                    Variable *v = sym_find(&st, name.c_str());
                     if (v)
                     {
                         if (v->is_const)
                         {
                             fprintf(stderr,
                                     "Error line %d: cannot assign to CONST '%s'\n",
-                                    lineno, name);
+                                    lineno, name.c_str());
                             result = 1;
                             break;
                         }
 
-                        char *rhs = trim(eq + 1);
+                        std::string rhs = trim_copy(eq + 1);
 
                         if (v->type == VAR_STR)
                         {
-                            if (*rhs != '"')
+                            if (rhs.empty() || rhs[0] != '"')
                             {
                                 fprintf(stderr,
                                         "Type error line %d: expected string literal for '%s'\n",
-                                        lineno, name);
+                                        lineno, name.c_str());
                                 result = 1;
                                 break;
                             }
 
-                            char *str_start = rhs + 1;
-                            char *str_end = strchr(str_start, '"');
+                            const char *str_start = rhs.c_str() + 1;
+                            const char *str_end = strchr(str_start, '"');
                             if (!str_end)
                             {
                                 fprintf(stderr, "Syntax error line %d: unterminated string\n", lineno);
@@ -1162,23 +1185,22 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                             }
 
                             char data_name[64];
-                            snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name);
+                            snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name.c_str());
 
                             EMIT_DATA(&ob, "    STR $%s, \"%.*s\"",
                                       data_name, (int)(str_end - str_start), str_start);
 
-                            strncpy(v->data_name, data_name, sizeof(v->data_name) - 1);
-                            v->data_name[sizeof(v->data_name) - 1] = '\0';
+                            copy_cstr(v->data_name, sizeof(v->data_name), data_name);
 
                             int reg = ralloc_acquire(&ra);
                             char rn[4];
                             reg_name(reg, rn);
                             EMIT_CODE(&ob, "    LOADSTR $%s, %s", data_name, rn);
-                            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+                            EMIT_CODE_META(&ob, name.c_str(), "    STOREVAR %s, %u", rn, v->slot);
                             ralloc_release(&ra, reg);
 
                             if (debug)
-                                printf("[BASIC] ASSIGN string %s -> $%s\n", name, data_name);
+                                printf("[BASIC] ASSIGN string %s -> $%s\n", name.c_str(), data_name);
                             continue;
                         }
 
@@ -1186,23 +1208,23 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                         {
                             fprintf(stderr,
                                     "Type error line %d: cannot assign numeric expression to string '%s'\n",
-                                    lineno, name);
+                                    lineno, name.c_str());
                             result = 1;
                             break;
                         }
 
                         int ereg;
-                        if (emit_expr(rhs, &st, &ra, &ob, debug, &ereg))
+                        if (emit_expr(rhs.c_str(), &st, &ra, &ob, debug, &ereg))
                         {
                             result = 1;
                             break;
                         }
                         char ern[4];
                         reg_name(ereg, ern);
-                        EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", ern, v->slot);
+                        EMIT_CODE_META(&ob, name.c_str(), "    STOREVAR %s, %u", ern, v->slot);
                         ralloc_release(&ra, ereg);
                         if (debug)
-                            printf("[BASIC] ASSIGN %s -> slot %u\n", name, v->slot);
+                            printf("[BASIC] ASSIGN %s -> slot %u\n", name.c_str(), v->slot);
                         continue;
                     }
                 }
@@ -1269,26 +1291,16 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 if (if_len > 0 && if_start[if_len - 1] == ':')
                     if_len--;
 
-                char *if_stmt = (char *)malloc(if_len + 1);
-                if (!if_stmt)
-                {
-                    fprintf(stderr, "Out of memory parsing ELSE IF\n");
-                    result = 1;
-                    break;
-                }
-                memcpy(if_stmt, if_start, if_len);
-                if_stmt[if_len] = '\0';
+                std::string if_stmt(if_start, if_len);
 
                 char new_else_label[64];
                 snprintf(new_else_label, sizeof(new_else_label), "else_%lu", uid++);
 
-                if (emit_condition(if_stmt, &st, &ra, &ob, debug, new_else_label, &uid))
+                if (emit_condition(if_stmt.c_str(), &st, &ra, &ob, debug, new_else_label, &uid))
                 {
-                    free(if_stmt);
                     result = 1;
                     break;
                 }
-                free(if_stmt);
 
                 Block new_b;
                 new_b.kind = BLOCK_IF;
@@ -1803,24 +1815,13 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 }
 
                 size_t prompt_len = (size_t)(str_end - name + 1);
-                char *prompt_arg = (char *)malloc(prompt_len + 1);
-                if (!prompt_arg)
+                std::string prompt_arg(name, prompt_len);
+
+                if (emit_write_values(prompt_arg.c_str(), &st, &ra, &ob, debug, lineno, &uid, "WRITE", 0))
                 {
-                    fprintf(stderr, "Out of memory while parsing INPUT prompt on line %d\n", lineno);
                     result = 1;
                     break;
                 }
-
-                memcpy(prompt_arg, name, prompt_len);
-                prompt_arg[prompt_len] = '\0';
-
-                if (emit_write_values(prompt_arg, &st, &ra, &ob, debug, lineno, &uid, "WRITE", 0))
-                {
-                    free(prompt_arg);
-                    result = 1;
-                    break;
-                }
-                free(prompt_arg);
 
                 name = skip_ws(str_end + 1);
                 if (*name != ',')
@@ -1862,19 +1863,14 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         {
             const char *p = skip_ws(s + 6);
 
-            char name[64];
-            size_t nlen = 0;
-            while ((isalnum((unsigned char)p[nlen]) || p[nlen] == '_') && nlen < sizeof(name) - 1)
-                nlen++;
-            if (nlen == 0)
+            std::string name;
+            if (!parse_identifier(p, &p, name))
             {
                 fprintf(stderr, "Syntax error line %d: expected GETKEY <identifier>\n", lineno);
                 result = 1;
                 break;
             }
-            memcpy(name, p, nlen);
-            name[nlen] = '\0';
-            p = skip_ws(p + nlen);
+            p = skip_ws(p);
 
             if (*p != '\0')
             {
@@ -1883,22 +1879,22 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 break;
             }
 
-            Variable *v = sym_find(&st, name);
+            Variable *v = sym_find(&st, name.c_str());
             if (!v)
             {
-                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name.c_str(), lineno);
                 result = 1;
                 break;
             }
             if (v->is_const)
             {
-                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name);
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name.c_str());
                 result = 1;
                 break;
             }
             if (v->type != VAR_INT)
             {
-                fprintf(stderr, "Type error line %d: GETKEY target '%s' must be integer\n", lineno, name);
+                fprintf(stderr, "Type error line %d: GETKEY target '%s' must be integer\n", lineno, name.c_str());
                 result = 1;
                 break;
             }
@@ -1913,29 +1909,24 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             char rn[4];
             reg_name(reg, rn);
             EMIT_CODE(&ob, "    GETKEY %s", rn);
-            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+            EMIT_CODE_META(&ob, name.c_str(), "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
             if (debug)
-                printf("[BASIC] GETKEY %s\n", name);
+                printf("[BASIC] GETKEY %s\n", name.c_str());
             continue;
         }
         if (starts_with_ci(s, "GETARGC"))
         {
             const char *p = skip_ws(s + 7);
 
-            char name[64];
-            size_t nlen = 0;
-            while ((isalnum((unsigned char)p[nlen]) || p[nlen] == '_') && nlen < sizeof(name) - 1)
-                nlen++;
-            if (nlen == 0)
+            std::string name;
+            if (!parse_identifier(p, &p, name))
             {
                 fprintf(stderr, "Syntax error line %d: expected GETARGC <identifier>\n", lineno);
                 result = 1;
                 break;
             }
-            memcpy(name, p, nlen);
-            name[nlen] = '\0';
-            p = skip_ws(p + nlen);
+            p = skip_ws(p);
 
             if (*p != '\0')
             {
@@ -1944,22 +1935,22 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 break;
             }
 
-            Variable *v = sym_find(&st, name);
+            Variable *v = sym_find(&st, name.c_str());
             if (!v)
             {
-                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name.c_str(), lineno);
                 result = 1;
                 break;
             }
             if (v->is_const)
             {
-                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name);
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name.c_str());
                 result = 1;
                 break;
             }
             if (v->type != VAR_INT)
             {
-                fprintf(stderr, "Type error line %d: GETARGC target '%s' must be integer\n", lineno, name);
+                fprintf(stderr, "Type error line %d: GETARGC target '%s' must be integer\n", lineno, name.c_str());
                 result = 1;
                 break;
             }
@@ -1974,29 +1965,24 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             char rn[4];
             reg_name(reg, rn);
             EMIT_CODE(&ob, "    GETARGC %s", rn);
-            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+            EMIT_CODE_META(&ob, name.c_str(), "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
             if (debug)
-                printf("[BASIC] GETARGC %s\n", name);
+                printf("[BASIC] GETARGC %s\n", name.c_str());
             continue;
         }
         if (starts_with_ci(s, "GETARG"))
         {
             const char *p = skip_ws(s + 6);
 
-            char name[64];
-            size_t nlen = 0;
-            while ((isalnum((unsigned char)p[nlen]) || p[nlen] == '_') && nlen < sizeof(name) - 1)
-                nlen++;
-            if (nlen == 0)
+            std::string name;
+            if (!parse_identifier(p, &p, name))
             {
                 fprintf(stderr, "Syntax error line %d: expected GETARG <identifier>, <index>\n", lineno);
                 result = 1;
                 break;
             }
-            memcpy(name, p, nlen);
-            name[nlen] = '\0';
-            p = skip_ws(p + nlen);
+            p = skip_ws(p);
 
             if (*p != ',')
             {
@@ -2012,19 +1998,14 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 break;
             }
 
-            char idx_tok[32];
-            size_t idx_len = 0;
-            while ((isalnum((unsigned char)p[idx_len]) || p[idx_len] == '_') && idx_len < sizeof(idx_tok) - 1)
-                idx_len++;
-            if (idx_len == 0)
+            std::string idx_tok;
+            if (!parse_identifier(p, &p, idx_tok))
             {
                 fprintf(stderr, "Syntax error line %d: expected GETARG <identifier>, <index>\n", lineno);
                 result = 1;
                 break;
             }
-            memcpy(idx_tok, p, idx_len);
-            idx_tok[idx_len] = '\0';
-            p = skip_ws(p + idx_len);
+            p = skip_ws(p);
 
             if (*p != '\0')
             {
@@ -2034,30 +2015,30 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
 
             char *endptr;
-            unsigned long idx = strtoul(idx_tok, &endptr, 0);
+            unsigned long idx = strtoul(idx_tok.c_str(), &endptr, 0);
             if (*endptr != '\0')
             {
-                fprintf(stderr, "Syntax error line %d: invalid GETARG index '%s'\n", lineno, idx_tok);
+                fprintf(stderr, "Syntax error line %d: invalid GETARG index '%s'\n", lineno, idx_tok.c_str());
                 result = 1;
                 break;
             }
 
-            Variable *v = sym_find(&st, name);
+            Variable *v = sym_find(&st, name.c_str());
             if (!v)
             {
-                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name.c_str(), lineno);
                 result = 1;
                 break;
             }
             if (v->is_const)
             {
-                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name);
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name.c_str());
                 result = 1;
                 break;
             }
             if (v->type != VAR_STR)
             {
-                fprintf(stderr, "Type error line %d: GETARG target '%s' must be string\n", lineno, name);
+                fprintf(stderr, "Type error line %d: GETARG target '%s' must be string\n", lineno, name.c_str());
                 result = 1;
                 break;
             }
@@ -2072,29 +2053,24 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             char rn[4];
             reg_name(reg, rn);
             EMIT_CODE(&ob, "    GETARG %s, %lu", rn, idx);
-            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+            EMIT_CODE_META(&ob, name.c_str(), "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
             if (debug)
-                printf("[BASIC] GETARG %s, %lu\n", name, idx);
+                printf("[BASIC] GETARG %s, %lu\n", name.c_str(), idx);
             continue;
         }
         if (starts_with_ci(s, "GETENV"))
         {
             const char *p = skip_ws(s + 6);
 
-            char name[64];
-            size_t nlen = 0;
-            while ((isalnum((unsigned char)p[nlen]) || p[nlen] == '_') && nlen < sizeof(name) - 1)
-                nlen++;
-            if (nlen == 0)
+            std::string name;
+            if (!parse_identifier(p, &p, name))
             {
                 fprintf(stderr, "Syntax error line %d: expected GETENV <identifier>, <varname>\n", lineno);
                 result = 1;
                 break;
             }
-            memcpy(name, p, nlen);
-            name[nlen] = '\0';
-            p = skip_ws(p + nlen);
+            p = skip_ws(p);
 
             if (*p != ',')
             {
@@ -2110,7 +2086,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 break;
             }
 
-            char envname[256];
+            std::string envname;
             if (*p == '"')
             {
                 const char *end = strchr(p + 1, '"');
@@ -2120,27 +2096,19 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                     result = 1;
                     break;
                 }
-                size_t len = (size_t)(end - (p + 1));
-                if (len >= sizeof(envname))
-                    len = sizeof(envname) - 1;
-                memcpy(envname, p + 1, len);
-                envname[len] = '\0';
+                envname.assign(p + 1, (size_t)(end - (p + 1)));
                 p = skip_ws(end + 1);
             }
             else
             {
-                size_t elen = 0;
-                while ((isalnum((unsigned char)p[elen]) || p[elen] == '_') && elen < sizeof(envname) - 1)
-                    elen++;
-                if (elen == 0)
+                const char *next = p;
+                if (!parse_identifier(p, &next, envname))
                 {
                     fprintf(stderr, "Syntax error line %d: expected GETENV <identifier>, <varname>\n", lineno);
                     result = 1;
                     break;
                 }
-                memcpy(envname, p, elen);
-                envname[elen] = '\0';
-                p = skip_ws(p + elen);
+                p = skip_ws(next);
             }
 
             if (*p != '\0')
@@ -2150,22 +2118,22 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 break;
             }
 
-            Variable *v = sym_find(&st, name);
+            Variable *v = sym_find(&st, name.c_str());
             if (!v)
             {
-                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name.c_str(), lineno);
                 result = 1;
                 break;
             }
             if (v->is_const)
             {
-                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name);
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name.c_str());
                 result = 1;
                 break;
             }
             if (v->type != VAR_STR)
             {
-                fprintf(stderr, "Type error line %d: GETENV target '%s' must be string\n", lineno, name);
+                fprintf(stderr, "Type error line %d: GETENV target '%s' must be string\n", lineno, name.c_str());
                 result = 1;
                 break;
             }
@@ -2179,47 +2147,42 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
             char rn[4];
             reg_name(reg, rn);
-            EMIT_CODE(&ob, "    GETENV %s, \"%s\"", rn, envname);
-            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+            EMIT_CODE(&ob, "    GETENV %s, \"%s\"", rn, envname.c_str());
+            EMIT_CODE_META(&ob, name.c_str(), "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
             if (debug)
-                printf("[BASIC] GETENV %s, %s\n", name, envname);
+                printf("[BASIC] GETENV %s, %s\n", name.c_str(), envname.c_str());
             continue;
         }
         if (starts_with_ci(s, "RANDOM"))
         {
             const char *p = skip_ws(s + 6);
 
-            char name[64];
-            size_t nlen = 0;
-            while ((isalnum((unsigned char)p[nlen]) || p[nlen] == '_') && nlen < sizeof(name) - 1)
-                nlen++;
-            if (nlen == 0)
+            std::string name;
+            if (!parse_identifier(p, &p, name))
             {
                 fprintf(stderr, "Syntax error line %d: expected RANDOM <identifier>\n", lineno);
                 result = 1;
                 break;
             }
-            memcpy(name, p, nlen);
-            name[nlen] = '\0';
-            p = skip_ws(p + nlen);
+            p = skip_ws(p);
 
-            Variable *v = sym_find(&st, name);
+            Variable *v = sym_find(&st, name.c_str());
             if (!v)
             {
-                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name.c_str(), lineno);
                 result = 1;
                 break;
             }
             if (v->is_const)
             {
-                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name);
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name.c_str());
                 result = 1;
                 break;
             }
             if (v->type != VAR_INT)
             {
-                fprintf(stderr, "Type error line %d: RANDOM target '%s' must be integer\n", lineno, name);
+                fprintf(stderr, "Type error line %d: RANDOM target '%s' must be integer\n", lineno, name.c_str());
                 result = 1;
                 break;
             }
@@ -2246,52 +2209,33 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                     result = 1;
                     break;
                 }
-                char *min_str = dup_trim_range(min_start, comma);
-                if (!min_str)
-                {
-                    fprintf(stderr, "Out of memory while parsing RANDOM\n");
-                    ralloc_release(&ra, reg);
-                    result = 1;
-                    break;
-                }
+                std::string min_str = trim_copy(std::string(min_start, (size_t)(comma - min_start)));
                 p = skip_ws(comma + 1);
                 const char *max_start = p;
                 const char *max_end = max_start;
                 while (*max_end)
                     max_end++;
-                char *max_str = dup_trim_range(max_start, max_end);
-                if (!max_str)
-                {
-                    free(min_str);
-                    fprintf(stderr, "Out of memory while parsing RANDOM\n");
-                    ralloc_release(&ra, reg);
-                    result = 1;
-                    break;
-                }
+                std::string max_str = trim_copy(std::string(max_start, (size_t)(max_end - max_start)));
 
                 if (*skip_ws(max_end) != '\0')
                 {
-                    free(min_str);
-                    free(max_str);
                     fprintf(stderr, "Syntax error line %d: unexpected trailing tokens after RANDOM\n", lineno);
                     ralloc_release(&ra, reg);
                     result = 1;
                     break;
                 }
 
-                EMIT_CODE_META(&ob, name, "    RAND %s, %s, %s", rn, min_str, max_str);
-                free(min_str);
-                free(max_str);
+                EMIT_CODE_META(&ob, name.c_str(), "    RAND %s, %s, %s", rn, min_str.c_str(), max_str.c_str());
             }
             else
             {
-                EMIT_CODE_META(&ob, name, "    RAND %s", rn);
+                EMIT_CODE_META(&ob, name.c_str(), "    RAND %s", rn);
             }
 
-            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+            EMIT_CODE_META(&ob, name.c_str(), "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
             if (debug)
-                printf("[BASIC] RANDOM %s\n", name);
+                printf("[BASIC] RANDOM %s\n", name.c_str());
             continue;
         }
         if (starts_with_ci(s, "FOR "))
@@ -2342,25 +2286,14 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             const char *to_rhs = skip_ws(to_kw + 2);
             const char *step_kw = find_keyword_token(to_rhs, "STEP");
 
-            char *init_expr = dup_trim_range(init_start, to_kw);
-            char *limit_expr = dup_trim_range(to_rhs, step_kw ? step_kw : (to_rhs + strlen(to_rhs)));
-            char *step_expr = step_kw ? dup_trim_range(step_kw + 4, to_rhs + strlen(to_rhs)) : strdup("1");
+            std::string init_expr = trim_copy(std::string(init_start, (size_t)(to_kw - init_start)));
+            std::string limit_expr = trim_copy(std::string(to_rhs, (size_t)((step_kw ? step_kw : (to_rhs + strlen(to_rhs))) - to_rhs)));
+            std::string step_expr = step_kw
+                                        ? trim_copy(std::string(step_kw + 4, (size_t)((to_rhs + strlen(to_rhs)) - (step_kw + 4))))
+                                        : std::string("1");
 
-            if (!init_expr || !limit_expr || !step_expr)
+            if (init_expr.empty() || limit_expr.empty() || step_expr.empty())
             {
-                free(init_expr);
-                free(limit_expr);
-                free(step_expr);
-                fprintf(stderr, "Out of memory while parsing FOR statement\n");
-                result = 1;
-                break;
-            }
-
-            if (*init_expr == '\0' || *limit_expr == '\0' || *step_expr == '\0')
-            {
-                free(init_expr);
-                free(limit_expr);
-                free(step_expr);
                 fprintf(stderr, "Syntax error line %d: FOR requires init, TO limit, and STEP expressions\n", lineno);
                 result = 1;
                 break;
@@ -2371,9 +2304,6 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             {
                 if (v)
                 {
-                    free(init_expr);
-                    free(limit_expr);
-                    free(step_expr);
                     fprintf(stderr, "Error line %d: variable '%s' already defined\n", lineno, var_name);
                     result = 1;
                     break;
@@ -2382,9 +2312,6 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 v = sym_add_int(&st, var_name);
                 if (!v)
                 {
-                    free(init_expr);
-                    free(limit_expr);
-                    free(step_expr);
                     fprintf(stderr, "Out of memory\n");
                     result = 1;
                     break;
@@ -2392,9 +2319,6 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
             else if (!v)
             {
-                free(init_expr);
-                free(limit_expr);
-                free(step_expr);
                 fprintf(stderr,
                         "Undefined variable '%s' on line %d (declare it first with VAR, or use FOR VAR %s = ...)\n",
                         var_name, lineno, var_name);
@@ -2403,18 +2327,12 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
             if (v->is_const)
             {
-                free(init_expr);
-                free(limit_expr);
-                free(step_expr);
                 fprintf(stderr, "Error line %d: cannot use CONST '%s' as FOR control variable\n", lineno, var_name);
                 result = 1;
                 break;
             }
             if (v->type != VAR_INT)
             {
-                free(init_expr);
-                free(limit_expr);
-                free(step_expr);
                 fprintf(stderr, "Type error line %d: FOR control variable '%s' must be integer\n", lineno, var_name);
                 result = 1;
                 break;
@@ -2424,11 +2342,8 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             uint32_t step_slot = st.next_slot++;
 
             int ireg;
-            if (emit_expr(init_expr, &st, &ra, &ob, debug, &ireg))
+            if (emit_expr(init_expr.c_str(), &st, &ra, &ob, debug, &ireg))
             {
-                free(init_expr);
-                free(limit_expr);
-                free(step_expr);
                 result = 1;
                 break;
             }
@@ -2438,11 +2353,8 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             ralloc_release(&ra, ireg);
 
             int lreg;
-            if (emit_expr(limit_expr, &st, &ra, &ob, debug, &lreg))
+            if (emit_expr(limit_expr.c_str(), &st, &ra, &ob, debug, &lreg))
             {
-                free(init_expr);
-                free(limit_expr);
-                free(step_expr);
                 result = 1;
                 break;
             }
@@ -2452,11 +2364,8 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             ralloc_release(&ra, lreg);
 
             int sreg;
-            if (emit_expr(step_expr, &st, &ra, &ob, debug, &sreg))
+            if (emit_expr(step_expr.c_str(), &st, &ra, &ob, debug, &sreg))
             {
-                free(init_expr);
-                free(limit_expr);
-                free(step_expr);
                 result = 1;
                 break;
             }
@@ -2473,12 +2382,12 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             uid++;
 
             Block b;
-            memset(&b, 0, sizeof(b));
+            std::memset(&b, 0, sizeof(b));
             b.kind = BLOCK_FOR;
             b.for_var_slot = v->slot;
             b.for_limit_slot = limit_slot;
             b.for_step_slot = step_slot;
-            strncpy(b.for_var_name, var_name, sizeof(b.for_var_name) - 1);
+            copy_cstr(b.for_var_name, sizeof(b.for_var_name), var_name);
             snprintf(b.loop_label, sizeof(b.loop_label), ".%s", loop_label);
             snprintf(b.end_label, sizeof(b.end_label), ".%s", end_label);
 
@@ -2498,9 +2407,6 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                     ralloc_release(&ra, var_r);
                 if (limit_r >= 0)
                     ralloc_release(&ra, limit_r);
-                free(init_expr);
-                free(limit_expr);
-                free(step_expr);
                 fprintf(stderr, "Out of scratch registers\n");
                 result = 1;
                 break;
@@ -2538,11 +2444,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             bstack_push(&bs, b);
 
             if (debug)
-                printf("[BASIC] FOR %s = (%s) TO (%s) STEP (%s)\n", var_name, init_expr, limit_expr, step_expr);
-
-            free(init_expr);
-            free(limit_expr);
-            free(step_expr);
+                printf("[BASIC] FOR %s = (%s) TO (%s) STEP (%s)\n", var_name, init_expr.c_str(), limit_expr.c_str(), step_expr.c_str());
             continue;
         }
 
