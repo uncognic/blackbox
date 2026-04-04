@@ -1663,6 +1663,67 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] INPUT %s\n", name);
             continue;
         }
+        if (starts_with_ci(s, "GETKEY"))
+        {
+            const char *p = skip_ws(s + 6);
+
+            char name[64];
+            size_t nlen = 0;
+            while ((isalnum((unsigned char)p[nlen]) || p[nlen] == '_') && nlen < sizeof(name) - 1)
+                nlen++;
+            if (nlen == 0)
+            {
+                fprintf(stderr, "Syntax error line %d: expected GETKEY <identifier>\n", lineno);
+                result = 1;
+                break;
+            }
+            memcpy(name, p, nlen);
+            name[nlen] = '\0';
+            p = skip_ws(p + nlen);
+
+            if (*p != '\0')
+            {
+                fprintf(stderr, "Syntax error line %d: GETKEY takes at most one operand\n", lineno);
+                result = 1;
+                break;
+            }
+
+            Variable *v = sym_find(&st, name);
+            if (!v)
+            {
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                result = 1;
+                break;
+            }
+            if (v->is_const)
+            {
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name);
+                result = 1;
+                break;
+            }
+            if (v->type != VAR_INT)
+            {
+                fprintf(stderr, "Type error line %d: GETKEY target '%s' must be integer\n", lineno, name);
+                result = 1;
+                break;
+            }
+
+            int reg = ralloc_acquire(&ra);
+            if (reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    GETKEY %s", rn);
+            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+            ralloc_release(&ra, reg);
+            if (debug)
+                printf("[BASIC] GETKEY %s\n", name);
+            continue;
+        }
         if (starts_with_ci(s, "RANDOM"))
         {
             const char *p = skip_ws(s + 6);

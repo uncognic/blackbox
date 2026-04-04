@@ -187,6 +187,14 @@ FOR VAR I = 0 TO 10
 NEXT I
 HALT OK
 ```
+```basic
+VAR test = -1
+WHILE test == -1:
+    GETKEY test
+    SLEEP 100
+ENDWHILE
+PRINT "Key code: ", test
+```
 
 ## Program termination
 ```basic

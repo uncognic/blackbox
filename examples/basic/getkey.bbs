@@ -1,0 +1,7 @@
+VAR test = -1
+WHILE test == -1:
+    GETKEY test
+    SLEEP 100
+ENDWHILE
+PRINT "Key code: ", test
+HALT OK

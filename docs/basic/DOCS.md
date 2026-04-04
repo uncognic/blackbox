@@ -24,6 +24,7 @@ Supported statements and blocks:
 - `RANDOM name, min, max` (stores random integer in variable)
 - `SLEEP time` (sleeps for given milliseconds, or if given a register, sleeps for that many milliseconds stored in the register)
 - `EXEC command, result` (executes system command, stores exit code in result variable)
+- `GETKEY name` (non-blocking, stores key code of pressed key or -1 if no key is pressed)
 - Inline assembly block: `ASM:` ... `ENDASM`
 
 Expressions:
