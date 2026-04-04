@@ -101,6 +101,8 @@ const char *opcode_name(uint8_t op) {
     return "READ";
   case OPCODE_SLEEP:
     return "SLEEP";
+  case OPCODE_SLEEP_REG:
+    return "SLEEP_REG";
   case OPCODE_CLRSCR:
     return "CLRSCR";
   case OPCODE_RAND:

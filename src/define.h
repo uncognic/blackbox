@@ -121,6 +121,7 @@ typedef struct
 #define OPCODE_READSTR 0x2E
 #define OPCODE_READ 0x33
 #define OPCODE_SLEEP 0x2F
+#define OPCODE_SLEEP_REG 0x60
 #define OPCODE_CLRSCR 0x30
 #define OPCODE_RAND 0x31
 #define OPCODE_GETKEY 0x32

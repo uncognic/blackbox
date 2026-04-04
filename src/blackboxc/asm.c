@@ -2138,20 +2138,30 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 printf("[DEBUG] Encoding instruction: %s\n", s);
             }
-            char operand[32];
-            if (sscanf(s + 5, " %31s", operand) != 1)
+            char operand[64];
+            if (sscanf(s + 5, " %63s", operand) != 1)
             {
                 fprintf(stderr,
                         "Syntax error on line %d: expected SLEEP "
-                        "<milliseconds>\nGot: %s\n",
+                        "<milliseconds>|<register>\nGot: %s\n",
                         lineno, line);
                 fclose(in);
                 fclose(out);
                 return 1;
             }
-            uint32_t ms = strtoul(operand, NULL, 0);
-            fputc(OPCODE_SLEEP, out);
-            write_u32(out, ms);
+
+            if (toupper((unsigned char)operand[0]) == 'R')
+            {
+                uint8_t reg = parse_register(operand, lineno);
+                fputc(OPCODE_SLEEP_REG, out);
+                fputc(reg, out);
+            }
+            else
+            {
+                uint32_t ms = (uint32_t)strtoul(operand, NULL, 0);
+                fputc(OPCODE_SLEEP, out);
+                write_u32(out, ms);
+            }
         }
         else if (starts_with_ci(s, "clrscr"))
         {

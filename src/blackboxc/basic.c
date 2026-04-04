@@ -1323,6 +1323,51 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
+        if (starts_with_ci(s, "SLEEP"))
+        {
+            const char *arg = s + 5;
+
+            if (*arg != '\0' && !isspace((unsigned char)*arg))
+            {
+                fprintf(stderr, "Syntax error line %d: expected SLEEP <expr>\n", lineno);
+                result = 1;
+                break;
+            }
+
+            arg = skip_ws(arg);
+            if (*arg == '\0')
+            {
+                fprintf(stderr, "Syntax error line %d: expected SLEEP <expr>\n", lineno);
+                result = 1;
+                break;
+            }
+
+            const char *expr_end = NULL;
+            int reg = -1;
+
+            if (emit_expr_p(arg, &expr_end, &st, &ra, &ob, debug, &reg))
+            {
+                result = 1;
+                break;
+            }
+
+            if (*skip_ws(expr_end) != '\0')
+            {
+                ralloc_release(&ra, reg);
+                fprintf(stderr, "Syntax error line %d: SLEEP takes a single expression\n", lineno);
+                result = 1;
+                break;
+            }
+
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    SLEEP %s", rn);
+            ralloc_release(&ra, reg);
+            if (debug)
+                printf("[BASIC] SLEEP %s\n", arg);
+            continue;
+        }
+
         if (starts_with_ci(s, "HALT"))
         {
             const char *arg = s + 4;

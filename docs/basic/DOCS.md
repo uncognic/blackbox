@@ -22,6 +22,7 @@ Supported statements and blocks:
 - `INC name` (increments variable)
 - `DEC name` (decrements variable)
 - `RANDOM name, min, max` (stores random integer in variable)
+- `SLEEP time` (sleeps for given milliseconds, or if given a register, sleeps for that many milliseconds stored in the register)
 - Inline assembly block: `ASM:` ... `ENDASM`
 
 Expressions:

@@ -1908,6 +1908,35 @@ int main(int argc, char *argv[])
 #endif
             break;
         }
+        case OPCODE_SLEEP_REG:
+        {
+            if (pc >= size)
+            {
+                fprintf(stderr, "Missing register operand for SLEEP at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register %u for SLEEP at pc=%zu\n", reg, pc);
+                free(program);
+                free(stack);
+                return 1;
+            }
+            int64_t raw = registers[reg];
+            uint64_t ms_val = raw < 0 ? 0 : (uint64_t)raw;
+#ifdef _WIN32
+            Sleep((DWORD)ms_val);
+#else
+            struct timespec req2;
+            req2.tv_sec = ms_val / 1000;
+            req2.tv_nsec = (ms_val % 1000) * 1000000L;
+            nanosleep(&req2, NULL);
+#endif
+            break;
+        }
         case OPCODE_CLRSCR:
         {
 #ifdef _WIN32

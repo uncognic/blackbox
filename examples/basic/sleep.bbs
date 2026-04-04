@@ -1,0 +1,8 @@
+PRINT "Sleeping for 1 second..."
+SLEEP 1000
+
+VAR X = 1000
+PRINT "Sleeping for ", X, " milliseconds..."
+SLEEP X + 500
+
+HALT OK

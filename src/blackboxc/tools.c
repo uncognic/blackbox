@@ -496,7 +496,14 @@ size_t instr_size(const char *line)
     else if (starts_with_ci(line, "READCHAR"))
         return 2;
     else if (starts_with_ci(line, "SLEEP"))
-        return 5;
+    {
+        const char *p = line + 5;
+        while (*p && isspace((unsigned char)*p))
+            p++;
+        if (toupper((unsigned char)*p) == 'R')
+            return 2; // opcode + register
+        return 5; // opcode + u32 immediate
+    }
     else if (starts_with_ci(line, "CLRSCR"))
         return 1;
     else if (starts_with_ci(line, "RAND"))
