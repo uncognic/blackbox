@@ -2,39 +2,22 @@
 #include "../define.h"
 #include "tools.h"
 #include "../data.h"
-#include <ctype.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
 
-static int append_line(char ***lines, size_t *count, size_t *cap,
-                       const char *text)
+#include <cctype>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <string>
+#include <vector>
+
+static int append_line(std::vector<std::string> &lines, const char *text)
 {
-    if (*count + 1 >= *cap)
-    {
-        size_t new_cap = (*cap) ? (*cap * 2) : 256;
-        char **new_lines = realloc(*lines, new_cap * sizeof(char *));
-        if (!new_lines)
-            return 1;
-        *lines = new_lines;
-        *cap = new_cap;
-    }
-    (*lines)[(*count)++] = strdup(text);
-    if (!(*lines)[(*count) - 1])
-        return 1;
+    lines.emplace_back(text ? text : "");
     return 0;
 }
 
-static void free_lines(char **lines, size_t count)
-{
-    for (size_t i = 0; i < count; i++)
-        free(lines[i]);
-    free(lines);
-}
-
-static int collect_lines_from_buffer(const char *src, char ***lines,
-                                     size_t *lines_count, size_t *lines_cap)
+static int collect_lines_from_buffer(const char *src, std::vector<std::string> &lines)
 {
     const char *p = src;
     while (*p)
@@ -42,22 +25,11 @@ static int collect_lines_from_buffer(const char *src, char ***lines,
         const char *nl = strchr(p, '\n');
         size_t len = nl ? (size_t)(nl - p + 1) : strlen(p);
 
-        char *line = malloc(len + 1);
-        if (!line)
+        if (append_line(lines, std::string(p, len).c_str()) != 0)
         {
             fprintf(stderr, "Out of memory\n");
             return 1;
         }
-        memcpy(line, p, len);
-        line[len] = '\0';
-
-        if (append_line(lines, lines_count, lines_cap, line) != 0)
-        {
-            free(line);
-            fprintf(stderr, "Out of memory\n");
-            return 1;
-        }
-        free(line);
 
         if (!nl)
             break;
@@ -71,20 +43,16 @@ int assemble_file(const char *filename, const char *output_file, int debug)
 {
     FILE *in = NULL;
     {
-        char **lines = NULL;
-        size_t lines_count = 0, lines_cap = 0;
+        std::vector<std::string> lines;
         char *preprocessed = preprocess_includes(filename);
         if (!preprocessed)
         {
-            free_lines(lines, lines_count);
             return 1;
         }
 
-        if (collect_lines_from_buffer(preprocessed, &lines, &lines_count,
-                                      &lines_cap) != 0)
+        if (collect_lines_from_buffer(preprocessed, lines) != 0)
         {
             preprocess_includes_free(preprocessed);
-            free_lines(lines, lines_count);
             return 1;
         }
         preprocess_includes_free(preprocessed);
@@ -93,16 +61,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         if (!tmp)
         {
             perror("tmpfile");
-            free_lines(lines, lines_count);
             return 1;
         }
 
-        Macro *macros = NULL;
-        size_t macro_count = 0, macro_cap = 0;
+        std::vector<Macro> macros;
 
-        for (size_t i = 0; i < lines_count; i++)
+        for (size_t i = 0; i < lines.size(); i++)
         {
-            char *copy = strdup(lines[i]);
+            char *copy = strdup(lines[i].c_str());
             char *t = trim(copy);
             if (starts_with_ci(t, "%macro") &&
                 (t[6] == ' ' || t[6] == '\t' || t[6] == '\0'))
@@ -126,7 +92,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     if (paramc + 1 >= paramcap)
                     {
                         paramcap = paramcap ? paramcap * 2 : 8;
-                        params = realloc(params, paramcap * sizeof(char *));
+                        params = static_cast<char **>(realloc(params, paramcap * sizeof(char *)));
                     }
                     params[paramc++] = strdup(argtok);
                 }
@@ -134,9 +100,9 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 char **body = NULL;
                 int bodyc = 0, bodycap = 0;
                 size_t j = i + 1;
-                for (; j < lines_count; j++)
+                for (; j < lines.size(); j++)
                 {
-                    char *c2 = strdup(lines[j]);
+                    char *c2 = strdup(lines[j].c_str());
                     char *t2 = trim(c2);
                     if (equals_ci(t2, "%endmacro"))
                     {
@@ -146,23 +112,19 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     if (bodyc + 1 >= bodycap)
                     {
                         bodycap = bodycap ? bodycap * 2 : 16;
-                        body = realloc(body, bodycap * sizeof(char *));
+                        body = static_cast<char **>(realloc(body, bodycap * sizeof(char *)));
                     }
-                    body[bodyc++] = strdup(lines[j]);
+                    body[bodyc++] = strdup(lines[j].c_str());
                     free(c2);
                 }
 
-                if (macro_count + 1 >= macro_cap)
-                {
-                    macro_cap = macro_cap ? macro_cap * 2 : 16;
-                    macros = realloc(macros, macro_cap * sizeof(Macro));
-                }
-                macros[macro_count].name = mname;
-                macros[macro_count].params = params;
-                macros[macro_count].paramc = paramc;
-                macros[macro_count].body = body;
-                macros[macro_count].bodyc = bodyc;
-                macro_count++;
+                Macro macro = {};
+                macro.name = mname;
+                macro.params = params;
+                macro.paramc = paramc;
+                macro.body = body;
+                macro.bodyc = bodyc;
+                macros.push_back(macro);
 
                 i = j;
             }
@@ -171,16 +133,16 @@ int assemble_file(const char *filename, const char *output_file, int debug)
 
         unsigned long expand_id = 0;
 
-        for (size_t i = 0; i < lines_count; i++)
+        for (size_t i = 0; i < lines.size(); i++)
         {
-            char *copy = strdup(lines[i]);
+            char *copy = strdup(lines[i].c_str());
             char *t = trim(copy);
             if (strncmp(t, "%macro", 6) == 0)
             {
                 size_t j = i + 1;
-                for (; j < lines_count; j++)
+                for (; j < lines.size(); j++)
                 {
-                    char *c2 = strdup(lines[j]);
+                    char *c2 = strdup(lines[j].c_str());
                     char *t2 = trim(c2);
                     if (equals_ci(t2, "%endmacro"))
                     {
@@ -199,23 +161,22 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     equals_ci(t, "%main") || equals_ci(t, "%entry") ||
                     equals_ci(t, "%endmacro"))
                 {
-                    fputs(lines[i], tmp);
+                    fputs(lines[i].c_str(), tmp);
                     free(copy);
                     continue;
                 }
-                if (expand_invocation(t, tmp, 0, macros, macro_count,
+                if (expand_invocation(t, tmp, 0, macros.data(), macros.size(),
                                       &expand_id))
                 {
                     free(copy);
                     continue;
                 }
             }
-            fputs(lines[i], tmp);
+            fputs(lines[i].c_str(), tmp);
             free(copy);
         }
 
-        free_lines(lines, lines_count);
-        for (size_t m = 0; m < macro_count; m++)
+        for (size_t m = 0; m < macros.size(); m++)
         {
             free(macros[m].name);
             for (int p = 0; p < macros[m].paramc; p++)
@@ -225,7 +186,6 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 free(macros[m].body[b]);
             free(macros[m].body);
         }
-        free(macros);
 
         rewind(tmp);
         in = tmp;

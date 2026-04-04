@@ -139,8 +139,10 @@ int main(int argc, char *argv[])
         }
         result = preprocess_basic(input_file.c_str(), output_file.c_str(), debug ? 1 : 0);
 
-        if (result == 0)
-            std::printf("BASIC preprocessing successful.\n");
+        if (result != 0)
+            return result;
+
+        std::printf("BASIC preprocessing successful.\n");
 
         if (assembly)
             return result;

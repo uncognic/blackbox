@@ -1496,14 +1496,15 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
         if (starts_with_ci(s, "HALT"))
         {
-            std::string arg = trim_copy(s + 4);
-
-            if (!arg.empty() && !std::isspace((unsigned char)arg[0]))
+            const char *halt_suffix = s + 4;
+            if (*halt_suffix != '\0' && !std::isspace((unsigned char)*halt_suffix))
             {
                 fprintf(stderr, "Syntax error line %d: expected HALT [OK|BAD|<number>]\n", lineno);
                 result = 1;
                 break;
             }
+
+            std::string arg = trim_copy(halt_suffix);
 
             if (arg.empty())
             {

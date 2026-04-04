@@ -19,7 +19,7 @@ if /I "%~1"=="clean" (
 )
 
 echo Building compiler...
-clang-cl /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%\blackboxc" "%SRC%\blackboxc\compiler.cpp" "%SRC%\blackboxc\asm.c" "%SRC%\blackboxc\basic.cpp" "%SRC%\blackboxc\tools.cpp" "%SRC%\data.cpp" bcrypt.lib /Fe:"%ROOT%\bbxc.exe"
+clang-cl /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%\blackboxc" "%SRC%\blackboxc\compiler.cpp" "%SRC%\blackboxc\asm.cpp" "%SRC%\blackboxc\basic.cpp" "%SRC%\blackboxc\tools.cpp" "%SRC%\data.cpp" bcrypt.lib /Fe:"%ROOT%\bbxc.exe"
 if errorlevel 1 (
     echo Failed to build compiler
     exit /b 1

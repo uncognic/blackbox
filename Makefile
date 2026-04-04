@@ -9,7 +9,7 @@ all: compiler interpreter disassembler copy
 
 compiler:
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/compiler.cpp -o src/blackboxc/compiler.o
-	$(CC) $(CFLAGS) -Isrc/blackboxc -c src/blackboxc/asm.c -o src/blackboxc/asm.o
+	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/asm.cpp -o src/blackboxc/asm.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/basic.cpp -o src/blackboxc/basic.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/data.cpp -o src/data.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/tools.cpp -o src/blackboxc/tools.o
