@@ -2150,10 +2150,11 @@ int main(int argc, char *argv[])
                 registers[reg] = 0;
             else
                 registers[reg] = (int64_t)v;
-            
+
             // drain remainder of line so next readstr gets a clean buffer
             int c;
-            while ((c = getchar()) != EOF && c != '\n');
+            while ((c = getchar()) != EOF && c != '\n')
+                ;
             break;
         }
         case OPCODE_READCHAR:
@@ -2856,50 +2857,53 @@ int main(int argc, char *argv[])
                 }
                 break;
             }
-        
-        case OPCODE_REGFAULT: REQUIRE_PRIVILEGED("REGFAULT")
-        {
-            uint8_t fault_id = program[pc++];
-            uint32_t addr = program[pc] | (program[pc + 1] << 8) |
-                            (program[pc + 2] << 16) | (program[pc + 3] << 24);
-            pc += 4;
 
-            if (fault_id >= FAULT_COUNT)
+        case OPCODE_REGFAULT:
+            REQUIRE_PRIVILEGED("REGFAULT")
             {
-                fprintf(stderr, "Invalid fault ID %u in REGFAULT at pc=%zu\n", fault_id, pc);
-                goto fault_exit;
+                uint8_t fault_id = program[pc++];
+                uint32_t addr = program[pc] | (program[pc + 1] << 8) |
+                                (program[pc + 2] << 16) | (program[pc + 3] << 24);
+                pc += 4;
+
+                if (fault_id >= FAULT_COUNT)
+                {
+                    fprintf(stderr, "Invalid fault ID %u in REGFAULT at pc=%zu\n", fault_id, pc);
+                    goto fault_exit;
+                }
+
+                fault_table[fault_id] = addr;
+                fault_registered[fault_id] = true;
+                break;
             }
 
-            fault_table[fault_id] = addr;
-            fault_registered[fault_id] = true;
-            break;
-        }
-        
-        case OPCODE_FAULTRET: REQUIRE_PRIVILEGED("FAULTRET")
-        {
-            if (current_fault == FAULT_COUNT)
+        case OPCODE_FAULTRET:
+            REQUIRE_PRIVILEGED("FAULTRET")
             {
-                fprintf(stderr, "FAULTRET executed but no fault is active at pc=%zu\n", pc);
-                goto fault_exit;
-            }
+                if (current_fault == FAULT_COUNT)
+                {
+                    fprintf(stderr, "FAULTRET executed but no fault is active at pc=%zu\n", pc);
+                    goto fault_exit;
+                }
 
-            current_fault = FAULT_COUNT;
-            cur_mode = MODE_PROTECTED;
-            pc = fault_return_pc;
-            break;
-        }
+                current_fault = FAULT_COUNT;
+                cur_mode = MODE_PROTECTED;
+                pc = fault_return_pc;
+                break;
+            }
 
         case OPCODE_GETFAULT:
         {
             uint8_t reg = program[pc++];
-            if (reg >= REGISTERS) {
+            if (reg >= REGISTERS)
+            {
                 fprintf(stderr, "Invalid register in GETFAULT at pc=%zu\n", pc);
                 goto fault_exit;
             }
             registers[reg] = (int64_t)current_fault;
             break;
         }
-        
+
         case OPCODE_DUMPREGS:
         {
             print_regs(registers, REGISTERS);
@@ -2930,13 +2934,13 @@ int main(int argc, char *argv[])
             fflush(stderr);
             break;
         }
-        case OPCODE_SHL:
+        case OPCODE_SHLI:
         {
             uint8_t reg = program[pc++];
             uint64_t shift = read_u64(program, &pc);
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in SHL at pc=%zu\n", pc);
+                fprintf(stderr, "Invalid register in SHLI at pc=%zu\n", pc);
                 goto fault_exit;
             }
             if (shift >= 64)
@@ -2945,13 +2949,13 @@ int main(int argc, char *argv[])
                 registers[reg] = registers[reg] << shift;
             break;
         }
-        case OPCODE_SHR:
+        case OPCODE_SHRI:
         {
             uint8_t reg = program[pc++];
             uint64_t shift = read_u64(program, &pc);
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in SHR at pc=%zu\n", pc);
+                fprintf(stderr, "Invalid register in SHRI at pc=%zu\n", pc);
                 goto fault_exit;
             }
             if (shift >= 64)
@@ -2964,6 +2968,50 @@ int main(int argc, char *argv[])
             else
             {
                 registers[reg] = registers[reg] >> shift;
+            }
+            break;
+        }
+        case OPCODE_SHR:
+        {
+            uint8_t dst = program[pc++];
+            uint8_t src = program[pc++];
+            if (dst >= REGISTERS || src >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in SHR at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            if (registers[src] >= 64)
+            {
+                if (registers[dst] < 0)
+                    registers[dst] = -1;
+                else
+                    registers[dst] = 0;
+            }
+            else
+            {
+                registers[dst] = registers[dst] >> registers[src];
+            }
+            break;
+        }
+        case OPCODE_SHL:
+        {
+            uint8_t dst = program[pc++];
+            uint8_t src = program[pc++];
+            if (dst >= REGISTERS || src >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in SHL at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            if (registers[src] >= 64)
+            {
+                if (registers[dst] < 0)
+                    registers[dst] = -1;
+                else
+                    registers[dst] = 0;
+            }
+            else
+            {
+                registers[dst] = registers[dst] << registers[src];
             }
             break;
         }

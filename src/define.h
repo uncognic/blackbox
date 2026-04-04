@@ -154,7 +154,9 @@ typedef struct
 #define OPCODE_EPRINTREG 0x5B
 #define OPCODE_EPRINTSTR 0x5C
 #define OPCODE_EPRINTCHAR 0x5D
-#define OPCODE_SHL 0x5E
-#define OPCODE_SHR 0x5F
+#define OPCODE_SHLI 0x5E
+#define OPCODE_SHRI 0x5F
+#define OPCODE_SHL 0x62
+#define OPCODE_SHR 0x61
 #define OPCODE_HALT 0xFF
 #define OPCODE_BREAK 0xFE
