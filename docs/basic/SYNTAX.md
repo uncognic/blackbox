@@ -212,6 +212,36 @@ ENDWHILE
 PRINT "Key code: ", test
 ```
 
+## GETARGC
+```basic
+VAR argc = 0
+GETARGC argc
+PRINT "Argument count: ", argc
+```
+Returns the number of command-line arguments available in the interpreter runtime.
+
+## GETARG
+```basic
+VAR arg0 = ""
+GETARG arg0, 0
+PRINT "argv[0] = ", arg0
+```
+Retrieves the commandline argument at the given zero-based index and stores its string pointer into a string variable.
+
+- `GETARG 0` returns the interpreter executable path.
+- `GETARG 1` returns the program path.
+- `GETARG 2` returns the first user argument.
+
+## GETENV
+```basic
+VAR env_path = ""
+GETENV env_path, "PATH"
+PRINT "PATH=", env_path
+```
+Reads the named environment variable and stores its value in a string variable.
+
+If the variable is not defined, the interpreter raises `FAULT_ENV_VAR_NOT_FOUND`, which should be set up with a handler if you want to handle it gracefully.
+
 ## Program termination
 ```basic
 HALT
@@ -230,7 +260,29 @@ ASM:
 ENDASM
 ```
 
-Notes:
+### Setting up handlers
+```basic
+ASM:
+    ; Register fault 6 (FAULT_ENV_VAR_NOT_FOUND) to handler_fault
+    REGFAULT 6, handler_fault
+    
+    ; Jump to protected code
+    DROPPRIV
+    JMP protected_start
+
+    ; Handlers
+        .handler_fault:
+            ; Handle the environment variable not found fault by printing a message and returning
+            WRITE STDOUT, "Caught an environment variable not found fault!"
+            NEWLINE
+            FAULTRET
+    .protected_start:
+ENDASM
+// BASIC code continues here
+```
+BASIC code can continue after the ASM block in protected mode.
+
+## Notes:
 - Registers 0-15 are used by the BASIC compiler as scratch storage. Nothing is stopping you from using them, but be aware that BASIC statements may overwrite them.
 - ASM block lines are passed to the assembler.
 - Use assembly syntax rules inside the block.

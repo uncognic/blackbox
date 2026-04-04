@@ -1919,6 +1919,273 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] GETKEY %s\n", name);
             continue;
         }
+        if (starts_with_ci(s, "GETARGC"))
+        {
+            const char *p = skip_ws(s + 7);
+
+            char name[64];
+            size_t nlen = 0;
+            while ((isalnum((unsigned char)p[nlen]) || p[nlen] == '_') && nlen < sizeof(name) - 1)
+                nlen++;
+            if (nlen == 0)
+            {
+                fprintf(stderr, "Syntax error line %d: expected GETARGC <identifier>\n", lineno);
+                result = 1;
+                break;
+            }
+            memcpy(name, p, nlen);
+            name[nlen] = '\0';
+            p = skip_ws(p + nlen);
+
+            if (*p != '\0')
+            {
+                fprintf(stderr, "Syntax error line %d: GETARGC takes at most one operand\n", lineno);
+                result = 1;
+                break;
+            }
+
+            Variable *v = sym_find(&st, name);
+            if (!v)
+            {
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                result = 1;
+                break;
+            }
+            if (v->is_const)
+            {
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name);
+                result = 1;
+                break;
+            }
+            if (v->type != VAR_INT)
+            {
+                fprintf(stderr, "Type error line %d: GETARGC target '%s' must be integer\n", lineno, name);
+                result = 1;
+                break;
+            }
+
+            int reg = ralloc_acquire(&ra);
+            if (reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    GETARGC %s", rn);
+            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+            ralloc_release(&ra, reg);
+            if (debug)
+                printf("[BASIC] GETARGC %s\n", name);
+            continue;
+        }
+        if (starts_with_ci(s, "GETARG"))
+        {
+            const char *p = skip_ws(s + 6);
+
+            char name[64];
+            size_t nlen = 0;
+            while ((isalnum((unsigned char)p[nlen]) || p[nlen] == '_') && nlen < sizeof(name) - 1)
+                nlen++;
+            if (nlen == 0)
+            {
+                fprintf(stderr, "Syntax error line %d: expected GETARG <identifier>, <index>\n", lineno);
+                result = 1;
+                break;
+            }
+            memcpy(name, p, nlen);
+            name[nlen] = '\0';
+            p = skip_ws(p + nlen);
+
+            if (*p != ',')
+            {
+                fprintf(stderr, "Syntax error line %d: expected GETARG <identifier>, <index>\n", lineno);
+                result = 1;
+                break;
+            }
+            p = skip_ws(p + 1);
+            if (*p == '\0')
+            {
+                fprintf(stderr, "Syntax error line %d: expected GETARG <identifier>, <index>\n", lineno);
+                result = 1;
+                break;
+            }
+
+            char idx_tok[32];
+            size_t idx_len = 0;
+            while ((isalnum((unsigned char)p[idx_len]) || p[idx_len] == '_') && idx_len < sizeof(idx_tok) - 1)
+                idx_len++;
+            if (idx_len == 0)
+            {
+                fprintf(stderr, "Syntax error line %d: expected GETARG <identifier>, <index>\n", lineno);
+                result = 1;
+                break;
+            }
+            memcpy(idx_tok, p, idx_len);
+            idx_tok[idx_len] = '\0';
+            p = skip_ws(p + idx_len);
+
+            if (*p != '\0')
+            {
+                fprintf(stderr, "Syntax error line %d: GETARG takes exactly two operands\n", lineno);
+                result = 1;
+                break;
+            }
+
+            char *endptr;
+            unsigned long idx = strtoul(idx_tok, &endptr, 0);
+            if (*endptr != '\0')
+            {
+                fprintf(stderr, "Syntax error line %d: invalid GETARG index '%s'\n", lineno, idx_tok);
+                result = 1;
+                break;
+            }
+
+            Variable *v = sym_find(&st, name);
+            if (!v)
+            {
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                result = 1;
+                break;
+            }
+            if (v->is_const)
+            {
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name);
+                result = 1;
+                break;
+            }
+            if (v->type != VAR_STR)
+            {
+                fprintf(stderr, "Type error line %d: GETARG target '%s' must be string\n", lineno, name);
+                result = 1;
+                break;
+            }
+
+            int reg = ralloc_acquire(&ra);
+            if (reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    GETARG %s, %lu", rn, idx);
+            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+            ralloc_release(&ra, reg);
+            if (debug)
+                printf("[BASIC] GETARG %s, %lu\n", name, idx);
+            continue;
+        }
+        if (starts_with_ci(s, "GETENV"))
+        {
+            const char *p = skip_ws(s + 6);
+
+            char name[64];
+            size_t nlen = 0;
+            while ((isalnum((unsigned char)p[nlen]) || p[nlen] == '_') && nlen < sizeof(name) - 1)
+                nlen++;
+            if (nlen == 0)
+            {
+                fprintf(stderr, "Syntax error line %d: expected GETENV <identifier>, <varname>\n", lineno);
+                result = 1;
+                break;
+            }
+            memcpy(name, p, nlen);
+            name[nlen] = '\0';
+            p = skip_ws(p + nlen);
+
+            if (*p != ',')
+            {
+                fprintf(stderr, "Syntax error line %d: expected GETENV <identifier>, <varname>\n", lineno);
+                result = 1;
+                break;
+            }
+            p = skip_ws(p + 1);
+            if (*p == '\0')
+            {
+                fprintf(stderr, "Syntax error line %d: expected GETENV <identifier>, <varname>\n", lineno);
+                result = 1;
+                break;
+            }
+
+            char envname[256];
+            if (*p == '"')
+            {
+                const char *end = strchr(p + 1, '"');
+                if (!end)
+                {
+                    fprintf(stderr, "Syntax error line %d: unterminated string in GETENV\n", lineno);
+                    result = 1;
+                    break;
+                }
+                size_t len = (size_t)(end - (p + 1));
+                if (len >= sizeof(envname))
+                    len = sizeof(envname) - 1;
+                memcpy(envname, p + 1, len);
+                envname[len] = '\0';
+                p = skip_ws(end + 1);
+            }
+            else
+            {
+                size_t elen = 0;
+                while ((isalnum((unsigned char)p[elen]) || p[elen] == '_') && elen < sizeof(envname) - 1)
+                    elen++;
+                if (elen == 0)
+                {
+                    fprintf(stderr, "Syntax error line %d: expected GETENV <identifier>, <varname>\n", lineno);
+                    result = 1;
+                    break;
+                }
+                memcpy(envname, p, elen);
+                envname[elen] = '\0';
+                p = skip_ws(p + elen);
+            }
+
+            if (*p != '\0')
+            {
+                fprintf(stderr, "Syntax error line %d: GETENV takes exactly two operands\n", lineno);
+                result = 1;
+                break;
+            }
+
+            Variable *v = sym_find(&st, name);
+            if (!v)
+            {
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                result = 1;
+                break;
+            }
+            if (v->is_const)
+            {
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name);
+                result = 1;
+                break;
+            }
+            if (v->type != VAR_STR)
+            {
+                fprintf(stderr, "Type error line %d: GETENV target '%s' must be string\n", lineno, name);
+                result = 1;
+                break;
+            }
+
+            int reg = ralloc_acquire(&ra);
+            if (reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    GETENV %s, \"%s\"", rn, envname);
+            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+            ralloc_release(&ra, reg);
+            if (debug)
+                printf("[BASIC] GETENV %s, %s\n", name, envname);
+            continue;
+        }
         if (starts_with_ci(s, "RANDOM"))
         {
             const char *p = skip_ws(s + 6);

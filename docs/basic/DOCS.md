@@ -28,6 +28,9 @@ Supported statements and blocks:
 - `SLEEP time` (sleeps for given milliseconds, or if given a register, sleeps for that many milliseconds stored in the register)
 - `EXEC command, result` (executes system command, stores exit code in result variable)
 - `GETKEY name` (non-blocking, stores key code of pressed key or -1 if no key is pressed)
+- `GETARGC name` (stores the interpreter argument count in integer variable)
+- `GETARG name, index` (stores argv[index] into string variable)
+- `GETENV name, "VAR"` (stores environment variable value into a string variable)
 - Inline assembly block: `ASM:` ... `ENDASM`
 
 Expressions:

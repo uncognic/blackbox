@@ -1,0 +1,25 @@
+ASM:
+    ; Register fault 6 (FAULT_ENV_VAR_NOT_FOUND) to handler_fault
+    REGFAULT 6, handler_fault
+    
+    ; Jump to protected code
+    DROPPRIV
+    JMP protected_start
+
+    ; Handlers
+        .handler_fault:
+            ; Handle the environment variable not found fault by printing a message and returning
+            WRITE STDOUT, "Caught an environment variable not found fault!"
+            NEWLINE
+            FAULTRET
+    .protected_start:
+ENDASM
+
+VAR env_path = ""
+GETENV env_path, "PATH"
+PRINT "PATH: ", env_path
+
+PRINT
+PRINT "Attempting to get a non-existent environment variable..."
+GETENV env_path, "NON_EXISTENT_ENV_VAR"
+PRINT "If you see this, successfully FAULTRET from the fault handler!"

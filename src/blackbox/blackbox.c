@@ -3056,8 +3056,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Invalid register in GETARGC at pc=%zu\n", pc);
                 goto fault_exit;
             }
-            size_t arg_count = argc >= 2 ? (size_t)(argc - 2) : 0;
-            registers[reg] = (int64_t)arg_count;
+            registers[reg] = (int64_t)argc;
             break;
         }
         case OPCODE_GETARG:
@@ -3074,13 +3073,12 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Invalid register in GETARG at pc=%zu\n", pc);
                 goto fault_exit;
             }
-            size_t arg_count = argc >= 2 ? (size_t)(argc - 2) : 0;
-            if (idx >= arg_count)
+            if ((size_t)idx >= (size_t)argc)
             {
                 fprintf(stderr, "GETARG index out of bounds: %u at pc=%zu\n", idx, pc);
                 goto fault_exit;
             }
-            const char *arg = argv[idx + 2];
+            const char *arg = argv[idx];
             if (!arg)
             {
                 fprintf(stderr, "GETARG null argument at index %u at pc=%zu\n", idx, pc);

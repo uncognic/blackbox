@@ -1,0 +1,17 @@
+VAR arg_0 = ""
+VAR arg_1 = ""
+VAR arg_2 = ""
+VAR argc = 0
+
+GETARGC argc
+PRINT "Argument count: ", argc
+
+GETARG arg_0, 0
+PRINT "Argument 0: ", arg_0
+
+GETARG arg_1, 1
+PRINT "Argument 1: ", arg_1
+
+PRINT "This should fail now if you run this without any arguments, since arg_2 doesn't exist:"
+GETARG arg_2, 2
+PRINT "Argument 2: ", arg_2
