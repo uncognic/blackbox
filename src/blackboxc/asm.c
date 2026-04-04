@@ -2831,6 +2831,51 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(parse_register(reg1, lineno), out);
             fputc(parse_register(reg2, lineno), out);
         }
+        else if (starts_with_ci(s, "GETARGC"))
+        {
+            char reg[16];
+            if (sscanf(s + 7, " %15s", reg) != 1)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected GETARGC <register>\nGot: %s\n",
+                        lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            fputc(OPCODE_GETARGC, out);
+            fputc(parse_register(reg, lineno), out);
+        }
+        else if (starts_with_ci(s, "GETARG"))
+        {
+            char reg[16];
+            char index[32];
+            char *comma = strchr(s + 7, ',');
+            if (!comma || sscanf(s + 7, " %15[^,]", reg) != 1 ||
+                sscanf(comma + 1, " %31s", index) != 1)
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected GETARG <register>, <index>\nGot: %s\n",
+                        lineno, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            char *end;
+            uint32_t idx = strtoul(index, &end, 0);
+            if (*end != '\0')
+            {
+                fprintf(stderr,
+                        "Syntax error on line %d: invalid argument index '%s'\nGot: %s\n",
+                        lineno, index, line);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            fputc(OPCODE_GETARG, out);
+            fputc(parse_register(reg, lineno), out);
+            write_u32(out, idx);
+        }
 
         else
         {

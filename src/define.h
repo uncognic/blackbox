@@ -158,5 +158,7 @@ typedef struct
 #define OPCODE_SHRI 0x5F
 #define OPCODE_SHL 0x62
 #define OPCODE_SHR 0x61
+#define OPCODE_GETARG 0x63
+#define OPCODE_GETARGC 0x64
 #define OPCODE_HALT 0xFF
 #define OPCODE_BREAK 0xFE

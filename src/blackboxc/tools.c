@@ -504,9 +504,17 @@ size_t instr_size(const char *line)
     else if (starts_with_ci(line, "EPRINTCHAR"))
         return 2;
     else if (starts_with_ci(line, "SHL"))
-        return 10;
+        return 3; // opcode + reg + reg 
     else if (starts_with_ci(line, "SHR"))
-        return 10;
+        return 3; // opcode + reg + reg
+    else if (starts_with_ci(line, "SHLI"))
+        return 10; // opcode + reg + u64 immediate
+    else if (starts_with_ci(line, "SHRI"))
+        return 10; // opcode + reg + u64 immediate
+    else if (starts_with_ci(line, "GETARG"))
+        return 6; // opcode + reg + u32 index
+    else if (starts_with_ci(line, "GETARGC"))
+        return 2; // opcode + reg
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }

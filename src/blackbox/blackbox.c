@@ -3048,6 +3048,62 @@ int main(int argc, char *argv[])
             }
             break;
         }
+        case OPCODE_GETARGC:
+        {
+            uint8_t reg = program[pc++];
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in GETARGC at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            size_t arg_count = argc >= 2 ? (size_t)(argc - 2) : 0;
+            registers[reg] = (int64_t)arg_count;
+            break;
+        }
+        case OPCODE_GETARG:
+        {
+            if (pc + 4 >= size)
+            {
+                fprintf(stderr, "Missing operands for GETARG at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            uint8_t reg = program[pc++];
+            uint32_t idx = read_u32(program, &pc);
+            if (reg >= REGISTERS)
+            {
+                fprintf(stderr, "Invalid register in GETARG at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            size_t arg_count = argc >= 2 ? (size_t)(argc - 2) : 0;
+            if (idx >= arg_count)
+            {
+                fprintf(stderr, "GETARG index out of bounds: %u at pc=%zu\n", idx, pc);
+                goto fault_exit;
+            }
+            const char *arg = argv[idx + 2];
+            if (!arg)
+            {
+                fprintf(stderr, "GETARG null argument at index %u at pc=%zu\n", idx, pc);
+                goto fault_exit;
+            }
+            size_t len = strlen(arg);
+            if (str_heap_size > 0x7FFFFFFF || str_heap_size + len + 1 > 0x7FFFFFFF)
+            {
+                fprintf(stderr, "String heap too large at pc=%zu\n", pc);
+                goto fault_exit;
+            }
+            if (ensure_u8_capacity(&str_heap, &str_heap_cap, str_heap_size + len + 1))
+            {
+                perror("realloc");
+                goto fault_exit;
+            }
+            uint32_t start_addr = 0x80000000u | (uint32_t)str_heap_size;
+            memcpy(&str_heap[str_heap_size], arg, len);
+            str_heap_size += len;
+            str_heap[str_heap_size++] = 0;
+            registers[reg] = (int64_t)start_addr;
+            break;
+        }
         default:
         {
             fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,

@@ -253,7 +253,14 @@
   - Syntax: `EPRINTCHAR <reg>`
   - Encoding: `OPCODE_EPRINTCHAR`, 1 byte register
   - Behavior: Prints the ASCII character corresponding to the value in the register to stderr (for debugging purposes)
-
+- GETARGC: Get argument count
+  - Syntax: `GETARGC <reg>`
+  - Encoding: `OPCODE_GETARGC`, 1 byte register
+  - Behavior: Stores the number of command-line arguments passed to the program in the specified register
+- GETARG: Get command-line argument
+  - Syntax: `GETARG <reg>, <index>`
+  - Encoding: `OPCODE_GETARG`, 1 byte register, 4 byte unsigned index
+  - Behavior: Stores the string heap pointer to the command-line argument at the specified index in the specified register
 ## Macros
 - %include: Inline another source file before macro processing
   - Syntax: `%include "path/to/file.bbx"`
