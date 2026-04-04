@@ -1143,7 +1143,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             snprintf(b.else_label, sizeof(b.else_label), ".%s", else_label);
             b.loop_label[0] = '\0';
 
-            if (emit_condition(s + 3, &st, &ra, &ob, debug, b.end_label + 1, &uid))
+            if (emit_condition(s + 3, &st, &ra, &ob, debug, b.else_label + 1, &uid))
             {
                 result = 1;
                 break;
@@ -1151,8 +1151,67 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
             bstack_push(&bs, b);
             if (debug)
-                printf("[BASIC] IF condition, skip to %s if false\n", b.end_label);
+                printf("[BASIC] IF condition, skip to %s if false\n", b.else_label);
             continue;
+        }
+
+        // ELSE IF condition (treated as ELSE { IF ... })
+        if (starts_with_ci(s, "ELSE "))
+        {
+            const char *p = s + 5;
+            p = skip_ws(p);
+            
+            if (starts_with_ci(p, "IF "))
+            {
+                Block b = bstack_pop(&bs); 
+                if (b.kind != BLOCK_IF)
+                {
+                    fprintf(stderr, "Error line %d: ELSE IF without IF\n", lineno);
+                    result = 1;
+                    break;
+                }
+                
+                EMIT_CODE(&ob, "    JMP %s", b.end_label + 1);
+                EMIT_CODE(&ob, "%s:", b.else_label);
+                
+                const char *if_start = p + 3;
+                size_t if_len = strlen(if_start);
+                if (if_len > 0 && if_start[if_len - 1] == ':')
+                    if_len--;
+                
+                char *if_stmt = (char *)malloc(if_len + 1);
+                if (!if_stmt)
+                {
+                    fprintf(stderr, "Out of memory parsing ELSE IF\n");
+                    result = 1;
+                    break;
+                }
+                memcpy(if_stmt, if_start, if_len);
+                if_stmt[if_len] = '\0';
+                
+                char new_else_label[64];
+                snprintf(new_else_label, sizeof(new_else_label), "else_%lu", uid++);
+                
+                if (emit_condition(if_stmt, &st, &ra, &ob, debug, new_else_label, &uid))
+                {
+                    free(if_stmt);
+                    result = 1;
+                    break;
+                }
+                free(if_stmt);
+                
+                Block new_b;
+                new_b.kind = BLOCK_IF;
+                new_b.has_else = 0;
+                snprintf(new_b.end_label, sizeof(new_b.end_label), "%s", b.end_label);
+                snprintf(new_b.else_label, sizeof(new_b.else_label), ".%s", new_else_label);
+                new_b.loop_label[0] = '\0';
+                
+                bstack_push(&bs, new_b);
+                if (debug)
+                    printf("[BASIC] ELSE IF condition, else to %s, exit to %s\n", new_b.else_label, new_b.end_label);
+                continue;
+            }
         }
 
         // ELSE:

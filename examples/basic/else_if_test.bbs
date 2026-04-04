@@ -1,0 +1,30 @@
+// Test ELSE IF chain
+VAR x = 5
+
+IF x == 1:
+    PRINT "x is 1"
+ELSE IF x == 2:
+    PRINT "x is 2"
+ELSE IF x == 5:
+    PRINT "x is 5"
+ELSE:
+    PRINT "x is something else"
+ENDIF
+
+// Test nested IF/ELSE IF
+VAR y = 10
+
+IF y < 5:
+    PRINT "y is less than 5"
+ELSE IF y > 5:
+    PRINT "y is greater than 5"
+    IF y == 10:
+        PRINT "y is exactly 10"
+    ELSE IF y == 15:
+        PRINT "y is exactly 15"
+    ELSE:
+        PRINT "y is something else"
+    ENDIF
+ENDIF
+
+HALT OK
