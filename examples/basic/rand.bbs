@@ -1,0 +1,6 @@
+VAR X = 0;
+FOR VAR I = 0 TO 10
+    RANDOM X, 0, 100
+    PRINT "Random number: ", X
+NEXT I
+HALT OK

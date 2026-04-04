@@ -1498,6 +1498,114 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] INPUT %s\n", name);
             continue;
         }
+        if (starts_with_ci(s, "RANDOM"))
+        {
+            const char *p = skip_ws(s + 6);
+
+            char name[64];
+            size_t nlen = 0;
+            while ((isalnum((unsigned char)p[nlen]) || p[nlen] == '_') && nlen < sizeof(name) - 1)
+                nlen++;
+            if (nlen == 0)
+            {
+                fprintf(stderr, "Syntax error line %d: expected RANDOM <identifier>\n", lineno);
+                result = 1;
+                break;
+            }
+            memcpy(name, p, nlen);
+            name[nlen] = '\0';
+            p = skip_ws(p + nlen);
+
+            Variable *v = sym_find(&st, name);
+            if (!v)
+            {
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+                result = 1;
+                break;
+            }
+            if (v->is_const)
+            {
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name);
+                result = 1;
+                break;
+            }
+            if (v->type != VAR_INT)
+            {
+                fprintf(stderr, "Type error line %d: RANDOM target '%s' must be integer\n", lineno, name);
+                result = 1;
+                break;
+            }
+
+            int reg = ralloc_acquire(&ra);
+            if (reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+
+            if (*p == ',')
+            {
+                p = skip_ws(p + 1);
+                const char *min_start = p;
+                const char *comma = strchr(min_start, ',');
+                if (!comma)
+                {
+                    fprintf(stderr, "Syntax error line %d: expected RANDOM <name>, <min>, <max>\n", lineno);
+                    ralloc_release(&ra, reg);
+                    result = 1;
+                    break;
+                }
+                char *min_str = dup_trim_range(min_start, comma);
+                if (!min_str)
+                {
+                    fprintf(stderr, "Out of memory while parsing RANDOM\n");
+                    ralloc_release(&ra, reg);
+                    result = 1;
+                    break;
+                }
+                p = skip_ws(comma + 1);
+                const char *max_start = p;
+                const char *max_end = max_start;
+                while (*max_end)
+                    max_end++;
+                char *max_str = dup_trim_range(max_start, max_end);
+                if (!max_str)
+                {
+                    free(min_str);
+                    fprintf(stderr, "Out of memory while parsing RANDOM\n");
+                    ralloc_release(&ra, reg);
+                    result = 1;
+                    break;
+                }
+
+                if (*skip_ws(max_end) != '\0')
+                {
+                    free(min_str);
+                    free(max_str);
+                    fprintf(stderr, "Syntax error line %d: unexpected trailing tokens after RANDOM\n", lineno);
+                    ralloc_release(&ra, reg);
+                    result = 1;
+                    break;
+                }
+
+                EMIT_CODE_META(&ob, name, "    RAND %s, %s, %s", rn, min_str, max_str);
+                free(min_str);
+                free(max_str);
+            }
+            else
+            {
+                EMIT_CODE_META(&ob, name, "    RAND %s", rn);
+            }
+
+            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+            ralloc_release(&ra, reg);
+            if (debug)
+                printf("[BASIC] RANDOM %s\n", name);
+            continue;
+        }
         if (starts_with_ci(s, "FOR "))
         {
             size_t slen = strlen(s);

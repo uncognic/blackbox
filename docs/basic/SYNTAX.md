@@ -159,7 +159,7 @@ Notes:
 - `NEXT` may be used as `NEXT` or `NEXT <var>`.
 - Positive and negative steps are both supported.
 
-### BREAK
+## BREAK
 ```basic
 WHILE 0 == 0:
     PRINT "This will print once, then break."
@@ -176,6 +176,16 @@ Example with logical chaining:
 IF X > 0 AND X < 10 OR X == 42:
     PRINT "matched"
 ENDIF
+```
+
+## RANDOM
+```basic
+VAR X = 0;
+FOR VAR I = 0 TO 10
+    RANDOM X, 0, 100
+    PRINT "Random number: ", X
+NEXT I
+HALT OK
 ```
 
 ## Program termination

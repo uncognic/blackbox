@@ -21,6 +21,7 @@ Supported statements and blocks:
 - `INPUT name` (reads an integer or string from input, stores in variable)
 - `INC name` (increments variable)
 - `DEC name` (decrements variable)
+- `RANDOM name, min, max` (stores random integer in variable)
 - Inline assembly block: `ASM:` ... `ENDASM`
 
 Expressions:
