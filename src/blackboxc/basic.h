@@ -3,9 +3,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+#include <string>
+#include <vector>
 
 int preprocess_basic(const char *input, const char *output, int debug);
 
@@ -36,27 +35,18 @@ typedef struct
 
 typedef struct
 {
-    Variable *vars;
-    size_t count;
-    size_t cap;
+    std::vector<Variable> vars;
     uint32_t next_slot;
     uint32_t next_data_id;
 } SymbolTable;
 
 typedef struct
 {
-    char *data_sec; // for %data
-    size_t data_len;
-    size_t data_cap;
-
-    char *code_sec;
-    size_t code_len;
-    size_t code_cap;
+    std::string data_sec; // for %data
+    std::string code_sec;
 } OutBuf;
 
 // nested IF/WHILE tracking
-
-#define BLOCK_STACK_MAX 64
 
 typedef enum
 {
@@ -81,10 +71,5 @@ typedef struct
 
 typedef struct
 {
-    Block items[BLOCK_STACK_MAX];
-    int   top;
+    std::vector<Block> items;
 } BlockStack;
-
-#ifdef __cplusplus
-}
-#endif
