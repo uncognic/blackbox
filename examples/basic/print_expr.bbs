@@ -1,0 +1,3 @@
+VAR test = 10
+PRINT test + 5
+HALT OK

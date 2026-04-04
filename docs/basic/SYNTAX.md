@@ -54,13 +54,18 @@ VAR C = (A + B) * 4
 
 ## Output
 ### PRINT
-Prints values and always appends a newline.
+Prints values and always appends a newline. It can also evaluate expressions
 
 ```basic
 PRINT
 PRINT "value="
 PRINT X
 PRINT "x=", X
+```
+```basic
+VAR test = 10
+PRINT test + 5
+// output: 15
 ```
 
 ### WRITE

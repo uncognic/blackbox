@@ -669,63 +669,21 @@ static int emit_write_values(const char *arg,
         }
         else
         {
-            size_t ident_len = 0;
-            while (arg[ident_len] && (isalnum((unsigned char)arg[ident_len]) || arg[ident_len] == '_'))
-                ident_len++;
+            const char *expr_end = NULL;
+            int reg = 0;
 
-            if (ident_len == 0)
-            {
-                fprintf(stderr, "Syntax error line %d: expected %s <identifier> or %s \"text\"\n",
-                        lineno, stmt_name, stmt_name);
+            if (emit_expr_p(arg, &expr_end, st, ra, ob, debug, &reg))
                 return 1;
-            }
-
-            if (ident_len >= 64)
-            {
-                fprintf(stderr, "Syntax error line %d: identifier too long in %s\n", lineno, stmt_name);
-                return 1;
-            }
-
-            char name[64];
-            memcpy(name, arg, ident_len);
-            name[ident_len] = '\0';
-
-            Variable *v = sym_find(st, name);
-            if (!v)
-            {
-                fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
-                return 1;
-            }
-
-            int reg = ralloc_acquire(ra);
-            if (reg < 0)
-            {
-                fprintf(stderr, "Out of scratch registers\n");
-                return 1;
-            }
 
             char rn[4];
             reg_name(reg, rn);
-
-            if (v->type == VAR_STR)
-            {
-                if (v->is_const)
-                    EMIT_CODE(ob, "    LOADSTR $%s, %s", v->data_name, rn);
-                else
-                    EMIT_CODE(ob, "    LOADVAR %s, %u", rn, v->slot);
-                EMIT_CODE(ob, "    PRINTSTR %s", rn);
-            }
-            else
-            {
-                EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
-                EMIT_CODE(ob, "    PRINTREG %s", rn);
-            }
-
+            EMIT_CODE(ob, "    PRINTREG %s", rn);
             ralloc_release(ra, reg);
-            if (debug)
-                printf("[BASIC] %s %s\n", stmt_name, name);
 
-            arg = skip_ws(arg + ident_len);
+            if (debug)
+                printf("[BASIC] %s %.*s\n", stmt_name, (int)(expr_end - arg), arg);
+
+            arg = skip_ws(expr_end);
         }
 
         if (*arg == ',')
@@ -1160,25 +1118,25 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         {
             const char *p = s + 5;
             p = skip_ws(p);
-            
+
             if (starts_with_ci(p, "IF "))
             {
-                Block b = bstack_pop(&bs); 
+                Block b = bstack_pop(&bs);
                 if (b.kind != BLOCK_IF)
                 {
                     fprintf(stderr, "Error line %d: ELSE IF without IF\n", lineno);
                     result = 1;
                     break;
                 }
-                
+
                 EMIT_CODE(&ob, "    JMP %s", b.end_label + 1);
                 EMIT_CODE(&ob, "%s:", b.else_label);
-                
+
                 const char *if_start = p + 3;
                 size_t if_len = strlen(if_start);
                 if (if_len > 0 && if_start[if_len - 1] == ':')
                     if_len--;
-                
+
                 char *if_stmt = (char *)malloc(if_len + 1);
                 if (!if_stmt)
                 {
@@ -1188,10 +1146,10 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 }
                 memcpy(if_stmt, if_start, if_len);
                 if_stmt[if_len] = '\0';
-                
+
                 char new_else_label[64];
                 snprintf(new_else_label, sizeof(new_else_label), "else_%lu", uid++);
-                
+
                 if (emit_condition(if_stmt, &st, &ra, &ob, debug, new_else_label, &uid))
                 {
                     free(if_stmt);
@@ -1199,14 +1157,14 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                     break;
                 }
                 free(if_stmt);
-                
+
                 Block new_b;
                 new_b.kind = BLOCK_IF;
                 new_b.has_else = 0;
                 snprintf(new_b.end_label, sizeof(new_b.end_label), "%s", b.end_label);
                 snprintf(new_b.else_label, sizeof(new_b.else_label), ".%s", new_else_label);
                 new_b.loop_label[0] = '\0';
-                
+
                 bstack_push(&bs, new_b);
                 if (debug)
                     printf("[BASIC] ELSE IF condition, else to %s, exit to %s\n", new_b.else_label, new_b.end_label);
