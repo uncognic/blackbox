@@ -2317,6 +2317,62 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] BREAK\n");
             continue;
         }
+        if (equals_ci(s, "CONTINUE"))
+        {
+            Block *target = NULL;
+            for (int i = bs.top - 1; i >= 0; i--)
+            {
+                if (bs.items[i].kind == BLOCK_WHILE || bs.items[i].kind == BLOCK_FOR)
+                {
+                    target = &bs.items[i];
+                    break;
+                }
+            }
+
+            if (!target)
+            {
+                fprintf(stderr, "Error line %d: CONTINUE outside WHILE or FOR loop\n", lineno);
+                result = 1;
+                break;
+            }
+
+            if (target->kind == BLOCK_WHILE)
+            {
+                EMIT_CODE(&ob, "    JMP %s", target->loop_label + 1);
+                if (debug)
+                    printf("[BASIC] CONTINUE (WHILE)\n");
+            }
+            else
+            {
+                int var_r = ralloc_acquire(&ra);
+                int step_r = ralloc_acquire(&ra);
+                if (var_r < 0 || step_r < 0)
+                {
+                    if (var_r >= 0) ralloc_release(&ra, var_r);
+                    if (step_r >= 0) ralloc_release(&ra, step_r);
+                    fprintf(stderr, "Out of scratch registers\n");
+                    result = 1;
+                    break;
+                }
+
+                char vrn[4], srn2[4];
+                reg_name(var_r, vrn);
+                reg_name(step_r, srn2);
+
+                EMIT_CODE_META(&ob, target->for_var_name, "    LOADVAR %s, %u", vrn, target->for_var_slot);
+                EMIT_CODE_META(&ob, "for-step", "    LOADVAR %s, %u", srn2, target->for_step_slot);
+                EMIT_CODE(&ob, "    ADD %s, %s", vrn, srn2);
+                EMIT_CODE_META(&ob, target->for_var_name, "    STOREVAR %s, %u", vrn, target->for_var_slot);
+                EMIT_CODE(&ob, "    JMP %s", target->loop_label + 1);
+
+                ralloc_release(&ra, var_r);
+                ralloc_release(&ra, step_r);
+
+                if (debug)
+                    printf("[BASIC] CONTINUE (FOR %s)\n", target->for_var_name);
+            }
+            continue;
+        }
         if (equals_ci(s, "CLRSCR"))
         {
             EMIT_CODE(&ob, "    CLRSCR");
