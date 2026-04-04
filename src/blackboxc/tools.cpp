@@ -3,6 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <string>
+#include <vector>
 #include "tools.h"
 #include "../define.h"
 #include <stdbool.h>
@@ -16,24 +18,94 @@
 #include <unistd.h>
 #endif
 
-static char *append_text(char *buf, size_t *len, size_t *cap, const char *text)
+static char *to_c_owned(const std::string &s)
 {
-    size_t add_len = strlen(text);
-    if (*len + add_len + 1 > *cap)
-    {
-        size_t new_cap = *cap ? *cap : 4096;
-        while (*len + add_len + 1 > new_cap)
-            new_cap *= 2;
-        char *new_buf = realloc(buf, new_cap);
-        if (!new_buf)
-            return NULL;
-        buf = new_buf;
-        *cap = new_cap;
-    }
-    memcpy(buf + *len, text, add_len);
-    *len += add_len;
-    buf[*len] = '\0';
+    char *buf = (char *)malloc(s.size() + 1);
+    if (!buf)
+        return NULL;
+    memcpy(buf, s.c_str(), s.size() + 1);
     return buf;
+}
+
+static inline unsigned char ascii_upper(unsigned char c)
+{
+    return (unsigned char)toupper(c);
+}
+
+static bool equals_ci_str(const std::string &a, const std::string &b)
+{
+    if (a.size() != b.size())
+        return false;
+    for (size_t i = 0; i < a.size(); i++)
+    {
+        if (ascii_upper((unsigned char)a[i]) != ascii_upper((unsigned char)b[i]))
+            return false;
+    }
+    return true;
+}
+
+static bool starts_with_ci_str(const std::string &s, const std::string &prefix)
+{
+    if (s.size() < prefix.size())
+        return false;
+    for (size_t i = 0; i < prefix.size(); i++)
+    {
+        if (ascii_upper((unsigned char)s[i]) != ascii_upper((unsigned char)prefix[i]))
+            return false;
+    }
+    return true;
+}
+
+static std::string trim_copy(const std::string &s)
+{
+    size_t start = 0;
+    while (start < s.size() && isspace((unsigned char)s[start]))
+        start++;
+
+    size_t end = s.size();
+    while (end > start && (isspace((unsigned char)s[end - 1]) || s[end - 1] == '\r' || s[end - 1] == '\n'))
+        end--;
+
+    return s.substr(start, end - start);
+}
+
+static bool second_operand_is_reg(const char *line, size_t op_len)
+{
+    const char *p = line + op_len;
+    const char *comma = strchr(p, ',');
+    if (!comma)
+        return false;
+    const char *q = comma + 1;
+    while (*q && isspace((unsigned char)*q))
+        q++;
+    return ascii_upper((unsigned char)q[0]) == 'R';
+}
+
+static size_t quoted_payload_size_or(const std::string &line, size_t fallback)
+{
+    size_t first = line.find('"');
+    if (first == std::string::npos)
+        return fallback;
+    size_t second = line.find('"', first + 1);
+    if (second == std::string::npos)
+        return fallback;
+    size_t len = second - (first + 1);
+    return len > 255 ? 255 : len;
+}
+
+static std::string operand_after_opcode(const std::string &line, size_t op_len)
+{
+    if (line.size() <= op_len)
+        return std::string();
+    return trim_copy(line.substr(op_len));
+}
+
+static std::string operand_after_comma(const std::string &line, size_t search_from)
+{
+    size_t comma = line.find(',', search_from);
+    if (comma == std::string::npos)
+        return std::string();
+    return trim_copy(line.substr(comma + 1));
 }
 
 static char *preprocess_includes_impl(const char *input, int depth)
@@ -44,25 +116,9 @@ static char *preprocess_includes_impl(const char *input, int depth)
         return NULL;
     }
 
-    const char *slash = strrchr(input, '/');
-    const char *backslash = strrchr(input, '\\');
-    const char *sep = slash;
-    if (!sep || (backslash && backslash > sep))
-        sep = backslash;
-
-    char base_dir[4096];
-    if (sep)
-    {
-        size_t dir_len = (size_t)(sep - input);
-        if (dir_len >= sizeof base_dir)
-            dir_len = sizeof base_dir - 1;
-        memcpy(base_dir, input, dir_len);
-        base_dir[dir_len] = '\0';
-    }
-    else
-    {
-        base_dir[0] = '\0';
-    }
+    const std::string input_path(input);
+    const size_t sep = input_path.find_last_of("/\\");
+    const std::string base_dir = (sep == std::string::npos) ? std::string() : input_path.substr(0, sep);
 
     FILE *in = fopen(input, "rb");
     if (!in)
@@ -71,106 +127,65 @@ static char *preprocess_includes_impl(const char *input, int depth)
         return NULL;
     }
 
-    char *buf = malloc(4096);
-    if (!buf)
-    {
-        fclose(in);
-        return NULL;
-    }
-    size_t len = 0;
-    size_t cap = 4096;
-    buf[0] = '\0';
+    std::string out;
+    out.reserve(4096);
 
     char line[8192];
     while (fgets(line, sizeof line, in))
     {
-        char *copy = strdup(line);
-        if (!copy)
-        {
-            free(buf);
-            fclose(in);
-            return NULL;
-        }
-
-        char *s = trim(copy);
-        char *comment = strchr(s, ';');
-        if (comment)
-            *comment = '\0';
-        s = trim(s);
+        std::string source(line);
+        std::string trimmed = trim_copy(source);
+        size_t comment_pos = trimmed.find(';');
+        if (comment_pos != std::string::npos)
+            trimmed.erase(comment_pos);
+        trimmed = trim_copy(trimmed);
+        const char *s = trimmed.c_str();
 
         if (starts_with_ci(s, "%include"))
         {
-            char *p = s + 8;
+            const char *p = s + 8;
             while (*p && isspace((unsigned char)*p))
                 p++;
 
             if (*p != '"')
             {
                 fprintf(stderr, "Error: malformed %%include directive\n");
-                free(copy);
-                free(buf);
                 fclose(in);
                 return NULL;
             }
 
-            char *end = strchr(p + 1, '"');
+            const char *end = strchr(p + 1, '"');
             if (!end)
             {
                 fprintf(stderr, "Error: malformed %%include directive\n");
-                free(copy);
-                free(buf);
                 fclose(in);
                 return NULL;
             }
 
-            char saved = *end;
-            *end = '\0';
+            std::string include_target(p + 1, (size_t)(end - (p + 1)));
 
-            char include_path[4096];
-            if (base_dir[0] != '\0')
-                snprintf(include_path, sizeof include_path, "%s/%s", base_dir, p + 1);
+            std::string include_path;
+            if (!base_dir.empty())
+                include_path = base_dir + "/" + include_target;
             else
-                snprintf(include_path, sizeof include_path, "%s", p + 1);
+                include_path = include_target;
 
-            char *included = preprocess_includes_impl(include_path, depth + 1);
+            char *included = preprocess_includes_impl(include_path.c_str(), depth + 1);
             if (!included)
             {
-                free(copy);
-                free(buf);
                 fclose(in);
                 return NULL;
             }
-
-            char *next = append_text(buf, &len, &cap, included);
+            out += included;
             free(included);
-            if (!next)
-            {
-                free(copy);
-                free(buf);
-                fclose(in);
-                return NULL;
-            }
-            buf = next;
-
-            *end = saved;
-            free(copy);
             continue;
         }
 
-        char *next = append_text(buf, &len, &cap, line);
-        if (!next)
-        {
-            free(copy);
-            free(buf);
-            fclose(in);
-            return NULL;
-        }
-        buf = next;
-        free(copy);
+        out += line;
     }
 
     fclose(in);
-    return buf;
+    return to_c_owned(out);
 }
 
 char *preprocess_includes(const char *input)
@@ -208,35 +223,17 @@ uint32_t find_data(const char *name, Data *data, size_t count)
 
 size_t instr_size(const char *line)
 {
+    std::string line_sv(line);
+
     if (starts_with_ci(line, "MOV"))
     {
-        char dst[8], src[32];
-
-        const char *p = line + 3;
-        while (*p && isspace(*p))
-            p++;
-
-        const char *comma = strchr(p, ',');
-        if (!comma)
+        std::string rest = line_sv.size() > 3 ? line_sv.substr(3) : std::string();
+        size_t comma = rest.find(',');
+        if (comma == std::string::npos)
             return 0;
 
-        size_t len = comma - p;
-        if (len >= sizeof(dst))
-            len = sizeof(dst) - 1;
-        strncpy(dst, p, len);
-        dst[len] = 0;
-
-        p = comma + 1;
-        while (*p && isspace(*p))
-            p++;
-        strncpy(src, p, sizeof(src) - 1);
-        src[sizeof(src) - 1] = 0;
-
-        char *end = src + strlen(src) - 1;
-        while (end >= src && isspace(*end))
-            *end-- = 0;
-
-        if (toupper(src[0]) == 'R')
+        std::string src = trim_copy(rest.substr(comma + 1));
+        if (!src.empty() && ascii_upper((unsigned char)src[0]) == 'R')
             return 3;
         else
             return 6;
@@ -265,29 +262,11 @@ size_t instr_size(const char *line)
         return 2;
     else if (starts_with_ci(line, "WRITE"))
     {
-        char *quote = strchr(line, '"');
-        if (!quote)
-            return 3;
-        char *end = strchr(quote + 1, '"');
-        if (!end)
-            return 3;
-        size_t str_len = end - (quote + 1);
-        if (str_len > 255)
-            str_len = 255;
-        return 3 + str_len;
+        return 3 + quoted_payload_size_or(line_sv, 0);
     }
     else if (starts_with_ci(line, "EXEC"))
     {
-        char *quote = strchr(line, '"');
-        if (!quote)
-            return 3;
-        char *end = strchr(quote + 1, '"');
-        if (!end)
-            return 3;
-        size_t str_len = end - (quote + 1);
-        if (str_len > 255)
-            str_len = 255;
-        return 3 + str_len;
+        return 3 + quoted_payload_size_or(line_sv, 0);
     }
     else if (starts_with_ci(line, "JMPI"))
         return 5;
@@ -309,14 +288,9 @@ size_t instr_size(const char *line)
         return 3;
     else if (starts_with_ci(line, "STORE"))
     {
-        const char *p = line + 5;
-        const char *comma = strchr(p, ',');
-        if (!comma)
+        if (!strchr(line + 5, ','))
             return 6;
-        const char *q = comma + 1;
-        while (*q && isspace(*q))
-            q++;
-        if (toupper((unsigned char)q[0]) == 'R')
+        if (second_operand_is_reg(line, 5))
             return 3;
         return 6;
     }
@@ -332,28 +306,18 @@ size_t instr_size(const char *line)
         return 6;
     else if (starts_with_ci(line, "LOAD"))
     {
-        const char *p = line + 4;
-        const char *comma = strchr(p, ',');
-        if (!comma)
+        if (!strchr(line + 4, ','))
             return 6;
-        const char *q = comma + 1;
-        while (*q && isspace(*q))
-            q++;
-        if (toupper((unsigned char)q[0]) == 'R')
+        if (second_operand_is_reg(line, 4))
             return 3;
         return 6;
     }
 
     else if (starts_with_ci(line, "LOADVAR"))
     {
-        const char *p = line + 7;
-        const char *comma = strchr(p, ',');
-        if (!comma)
+        if (!strchr(line + 7, ','))
             return 6;
-        const char *q = comma + 1;
-        while (*q && isspace(*q))
-            q++;
-        if (toupper((unsigned char)q[0]) == 'R')
+        if (second_operand_is_reg(line, 7))
             return 3;
         return 6;
     }
@@ -362,14 +326,9 @@ size_t instr_size(const char *line)
 
     else if (starts_with_ci(line, "STOREVAR"))
     {
-        const char *p = line + 8;
-        const char *comma = strchr(p, ',');
-        if (!comma)
+        if (!strchr(line + 8, ','))
             return 6;
-        const char *q = comma + 1;
-        while (*q && isspace(*q))
-            q++;
-        if (toupper((unsigned char)q[0]) == 'R')
+        if (second_operand_is_reg(line, 8))
             return 3;
         return 6;
     }
@@ -381,16 +340,7 @@ size_t instr_size(const char *line)
         return 3;
     else if (starts_with_ci(line, "FOPEN"))
     {
-        const char *quote = strchr(line, '"');
-        if (!quote)
-            return 4;
-        const char *end = strchr(quote + 1, '"');
-        if (!end)
-            return 4;
-        size_t str_len = end - (quote + 1);
-        if (str_len > 255)
-            str_len = 255;
-        return 4 + str_len;
+        return 4 + quoted_payload_size_or(line_sv, 0);
     }
     else if (starts_with_ci(line, "FCLOSE"))
         return 2;
@@ -398,26 +348,18 @@ size_t instr_size(const char *line)
         return 3;
     else if (starts_with_ci(line, "FWRITE"))
     {
-        const char *comma = strchr(line + 6, ',');
-        if (!comma)
+        if (!strchr(line + 6, ','))
             return 6;
-        const char *p = comma + 1;
-        while (*p && isspace(*p))
-            p++;
-        if (toupper(p[0]) == 'R')
+        if (second_operand_is_reg(line, 6))
             return 3;
         else
             return 6;
     }
     else if (starts_with_ci(line, "FSEEK"))
     {
-        const char *comma = strchr(line + 5, ',');
-        if (!comma)
+        if (!strchr(line + 5, ','))
             return 6;
-        const char *p = comma + 1;
-        while (*p && isspace(*p))
-            p++;
-        if (toupper(p[0]) == 'R')
+        if (second_operand_is_reg(line, 5))
             return 3;
         else
             return 6;
@@ -428,8 +370,8 @@ size_t instr_size(const char *line)
         return 2;
     else if (starts_with_ci(line, "HALT"))
     {
-        char operand[32];
-        if (sscanf(line + 4, " %31s", operand) == 1)
+        std::string operand = operand_after_opcode(line_sv, 4);
+        if (!operand.empty())
             return 2;
         else
             return 1;
@@ -448,10 +390,8 @@ size_t instr_size(const char *line)
         return 2;
     else if (starts_with_ci(line, "SLEEP"))
     {
-        const char *p = line + 5;
-        while (*p && isspace((unsigned char)*p))
-            p++;
-        if (toupper((unsigned char)*p) == 'R')
+        std::string operand = operand_after_opcode(line_sv, 5);
+        if (!operand.empty() && ascii_upper((unsigned char)operand[0]) == 'R')
             return 2; // opcode + register
         return 5; // opcode + u32 immediate
     }
@@ -517,23 +457,25 @@ size_t instr_size(const char *line)
         return 2; // opcode + reg
     else if (starts_with_ci(line, "GETENV"))
     {
-        const char *comma = strchr(line + 6, ',');
-        if (!comma)
+        size_t comma = line_sv.find(',', 6);
+        if (comma == std::string::npos)
             return 3;
-        const char *p = comma + 1;
-        while (*p && isspace((unsigned char)*p))
-            p++;
+
+        std::string operand = trim_copy(line_sv.substr(comma + 1));
+        if (operand.empty())
+            return 3;
+
         size_t len = 0;
-        if (*p == '"')
+        if (operand[0] == '"')
         {
-            const char *end = strchr(p + 1, '"');
-            if (!end)
+            size_t end = operand.find('"', 1);
+            if (end == std::string::npos)
                 return 3;
-            len = (size_t)(end - (p + 1));
+            len = end - 1;
         }
         else
         {
-            while (p[len] && p[len] != '\r' && p[len] != '\n' && !isspace((unsigned char)p[len]))
+            while (len < operand.size() && operand[len] != '\r' && operand[len] != '\n' && !isspace((unsigned char)operand[len]))
                 len++;
         }
         if (len > 255)
@@ -545,7 +487,7 @@ size_t instr_size(const char *line)
 }
 uint8_t parse_register(const char *r, int lineno)
 {
-    if (toupper((unsigned char)r[0]) != 'R')
+    if (ascii_upper((unsigned char)r[0]) != 'R')
     {
         fprintf(stderr, "Invalid register on line %d\n", lineno);
         exit(1);
@@ -561,7 +503,7 @@ uint8_t parse_register(const char *r, int lineno)
 }
 uint8_t parse_file(const char *r, int lineno)
 {
-    if (toupper((unsigned char)r[0]) != 'F')
+    if (ascii_upper((unsigned char)r[0]) != 'F')
     {
         fprintf(stderr, "Invalid file descriptor on line %d\n", lineno);
         exit(1);
@@ -577,8 +519,11 @@ uint8_t parse_file(const char *r, int lineno)
 }
 char *trim(char *s)
 {
-    while (isspace(*s))
+    while (isspace((unsigned char)*s))
         s++;
+    if (*s == '\0')
+        return s;
+
     char *end = s + strlen(s) - 1;
     while (end >= s && (isspace(*end) || *end == '\r' || *end == '\n'))
         *end-- = '\0';
@@ -618,9 +563,10 @@ uint64_t get_true_random()
 
 Macro *find_macro(Macro *macros, size_t macro_count, const char *name)
 {
+    const std::string needle(name ? name : "");
     for (size_t m = 0; m < macro_count; m++)
     {
-        if (strcmp(macros[m].name, name) == 0)
+        if (std::string(macros[m].name) == needle)
             return &macros[m];
     }
     return NULL;
@@ -631,163 +577,126 @@ char *replace_all(const char *src, const char *find, const char *repl)
     if (!find || find[0] == '\0')
         return strdup(src);
 
-    size_t src_len = strlen(src);
-    size_t find_len = strlen(find);
-    size_t repl_len = strlen(repl);
+    std::string out(src);
+    const std::string needle(find);
+    const std::string replacement(repl);
 
-    const char *p = src;
-    size_t count = 0;
-    while ((p = strstr(p, find)) != NULL)
+    size_t pos = 0;
+    while ((pos = out.find(needle, pos)) != std::string::npos)
     {
-        count++;
-        p += find_len;
+        out.replace(pos, needle.size(), replacement);
+        pos += replacement.size();
     }
 
-    size_t out_len = src_len + count * (repl_len > find_len ? repl_len - find_len : 0) + 1;
-    char *out = malloc(out_len);
-    if (!out)
+    char *res = (char *)malloc(out.size() + 1);
+    if (!res)
     {
         fprintf(stderr, "Out of memory\n");
         exit(1);
     }
+    memcpy(res, out.c_str(), out.size() + 1);
+    return res;
+}
 
-    char *dst = out;
-    const char *cur = src;
-    const char *match;
-    while ((match = strstr(cur, find)) != NULL)
+static std::vector<std::string> split_tokens(const std::string &s)
+{
+    std::vector<std::string> tokens;
+    size_t i = 0;
+    while (i < s.size())
     {
-        size_t prefix = (size_t)(match - cur);
-        memcpy(dst, cur, prefix);
-        dst += prefix;
-        memcpy(dst, repl, repl_len);
-        dst += repl_len;
-        cur = match + find_len;
+        while (i < s.size() && (isspace((unsigned char)s[i]) || s[i] == ','))
+            i++;
+        if (i >= s.size())
+            break;
+        size_t start = i;
+        while (i < s.size() && !isspace((unsigned char)s[i]) && s[i] != ',')
+            i++;
+        tokens.emplace_back(s.substr(start, i - start));
     }
-    memcpy(dst, cur, strlen(cur) + 1);
-    return out;
+    return tokens;
+}
+
+static std::string replace_all_cpp(std::string text, const std::string &needle, const std::string &replacement)
+{
+    if (needle.empty())
+        return text;
+
+    size_t pos = 0;
+    while ((pos = text.find(needle, pos)) != std::string::npos)
+    {
+        text.replace(pos, needle.size(), replacement);
+        pos += replacement.size();
+    }
+    return text;
 }
 
 int expand_invocation(const char *invocation_line, FILE *dest, int depth, Macro *macros, size_t macro_count, unsigned long *expand_id)
 {
     if (depth > 32)
         return -1;
-    char *copy = strdup(invocation_line);
-    char *t = trim(copy);
+
+    std::vector<char> inv_mut(invocation_line, invocation_line + strlen(invocation_line));
+    inv_mut.push_back('\0');
+    char *t = trim(inv_mut.data());
     if (t[0] != '%')
-    {
-        free(copy);
         return 0;
-    }
-    char *p = t + 1;
-    char *name = strtok(p, " \t\r\n");
-    if (!name)
-    {
-        free(copy);
+
+    std::vector<std::string> tokens = split_tokens(std::string(t + 1));
+    if (tokens.empty())
         return 0;
-    }
-    Macro *m = find_macro(macros, macro_count, name);
+
+    Macro *m = find_macro(macros, macro_count, tokens[0].c_str());
     if (!m)
-    {
-        free(copy);
         return 0;
-    }
-    char *args[32];
-    int argc = 0;
-    char *at;
-    while ((at = strtok(NULL, " \t\r\n,")) != NULL && argc < 32)
-        args[argc++] = at;
+
+    std::vector<std::string> args;
+    for (size_t i = 1; i < tokens.size() && args.size() < 32; i++)
+        args.push_back(tokens[i]);
 
     (*expand_id)++;
-    char idbuf[32];
-    snprintf(idbuf, sizeof(idbuf), "M%lu", *expand_id);
+    std::string id_prefix = "M" + std::to_string(*expand_id);
 
     for (int bi = 0; bi < m->bodyc; bi++)
     {
-        char *line = strdup(m->body[bi]);
+        std::string line = m->body[bi];
         for (int pi = 0; pi < m->paramc; pi++)
         {
-            char findbuf[128];
-            snprintf(findbuf, sizeof(findbuf), "$%s", m->params[pi]);
-            const char *repl = (pi < argc) ? args[pi] : "";
-            char *tmp = replace_all(line, findbuf, repl);
-            free(line);
-            line = tmp;
+            std::string find = "$" + std::string(m->params[pi]);
+            const std::string repl = (pi < (int)args.size()) ? args[(size_t)pi] : std::string();
+            line = replace_all_cpp(std::move(line), find, repl);
         }
-        for (int pi = 0; pi < argc; pi++)
+        for (size_t pi = 0; pi < args.size(); pi++)
         {
-            char findbuf[8];
-            snprintf(findbuf, sizeof(findbuf), "$%d", pi + 1);
-            char *tmp = replace_all(line, findbuf, args[pi]);
-            free(line);
-            line = tmp;
+            std::string find = "$" + std::to_string(pi + 1);
+            line = replace_all_cpp(std::move(line), find, args[pi]);
         }
 
-        char *pcur = line;
-        size_t outcap = strlen(line) + 1;
-        char *out = malloc(outcap);
-        if (!out)
-        {
-            fprintf(stderr, "Out of memory\n");
-            exit(1);
-        }
-        out[0] = '\0';
+        const char *pcur = line.c_str();
+        std::string out;
+        out.reserve(line.size() + 16);
         for (;;)
         {
-            char *atpos = strstr(pcur, "@@");
+            const char *atpos = strstr(pcur, "@@");
             if (!atpos)
             {
-                size_t need = strlen(out) + strlen(pcur) + 1;
-                if (need > outcap)
-                {
-                    outcap = need;
-                    out = realloc(out, outcap);
-                    if (!out)
-                    {
-                        fprintf(stderr, "Out of memory\n");
-                        exit(1);
-                    }
-                }
-                strcat(out, pcur);
+                out += pcur;
                 break;
             }
             size_t prefixlen = (size_t)(atpos - pcur);
-            size_t need = strlen(out) + prefixlen + 1;
-            if (need > outcap)
-            {
-                outcap = need * 2;
-                out = realloc(out, outcap);
-                if (!out)
-                {
-                    fprintf(stderr, "Out of memory\n");
-                    exit(1);
-                }
-            }
-            strncat(out, pcur, prefixlen);
-            char *ident = atpos + 2;
+            out.append(pcur, prefixlen);
+            const char *ident = atpos + 2;
             int il = 0;
             while (ident[il] && (isalnum((unsigned char)ident[il]) || ident[il] == '_'))
                 il++;
-            char identbuf[128];
-            strncpy(identbuf, ident, il);
-            identbuf[il] = '\0';
-            char replbuf[256];
-            snprintf(replbuf, sizeof(replbuf), "%s_%s", idbuf, identbuf);
-            size_t need2 = strlen(out) + strlen(replbuf) + 1;
-            if (need2 > outcap)
-            {
-                outcap = need2;
-                out = realloc(out, outcap);
-                if (!out)
-                {
-                    fprintf(stderr, "Out of memory\n");
-                    exit(1);
-                }
-            }
-            strcat(out, replbuf);
+            out += id_prefix;
+            out += "_";
+            out.append(ident, (size_t)il);
             pcur = ident + il;
         }
 
-        char *wline = trim(out);
+        std::vector<char> out_mut(out.begin(), out.end());
+        out_mut.push_back('\0');
+        char *wline = trim(out_mut.data());
         if (wline[0] == '%')
         {
             expand_invocation(wline, dest, depth + 1, macros, macro_count, expand_id);
@@ -799,40 +708,20 @@ int expand_invocation(const char *invocation_line, FILE *dest, int depth, Macro 
             if (l == 0 || wline[l - 1] != '\n')
                 fputc('\n', dest);
         }
-
-        free(out);
-        free(line);
     }
 
-    free(copy);
     return 1;
 }
 int equals_ci(const char *a, const char *b)
 {
     if (!a || !b)
         return 0;
-    while (*a && *b)
-    {
-        if (toupper((unsigned char)*a) != toupper((unsigned char)*b))
-            return 0;
-        a++;
-        b++;
-    }
-    return *a == *b;
+    return equals_ci_str(std::string(a), std::string(b)) ? 1 : 0;
 }
 
 int starts_with_ci(const char *s, const char *prefix)
 {
     if (!s || !prefix)
         return 0;
-    size_t i = 0;
-    while (prefix[i])
-    {
-        if (s[i] == '\0')
-            return 0;
-        if (toupper((unsigned char)s[i]) != toupper((unsigned char)prefix[i]))
-            return 0;
-        i++;
-    }
-    return 1;
+    return starts_with_ci_str(std::string(s), std::string(prefix)) ? 1 : 0;
 }

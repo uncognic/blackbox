@@ -8,9 +8,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-extern char *preprocess_includes(const char *input);
-extern void preprocess_includes_free(char *buf);
-
 static int append_line(char ***lines, size_t *count, size_t *cap,
                        const char *text)
 {

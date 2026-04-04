@@ -5,6 +5,13 @@
 #include <ctype.h>
 #include "../define.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+char *preprocess_includes(const char *input);
+void preprocess_includes_free(char *buf);
+
 uint32_t find_data(const char *name, Data *data, size_t count);
 uint32_t find_label(const char *name, Label *labels, size_t count);
 
@@ -19,3 +26,7 @@ char *replace_all(const char *src, const char *find, const char *repl);
 int expand_invocation(const char *invocation_line, FILE *dest, int depth, Macro *macros, size_t macro_count, unsigned long *expand_id);
 int equals_ci(const char *a, const char *b);
 int starts_with_ci(const char *s, const char *prefix);
+
+#ifdef __cplusplus
+}
+#endif

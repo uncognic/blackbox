@@ -42,3 +42,4 @@ bbx-disassembler
 bbxd
 new.bbx
 test.bbs
+*.o
