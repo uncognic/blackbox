@@ -6,6 +6,7 @@
 #include "tools.h"
 #include "asm.h"
 #include "basic.h"
+#include "../data.h"
 
 int main(int argc, char *argv[])
 {

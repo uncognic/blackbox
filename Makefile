@@ -6,10 +6,10 @@ CFLAGS ?= -Wall -Wextra -O2
 all: compiler interpreter disassembler copy
 
 compiler:
-	$(CC) $(CFLAGS) src/blackboxc/compiler.c src/blackboxc/asm.c src/blackboxc/tools.c src/blackboxc/basic.c -Isrc/blackboxc -o src/blackboxc/bbxc
+	$(CC) $(CFLAGS) src/blackboxc/compiler.c src/blackboxc/asm.c src/blackboxc/tools.c src/blackboxc/basic.c src/data.c -Isrc/blackboxc -o src/blackboxc/bbxc
 
 interpreter:
-	$(CC) $(CFLAGS) src/blackbox/blackbox.c src/blackbox/debug.c src/blackboxc/tools.c -Isrc/blackbox -Isrc/blackboxc -o src/blackbox/bbx
+	$(CC) $(CFLAGS) src/blackbox/blackbox.c src/blackbox/debug.c src/blackboxc/tools.c src/data.c -Isrc/blackbox -Isrc/blackboxc -o src/blackbox/bbx
 
 disassembler:
 	cargo build --release --manifest-path=src/bbx-disasm/Cargo.toml

@@ -712,6 +712,51 @@ static int emit_write_values(const char *arg,
 {
     while (*arg)
     {
+        const char *arg_start = skip_ws(arg);
+        if (isalpha((unsigned char)*arg_start) || *arg_start == '_')
+        {
+            char name[64];
+            size_t i = 0;
+            const char *p = arg_start;
+            while ((isalnum((unsigned char)*p) || *p == '_') && i < sizeof(name) - 1)
+                name[i++] = *p++;
+            name[i] = '\0';
+
+            if (*skip_ws(p) == '\0' || *skip_ws(p) == ',')
+            {
+                Variable *v = sym_find(st, name);
+                if (v && v->type == VAR_STR)
+                {
+                    int reg = ralloc_acquire(ra);
+                    if (reg < 0)
+                    {
+                        fprintf(stderr, "Out of scratch registers\n");
+                        return 1;
+                    }
+
+                    char rn[4];
+                    reg_name(reg, rn);
+
+                    if (v->is_const)
+                        EMIT_CODE(ob, "    LOADSTR $%s, %s", v->data_name, rn);
+                    else
+                        EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
+
+                    if (to_stderr)
+                        EMIT_CODE(ob, "    EPRINTSTR %s", rn);
+                    else
+                        EMIT_CODE(ob, "    PRINTSTR %s", rn);
+                    ralloc_release(ra, reg);
+
+                    if (debug)
+                        printf("[BASIC] %s %s\n", stmt_name, name);
+
+                    arg = skip_ws(p);
+                    goto emit_write_values_next_arg;
+                }
+            }
+        }
+
         if (*arg == '"')
         {
             const char *str_start = arg + 1;
@@ -772,6 +817,7 @@ static int emit_write_values(const char *arg,
             arg = skip_ws(expr_end);
         }
 
+    emit_write_values_next_arg:
         if (*arg == ',')
         {
             arg = skip_ws(arg + 1);

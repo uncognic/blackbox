@@ -1,6 +1,7 @@
 #include "asm.h"
 #include "../define.h"
 #include "tools.h"
+#include "../data.h"
 #include <ctype.h>
 #include <stdint.h>
 #include <stdio.h>

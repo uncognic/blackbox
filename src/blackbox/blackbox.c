@@ -1,5 +1,6 @@
 #include "../define.h"
 #include "../blackboxc/tools.h"
+#include "../data.h"
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -15,6 +16,24 @@
 #include <unistd.h>
 #endif
 #include "debug.h"
+
+static int ensure_u8_capacity(uint8_t **buf, size_t *cap, size_t need)
+{
+    if (*cap >= need)
+        return 0;
+
+    size_t new_cap = (*cap) ? (*cap + *cap / 2) : 256;
+    if (new_cap < need)
+        new_cap = need;
+
+    uint8_t *tmp = realloc(*buf, new_cap);
+    if (!tmp)
+        return 1;
+
+    *buf = tmp;
+    *cap = new_cap;
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
@@ -167,6 +186,10 @@ int main(int argc, char *argv[])
 
     size_t pc = HEADER_FIXED_SIZE + data_table_size;
 
+    uint8_t *str_heap = NULL;
+    size_t str_heap_size = 0;
+    size_t str_heap_cap = 0;
+
     FILE *fds[FILE_DESCRIPTORS];
     uint8_t fds_owned[FILE_DESCRIPTORS];
     for (size_t i = 0; i < FILE_DESCRIPTORS; i++)
@@ -301,6 +324,7 @@ int main(int argc, char *argv[])
                     free(call_stack);
                     free(vars);
                     free(frame_base_stack);
+                    free(str_heap);
                     return 0;
                 }
                 else if (p[0] == 'r')
@@ -876,6 +900,7 @@ int main(int argc, char *argv[])
             free(call_stack);
             free(vars);
             free(frame_base_stack);
+            free(str_heap);
             return (int)code;
         }
         case OPCODE_PRINT:
@@ -1721,6 +1746,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Missing operand for PRINTSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
+                free(str_heap);
                 return 1;
             }
             uint8_t reg = program[pc++];
@@ -1729,24 +1755,26 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Invalid register in PRINTSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
+                free(str_heap);
                 return 1;
             }
 
             uint32_t val = (uint32_t)registers[reg];
             if (val & 0x80000000)
             {
-                size_t offset = val & 0x7FFFFFFF;
-                if (offset >= stack_cap)
+                size_t offset = (size_t)(val & 0x7FFFFFFF);
+                if (offset >= str_heap_size)
                 {
-                    fprintf(stderr, "Stack offset out of bounds: %zu at pc=%zu\n", offset, pc);
+                    fprintf(stderr, "String offset out of bounds: %zu at pc=%zu\n", offset, pc);
                     free(program);
                     free(stack);
+                    free(str_heap);
                     return 1;
                 }
                 size_t i = offset;
-                while (i < sp)
+                while (i < str_heap_size)
                 {
-                    char c = (char)stack[i];
+                    char c = (char)str_heap[i];
                     if (c == '\0')
                         break;
                     putchar(c);
@@ -1760,6 +1788,7 @@ int main(int argc, char *argv[])
                     fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", val, pc);
                     free(program);
                     free(stack);
+                    free(str_heap);
                     return 1;
                 }
                 printf("%s", &data_table[val]);
@@ -1774,6 +1803,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Missing operand for EPRINTSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
+                free(str_heap);
                 return 1;
             }
             uint8_t reg = program[pc++];
@@ -1782,24 +1812,26 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Invalid register in EPRINTSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
+                free(str_heap);
                 return 1;
             }
 
             uint32_t val = (uint32_t)registers[reg];
             if (val & 0x80000000)
             {
-                size_t offset = val & 0x7FFFFFFF;
-                if (offset >= stack_cap)
+                size_t offset = (size_t)(val & 0x7FFFFFFF);
+                if (offset >= str_heap_size)
                 {
-                    fprintf(stderr, "Stack offset out of bounds: %zu at pc=%zu\n", offset, pc);
+                    fprintf(stderr, "String offset out of bounds: %zu at pc=%zu\n", offset, pc);
                     free(program);
                     free(stack);
+                    free(str_heap);
                     return 1;
                 }
                 size_t i = offset;
-                while (i < sp)
+                while (i < str_heap_size)
                 {
-                    char c = (char)stack[i];
+                    char c = (char)str_heap[i];
                     if (c == '\0')
                         break;
                     fputc(c, stderr);
@@ -1813,6 +1845,7 @@ int main(int argc, char *argv[])
                     fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", val, pc);
                     free(program);
                     free(stack);
+                    free(str_heap);
                     return 1;
                 }
                 fprintf(stderr, "%s", &data_table[val]);
@@ -1910,6 +1943,7 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Missing operand for READSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
+                free(str_heap);
                 return 1;
             }
             uint8_t reg = program[pc++];
@@ -1918,45 +1952,43 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Invalid register in READSTR at pc=%zu\n", pc);
                 free(program);
                 free(stack);
+                free(str_heap);
                 return 1;
             }
 
-            uint32_t start_addr = sp | 0x80000000;
+            if (str_heap_size > 0x7FFFFFFF)
+            {
+                fprintf(stderr, "String heap too large at pc=%zu\n", pc);
+                free(program);
+                free(stack);
+                free(str_heap);
+                return 1;
+            }
+
+            uint32_t start_addr = 0x80000000u | (uint32_t)str_heap_size;
 
             int c;
             while ((c = getchar()) != EOF && c != '\n')
             {
-                if (sp >= stack_cap)
-                {
-                    size_t new_cap = stack_cap + stack_cap / 2;
-                    int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
-                    if (!tmp)
-                    {
-                        perror("realloc");
-                        free(program);
-                        free(stack);
-                        return 1;
-                    }
-                    stack = tmp;
-                    stack_cap = new_cap;
-                }
-                stack[sp++] = c;
-            }
-            if (sp >= stack_cap)
-            {
-                size_t new_cap = stack_cap + stack_cap / 2;
-                int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
-                if (!tmp)
+                if (ensure_u8_capacity(&str_heap, &str_heap_cap, str_heap_size + 1))
                 {
                     perror("realloc");
                     free(program);
                     free(stack);
+                    free(str_heap);
                     return 1;
                 }
-                stack = tmp;
-                stack_cap = new_cap;
+                str_heap[str_heap_size++] = (uint8_t)c;
             }
-            stack[sp++] = 0;
+            if (ensure_u8_capacity(&str_heap, &str_heap_cap, str_heap_size + 1))
+            {
+                perror("realloc");
+                free(program);
+                free(stack);
+                free(str_heap);
+                return 1;
+            }
+            str_heap[str_heap_size++] = 0;
 
             registers[reg] = start_addr;
             break;
@@ -2231,6 +2263,7 @@ int main(int argc, char *argv[])
                         free(call_stack);
                         free(vars);
                         free(frame_base_stack);
+                        free(str_heap);
                         return 0;
                     }
                     else if (p[0] == 'r')
@@ -3022,6 +3055,7 @@ int main(int argc, char *argv[])
             free(program);
             free(stack);
             free(call_stack);
+            free(str_heap);
             return 1;
         }
         }
@@ -3035,6 +3069,7 @@ int main(int argc, char *argv[])
     free(call_stack);
     free(vars);
     free(frame_base_stack);
+    free(str_heap);
     return 0;
 
 fault_exit:
@@ -3043,6 +3078,7 @@ fault_exit:
     free(call_stack);
     free(vars);
     free(frame_base_stack);
+    free(str_heap);
     free(permissions);
     return 1;
 }
