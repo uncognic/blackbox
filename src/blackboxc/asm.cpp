@@ -1,48 +1,24 @@
 #include "asm.h"
 #include "../define.h"
 #include "tools.h"
+#include "asm_util.h"
 #include "../data.h"
 
 #include <cctype>
+#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <memory>
 #include <string>
 #include <vector>
-
-static int append_line(std::vector<std::string> &lines, const char *text)
-{
-    lines.emplace_back(text ? text : "");
-    return 0;
-}
-
-static int collect_lines_from_buffer(const char *src, std::vector<std::string> &lines)
-{
-    const char *p = src;
-    while (*p)
-    {
-        const char *nl = strchr(p, '\n');
-        size_t len = nl ? (size_t)(nl - p + 1) : strlen(p);
-
-        if (append_line(lines, std::string(p, len).c_str()) != 0)
-        {
-            fprintf(stderr, "Out of memory\n");
-            return 1;
-        }
-
-        if (!nl)
-            break;
-        p = nl + 1;
-    }
-
-    return 0;
-}
 
 int assemble_file(const char *filename, const char *output_file, int debug)
 {
     FILE *in = NULL;
     {
+        using FilePtr = std::unique_ptr<FILE, int (*)(FILE *)>;
         std::vector<std::string> lines;
         char *preprocessed = preprocess_includes(filename);
         if (!preprocessed)
@@ -50,14 +26,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             return 1;
         }
 
-        if (collect_lines_from_buffer(preprocessed, lines) != 0)
+        if (bbxc::asm_helpers::collect_lines_from_buffer(preprocessed, lines) != 0)
         {
             preprocess_includes_free(preprocessed);
             return 1;
         }
         preprocess_includes_free(preprocessed);
 
-        FILE *tmp = tmpfile();
+        FilePtr tmp(tmpfile(), fclose);
         if (!tmp)
         {
             perror("tmpfile");
@@ -68,127 +44,97 @@ int assemble_file(const char *filename, const char *output_file, int debug)
 
         for (size_t i = 0; i < lines.size(); i++)
         {
-            char *copy = strdup(lines[i].c_str());
-            char *t = trim(copy);
-            if (starts_with_ci(t, "%macro") &&
-                (t[6] == ' ' || t[6] == '\t' || t[6] == '\0'))
+            std::string trimmed = bbxc::asm_helpers::trim_copy(lines[i]);
+            if (starts_with_ci(trimmed.c_str(), "%macro") &&
+                trimmed.size() > 6 &&
+                (trimmed[6] == ' ' || trimmed[6] == '\t'))
             {
-                char *p = t + 6;
-                while (*p == ' ' || *p == '\t')
-                    p++;
-                char *tok = strtok(p, " \t\r\n");
-                if (!tok)
+                std::string header = bbxc::asm_helpers::trim_copy(trimmed.substr(6));
+                std::vector<std::string> header_tokens = bbxc::asm_helpers::split_tokens(header);
+                if (header_tokens.empty())
                 {
                     fprintf(stderr, "Syntax error: bad %%macro header\n");
-                    free(copy);
                     continue;
                 }
-                char *mname = strdup(tok);
-                char **params = NULL;
-                int paramc = 0, paramcap = 0;
-                char *argtok;
-                while ((argtok = strtok(NULL, " \t\r\n,")) != NULL)
+
+                std::vector<std::string> params;
+                params.reserve(header_tokens.size() > 1 ? header_tokens.size() - 1 : 0);
+                for (size_t p = 1; p < header_tokens.size(); p++)
                 {
-                    if (paramc + 1 >= paramcap)
-                    {
-                        paramcap = paramcap ? paramcap * 2 : 8;
-                        params = static_cast<char **>(realloc(params, paramcap * sizeof(char *)));
-                    }
-                    params[paramc++] = strdup(argtok);
+                    params.push_back(header_tokens[p]);
                 }
 
-                char **body = NULL;
-                int bodyc = 0, bodycap = 0;
+                std::vector<std::string> body;
                 size_t j = i + 1;
                 for (; j < lines.size(); j++)
                 {
-                    char *c2 = strdup(lines[j].c_str());
-                    char *t2 = trim(c2);
-                    if (equals_ci(t2, "%endmacro"))
+                    std::string line_trimmed = bbxc::asm_helpers::trim_copy(lines[j]);
+                    if (equals_ci(line_trimmed.c_str(), "%endmacro"))
                     {
-                        free(c2);
                         break;
                     }
-                    if (bodyc + 1 >= bodycap)
-                    {
-                        bodycap = bodycap ? bodycap * 2 : 16;
-                        body = static_cast<char **>(realloc(body, bodycap * sizeof(char *)));
-                    }
-                    body[bodyc++] = strdup(lines[j].c_str());
-                    free(c2);
+                    body.push_back(lines[j]);
                 }
 
                 Macro macro = {};
-                macro.name = mname;
-                macro.params = params;
-                macro.paramc = paramc;
-                macro.body = body;
-                macro.bodyc = bodyc;
+                if (!bbxc::asm_helpers::build_macro_owned(header_tokens[0], params, body, macro))
+                {
+                    fprintf(stderr, "Out of memory\n");
+                    return 1;
+                }
                 macros.push_back(macro);
 
                 i = j;
             }
-            free(copy);
         }
 
         unsigned long expand_id = 0;
 
         for (size_t i = 0; i < lines.size(); i++)
         {
-            char *copy = strdup(lines[i].c_str());
-            char *t = trim(copy);
-            if (strncmp(t, "%macro", 6) == 0)
+            std::string trimmed = bbxc::asm_helpers::trim_copy(lines[i]);
+            if (starts_with_ci(trimmed.c_str(), "%macro"))
             {
                 size_t j = i + 1;
                 for (; j < lines.size(); j++)
                 {
-                    char *c2 = strdup(lines[j].c_str());
-                    char *t2 = trim(c2);
-                    if (equals_ci(t2, "%endmacro"))
+                    std::string line_trimmed = bbxc::asm_helpers::trim_copy(lines[j]);
+                    if (equals_ci(line_trimmed.c_str(), "%endmacro"))
                     {
-                        free(c2);
                         break;
                     }
-                    free(c2);
                 }
                 i = j;
-                free(copy);
                 continue;
             }
-            if (t[0] == '%')
+            if (!trimmed.empty() && trimmed[0] == '%')
             {
-                if (equals_ci(t, "%asm") || equals_ci(t, "%data") ||
-                    equals_ci(t, "%main") || equals_ci(t, "%entry") ||
-                    equals_ci(t, "%endmacro"))
+                if (equals_ci(trimmed.c_str(), "%asm") ||
+                    equals_ci(trimmed.c_str(), "%data") ||
+                    equals_ci(trimmed.c_str(), "%main") ||
+                    equals_ci(trimmed.c_str(), "%entry") ||
+                    equals_ci(trimmed.c_str(), "%endmacro"))
                 {
-                    fputs(lines[i].c_str(), tmp);
-                    free(copy);
+                    fputs(lines[i].c_str(), tmp.get());
                     continue;
                 }
-                if (expand_invocation(t, tmp, 0, macros.data(), macros.size(),
+                if (expand_invocation(trimmed.c_str(), tmp.get(), 0,
+                                      macros.data(), macros.size(),
                                       &expand_id))
                 {
-                    free(copy);
                     continue;
                 }
             }
-            fputs(lines[i].c_str(), tmp);
-            free(copy);
+            fputs(lines[i].c_str(), tmp.get());
         }
 
         for (size_t m = 0; m < macros.size(); m++)
         {
-            free(macros[m].name);
-            for (int p = 0; p < macros[m].paramc; p++)
-                free(macros[m].params[p]);
-            free(macros[m].params);
-            for (int b = 0; b < macros[m].bodyc; b++)
-                free(macros[m].body[b]);
-            free(macros[m].body);
+            bbxc::asm_helpers::free_macro_owned(macros[m]);
         }
 
-        rewind(tmp);
-        in = tmp;
+        rewind(tmp.get());
+        in = tmp.release();
     }
     FILE *out = fopen(output_file, "wb");
     if (!out)
@@ -222,22 +168,19 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else
         {
-            fprintf(stderr, "Error: file must start with %%asm (line %d)\n",
-                    lineno);
-            fclose(in);
-            fclose(out);
-            return 1;
+            return bbxc::asm_helpers::failf(in, out, "Error: file must start with %%asm (line %d)", lineno);
         }
     }
 
-    Label labels[256];
-    size_t label_count = 0;
+    std::vector<Label> labels;
+    labels.reserve(256);
     uint32_t pc = MAGIC_SIZE;
 
-    Data data[256];
-    size_t data_count = 0;
+    std::vector<Data> data;
+    data.reserve(256);
     uint32_t data_table_size = 0;
-    char data_table[8192];
+    std::vector<uint8_t> data_table;
+    data_table.reserve(8192);
 
     int current_section = 0;
     int found_code_section = 0;
@@ -259,13 +202,9 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         {
             if (found_code_section)
             {
-                fprintf(stderr,
-                        "Error on line %d: %%data section must come before "
-                        "%%main/%%entry\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Error on line %d: %%data section must come before %%main/%%entry",
+                             lineno);
             }
             current_section = 1;
             if (debug)
@@ -285,222 +224,163 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         {
             if (current_section != 1)
             {
-                fprintf(stderr,
-                        "Error on line %d: STR must be inside %%data section\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Error on line %d: STR must be inside %%data section",
+                             lineno);
             }
             char name[32];
             char *quote_start = strchr(s, '"');
             if (!quote_start || sscanf(s + 4, " $%31[^,]", name) != 1)
             {
-                fprintf(stderr,
-                        "Syntax error line %d: expected STR $name, \"value\"\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Syntax error line %d: expected STR $name, \"value\"",
+                             lineno);
             }
 
             quote_start++;
             char *quote_end = strchr(quote_start, '"');
             if (!quote_end)
             {
-                fprintf(stderr, "Syntax error line %d: missing closing quote\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Syntax error line %d: missing closing quote",
+                             lineno);
             }
             size_t len = quote_end - quote_start;
 
-            snprintf(data[data_count].name, sizeof(data[data_count].name), "%s",
-                     name);
-            data[data_count].type = DATA_STRING;
-            data[data_count].offset = data_table_size;
-            data[data_count].str = &data_table[data_table_size];
+            if (data.size() >= 256)
+            {
+                return bbxc::asm_helpers::failf(in, out, "Too many data entries (max 256)");
+            }
 
-            memcpy(data_table + data_table_size, quote_start, len);
-            data_table[data_table_size + len] = '\0';
-            data_table_size += len + 1;
-            data_count++;
-
+            data_table.insert(data_table.end(), quote_start, quote_start + len);
+            data_table.push_back('\0');
+            bbxc::asm_helpers::append_data_item(data, name, DATA_STRING, data_table_size, 0);
+            data_table_size += (uint32_t)(len + 1);
             if (debug)
                 printf("[DEBUG] String $%s at offset %u\n", name,
-                       data[data_count - 1].offset);
+                       data.back().offset);
             continue;
         }
         else if (starts_with_ci(s, "DWORD "))
         {
             if (current_section != 1)
             {
-                fprintf(
-                    stderr,
-                    "Error on line %d: DWORD must be inside %%data section\n",
-                    lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Error on line %d: DWORD must be inside %%data section",
+                             lineno);
             }
             char name[32];
             uint32_t value;
             if (sscanf(s + 6, " $%31[^,], %u", name, &value) != 2)
             {
-                fprintf(stderr,
-                        "Syntax error line %d: expected DWORD $name, value\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Syntax error line %d: expected DWORD $name, value",
+                             lineno);
             }
 
-            snprintf(data[data_count].name, sizeof(data[data_count].name), "%s",
-                     name);
-            data[data_count].type = DATA_DWORD;
-            data[data_count].offset = data_table_size;
-            data[data_count].dword = value;
+            if (data.size() >= 256)
+            {
+                return bbxc::asm_helpers::failf(in, out, "Too many data entries (max 256)");
+            }
 
-            data_table[data_table_size + 0] = (value >> 0) & 0xFF;
-            data_table[data_table_size + 1] = (value >> 8) & 0xFF;
-            data_table[data_table_size + 2] = (value >> 16) & 0xFF;
-            data_table[data_table_size + 3] = (value >> 24) & 0xFF;
-            data_table_size += sizeof(value);
-            data_count++;
-
+            bbxc::asm_helpers::append_le_bytes(data_table, value, sizeof(value));
+            bbxc::asm_helpers::append_data_item(data, name, DATA_DWORD, data_table_size, value);
+            data_table_size += (uint32_t)sizeof(value);
             if (debug)
                 printf("[DEBUG] DWORD $%s at offset %u\n", name,
-                       data[data_count - 1].offset);
+                       data.back().offset);
             continue;
         }
         else if (starts_with_ci(s, "QWORD "))
         {
             if (current_section != 1)
             {
-                fprintf(
-                    stderr,
-                    "Error on line %d: QWORD must be inside %%data section\n",
-                    lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Error on line %d: QWORD must be inside %%data section",
+                             lineno);
             }
             char name[32];
             char value_str[64];
             uint64_t value;
             if (sscanf(s + 6, " $%31[^,], %63s", name, value_str) != 2)
             {
-                fprintf(stderr,
-                        "Syntax error line %d: expected QWORD $name, value\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Syntax error line %d: expected QWORD $name, value",
+                             lineno);
             }
             value = (uint64_t)strtoull(value_str, NULL, 0);
 
-            snprintf(data[data_count].name, sizeof(data[data_count].name), "%s",
-                     name);
-            data[data_count].type = DATA_QWORD;
-            data[data_count].offset = data_table_size;
-            data[data_count].qword = value;
+            if (data.size() >= 256)
+            {
+                return bbxc::asm_helpers::failf(in, out, "Too many data entries (max 256)");
+            }
 
-            data_table[data_table_size + 0] = (value >> 0) & 0xFF;
-            data_table[data_table_size + 1] = (value >> 8) & 0xFF;
-            data_table[data_table_size + 2] = (value >> 16) & 0xFF;
-            data_table[data_table_size + 3] = (value >> 24) & 0xFF;
-            data_table[data_table_size + 4] = (value >> 32) & 0xFF;
-            data_table[data_table_size + 5] = (value >> 40) & 0xFF;
-            data_table[data_table_size + 6] = (value >> 48) & 0xFF;
-            data_table[data_table_size + 7] = (value >> 56) & 0xFF;
-
-            data_table_size += sizeof(value);
-            data_count++;
-
+            bbxc::asm_helpers::append_le_bytes(data_table, value, sizeof(value));
+            bbxc::asm_helpers::append_data_item(data, name, DATA_QWORD, data_table_size, value);
+            data_table_size += (uint32_t)sizeof(value);
             if (debug)
                 printf("[DEBUG] QWORD $%s at offset %u\n", name,
-                       data[data_count - 1].offset);
+                       data.back().offset);
             continue;
         }
         else if (starts_with_ci(s, "WORD "))
         {
             if (current_section != 1)
             {
-                fprintf(
-                    stderr,
-                    "Error on line %d: WORD must be inside %%data section\n",
-                    lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Error on line %d: WORD must be inside %%data section",
+                             lineno);
             }
             char name[32];
             uint16_t value;
             if (sscanf(s + 5, " $%31[^,], %hu", name, &value) != 2)
             {
-                fprintf(stderr,
-                        "Syntax error line %d: expected WORD $name, value\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Syntax error line %d: expected WORD $name, value",
+                             lineno);
             }
 
-            snprintf(data[data_count].name, sizeof(data[data_count].name), "%s",
-                     name);
-            data[data_count].type = DATA_WORD;
-            data[data_count].offset = data_table_size;
-            data[data_count].word = value;
+            if (data.size() >= 256)
+            {
+                return bbxc::asm_helpers::failf(in, out, "Too many data entries (max 256)");
+            }
 
-            data_table[data_table_size + 0] = (value >> 0) & 0xFF;
-            data_table[data_table_size + 1] = (value >> 8) & 0xFF;
-
-            data_table_size += sizeof(value);
-            data_count++;
-
+            bbxc::asm_helpers::append_le_bytes(data_table, value, sizeof(value));
+            bbxc::asm_helpers::append_data_item(data, name, DATA_WORD, data_table_size, value);
+            data_table_size += (uint32_t)sizeof(value);
             if (debug)
                 printf("[DEBUG] WORD $%s at offset %u\n", name,
-                       data[data_count - 1].offset);
+                       data.back().offset);
             continue;
         }
         else if (starts_with_ci(s, "BYTE "))
         {
             if (current_section != 1)
             {
-                fprintf(
-                    stderr,
-                    "Error on line %d: BYTE must be inside %%data section\n",
-                    lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Error on line %d: BYTE must be inside %%data section",
+                             lineno);
             }
             char name[32];
             uint8_t value;
             if (sscanf(s + 5, " $%31[^,], %hhu", name, &value) != 2)
             {
-                fprintf(stderr,
-                        "Syntax error line %d: expected BYTE $name, value\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Syntax error line %d: expected BYTE $name, value",
+                             lineno);
             }
 
-            snprintf(data[data_count].name, sizeof(data[data_count].name), "%s",
-                     name);
-            data[data_count].type = DATA_BYTE;
-            data[data_count].offset = data_table_size;
-            data[data_count].byte = value;
+            if (data.size() >= 256)
+            {
+                return bbxc::asm_helpers::failf(in, out, "Too many data entries (max 256)");
+            }
 
-            memcpy(data_table + data_table_size, &value, sizeof(value));
-            data_table_size += sizeof(value);
-            data_count++;
-
+            data_table.push_back(value);
+            bbxc::asm_helpers::append_data_item(data, name, DATA_BYTE, data_table_size, value);
+            data_table_size += (uint32_t)sizeof(value);
             if (debug)
                 printf("[DEBUG] BYTE $%s at offset %u\n", name,
-                       data[data_count - 1].offset);
+                       data.back().offset);
             continue;
         }
 
@@ -509,23 +389,15 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             size_t len = strlen(s);
             if (s[0] == '.' && s[len - 1] == ':')
             {
-                fprintf(stderr,
-                        "Error on line %d: labels must be inside "
-                        "%%main/%%entry section\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Error on line %d: labels must be inside %%main/%%entry section",
+                             lineno);
             }
             if (current_section == 0)
             {
-                fprintf(stderr,
-                        "Error on line %d: code outside of section. Use "
-                        "%%string or %%main/%%entry\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Error on line %d: code outside of section. Use %%string or %%main/%%entry",
+                             lineno);
             }
             continue;
         }
@@ -533,52 +405,40 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         size_t len = strlen(s);
         if (s[0] == '.' && s[len - 1] == ':')
         {
-            if (label_count >= 256)
+            if (labels.size() >= 256)
             {
-                fprintf(stderr, "Too many labels (max 256)\n");
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out, "Too many labels (max 256)");
             }
 
             s[len - 1] = '\0';
-            strncpy(labels[label_count].name, s + 1,
-                    sizeof(labels[label_count].name) - 1);
-            labels[label_count].name[sizeof(labels[label_count].name) - 1] =
-                '\0';
-            labels[label_count].addr = pc;
-            labels[label_count].frame_size = 0;
-            if (debug)
-            {
-                printf("[DEBUG] Label %s at pc=%u\n", labels[label_count].name,
-                       (unsigned)labels[label_count].addr);
-            }
-            label_count++;
+            Label label = {};
+            strncpy(label.name, s + 1, sizeof(label.name) - 1);
+            label.name[sizeof(label.name) - 1] = '\0';
+            label.addr = pc;
+            label.frame_size = 0;
+            labels.push_back(label);
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Label %s at pc=%u\n", labels.back().name,
+                (unsigned)labels.back().addr);
             continue;
         }
 
         if (starts_with_ci(s, "frame"))
         {
-            if (label_count == 0)
+            if (labels.empty())
             {
-                fprintf(stderr, "Error on line %d: FRAME must follow a label\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Error on line %d: FRAME must follow a label",
+                             lineno);
             }
             char framebuf[32];
             if (sscanf(s + 5, " %31s", framebuf) != 1)
             {
-                fprintf(stderr,
-                        "Syntax error on line %d: expected FRAME <slots>\n",
-                        lineno);
-                fclose(in);
-                fclose(out);
-                return 1;
+                return bbxc::asm_helpers::failf(in, out,
+                             "Syntax error on line %d: expected FRAME <slots>",
+                             lineno);
             }
             uint32_t fs = (uint32_t)strtoul(framebuf, NULL, 0);
-            labels[label_count - 1].frame_size = fs;
+            labels.back().frame_size = fs;
             continue;
         }
 
@@ -594,7 +454,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     }
 
     uint32_t header_offset = (HEADER_FIXED_SIZE - MAGIC_SIZE) + data_table_size;
-    for (size_t i = 0; i < label_count; i++)
+    for (size_t i = 0; i < labels.size(); i++)
     {
         labels[i].addr += header_offset;
     }
@@ -606,9 +466,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     fputc((MAGIC >> 16) & 0xFF, out);
     fputc((MAGIC >> 8) & 0xFF, out);
     fputc((MAGIC >> 0) & 0xFF, out);
-    fputc(data_count, out);
+    fputc((uint8_t)data.size(), out);
     write_u32(out, data_table_size);
-    fwrite(data_table, 1, data_table_size, out);
+    if (data_table_size > 0)
+        fwrite(data_table.data(), 1, data_table_size, out);
 
     while (fgets(line, sizeof(line), in))
     {
@@ -692,10 +553,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "write"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char fd_str[16];
             char *str_start;
 
@@ -779,7 +637,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_data(name, data, data_count);
+            uint32_t offset = find_data(name, data.data(), data.size());
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_LOADSTR, out);
             fputc(reg, out);
@@ -827,10 +685,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "loadbyte"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
             char regname[16];
             if (sscanf(s + 8, " $%31[^,], %15s", name, regname) != 2)
@@ -843,7 +698,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_data(name, data, data_count);
+            uint32_t offset = find_data(name, data.data(), data.size());
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_LOADBYTE, out);
             fputc(reg, out);
@@ -860,10 +715,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "loadword"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
             char regname[16];
             if (sscanf(s + 8, " $%31[^,], %15s", name, regname) != 2)
@@ -876,7 +728,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_data(name, data, data_count);
+            uint32_t offset = find_data(name, data.data(), data.size());
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_LOADWORD, out);
             fputc(reg, out);
@@ -893,10 +745,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "loaddword"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
             char regname[16];
             if (sscanf(s + 9, " $%31[^,], %15s", name, regname) != 2)
@@ -909,7 +758,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_data(name, data, data_count);
+            uint32_t offset = find_data(name, data.data(), data.size());
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_LOADDWORD, out);
             fputc(reg, out);
@@ -926,10 +775,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "loadqword"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
             char regname[16];
             if (sscanf(s + 9, " $%31[^,], %15s", name, regname) != 2)
@@ -942,7 +788,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_data(name, data, data_count);
+            uint32_t offset = find_data(name, data.data(), data.size());
             uint8_t reg = parse_register(regname, lineno);
             fputc(OPCODE_LOADQWORD, out);
             fputc(reg, out);
@@ -959,18 +805,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "continue"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_CONTINUE, out);
         }
         else if (equals_ci(s, "newline"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_NEWLINE, out);
         }
         else if (s[0] == '.')
@@ -979,10 +819,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "je"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
             if (sscanf(s + 2, " %31s", label) != 1)
             {
@@ -994,20 +831,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels, label_count);
-            if (debug)
-            {
-                printf("[DEBUG] JE to %s (addr=%u)\n", label, (unsigned)addr);
-            }
+            uint32_t addr = find_label(label, labels.data(), labels.size());
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] JE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JE, out);
             write_u32(out, addr);
         }
         else if (starts_with_ci(s, "jne"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
             if (sscanf(s + 3, " %31s", label) != 1)
             {
@@ -1019,21 +850,15 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels, label_count);
-            if (debug)
-            {
-                printf("[DEBUG] JNE to %s (addr=%u)\n", label, (unsigned)addr);
-            }
+            uint32_t addr = find_label(label, labels.data(), labels.size());
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] JNE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JNE, out);
             write_u32(out, addr);
         }
 
         else if (starts_with_ci(s, "halt"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char token[32];
             if (sscanf(s + 4, " %31s", token) == 1)
             {
@@ -1041,7 +866,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 {
                     if (token[t] == '\r' || token[t] == '\n')
                     {
-                        token[t] = '\0';
+                        bbxc::asm_helpers::trim_crlf(token);
                         break;
                     }
                 }
@@ -1080,10 +905,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "inc"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
 
             if (sscanf(s + 3, " %7s", regname) != 1)
@@ -1100,7 +922,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 if (regname[i] == '\r' || regname[i] == '\n')
                 {
-                    regname[i] = '\0';
+                    bbxc::asm_helpers::trim_crlf(regname);
                     break;
                 }
             }
@@ -1110,10 +932,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "dec"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
 
             if (sscanf(s + 3, " %7s", regname) != 1)
@@ -1130,7 +949,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 if (regname[i] == '\r' || regname[i] == '\n')
                 {
-                    regname[i] = '\0';
+                    bbxc::asm_helpers::trim_crlf(regname);
                     break;
                 }
             }
@@ -1140,10 +959,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "printreg"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
 
             if (sscanf(s + 8, " %7s", regname) != 1)
@@ -1160,7 +976,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 if (regname[i] == '\r' || regname[i] == '\n')
                 {
-                    regname[i] = '\0';
+                    bbxc::asm_helpers::trim_crlf(regname);
                     break;
                 }
             }
@@ -1171,10 +987,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "eprintreg"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
 
             if (sscanf(s + 9, " %7s", regname) != 1)
@@ -1191,7 +1004,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 if (regname[i] == '\r' || regname[i] == '\n')
                 {
-                    regname[i] = '\0';
+                    bbxc::asm_helpers::trim_crlf(regname);
                     break;
                 }
             }
@@ -1202,10 +1015,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "print_stacksize"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_PRINT_STACKSIZE, out);
         }
         else if (starts_with_ci(s, "PRINTCHAR"))
@@ -1236,10 +1046,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "print"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char c;
             if (sscanf(s + 5, " '%c", &c) != 1)
             {
@@ -1254,10 +1061,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "jmpi"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             uint32_t addr;
             if (sscanf(s + 5, " %u", &addr) != 1)
             {
@@ -1269,19 +1073,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            if (debug)
-            {
-                printf("[DEBUG] JMPI to addr %u\n", addr);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] JMPI to addr %u\n", addr);
             fputc(OPCODE_JMPI, out);
             write_u32(out, addr);
         }
         else if (starts_with_ci(s, "jmp"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label_name[32];
             if (sscanf(s + 3, " %31s", label_name) == 0)
             {
@@ -1293,21 +1091,15 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label_name, labels, label_count);
-            if (debug)
-            {
-                printf("[DEBUG] JMP to %s (addr=%u)\n", label_name,
-                       (unsigned)addr);
-            }
+            uint32_t addr = find_label(label_name, labels.data(), labels.size());
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] JMP to %s (addr=%u)\n", label_name,
+                (unsigned)addr);
             fputc(OPCODE_JMP, out);
             write_u32(out, addr);
         }
         else if (starts_with_ci(s, "pop"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
             if (sscanf(s + 3, " %3s", regname) != 1)
             {
@@ -1325,10 +1117,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "add"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char src_reg[16];
             char dst_reg[16];
             if (sscanf(s + 3, " %3s , %3s", dst_reg, src_reg) != 2)
@@ -1349,10 +1138,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "sub"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char src_reg[16];
             char dst_reg[16];
             if (sscanf(s + 3, " %3s , %3s", dst_reg, src_reg) != 2)
@@ -1373,10 +1159,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "mul"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char src_reg[16];
             char dst_reg[16];
             if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2)
@@ -1397,10 +1180,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "div"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char src_reg[16];
             char dst_reg[16];
             if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2)
@@ -1421,10 +1201,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "movi"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char dst_reg[16];
             char src[16];
 
@@ -1457,10 +1234,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "mov"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char dst_reg[16];
             char src_reg[16];
 
@@ -1483,10 +1257,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "push "))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
             if (sscanf(s + 5, " %3s", regname) != 1)
             {
@@ -1504,10 +1275,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "pushi "))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[16];
             if (sscanf(s + 6, " %15s", operand) != 1)
             {
@@ -1519,10 +1287,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            if (debug)
-            {
-                printf("[DEBUG] pushi %s\n", operand);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] pushi %s\n", operand);
             char *end;
             int32_t imm = strtol(operand, &end, 0);
             if (*end != '\0')
@@ -1539,10 +1304,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
 
         else if (starts_with_ci(s, "cmp"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char reg1[16];
             char reg2[16];
             if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2)
@@ -1563,10 +1325,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "alloc"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[32];
             if (sscanf(s + 5, " %31s", operand) != 1)
             {
@@ -1588,10 +1347,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "loadvar"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
             char addrname[32];
             if (sscanf(s + 7, " %3s, %31s", regname, addrname) != 2)
@@ -1622,10 +1378,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "load"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
             char addrname[32];
             if (sscanf(s + 4, " %3s, %31s", regname, addrname) != 2)
@@ -1656,10 +1409,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "storevar"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
             char addrname[32];
             if (sscanf(s + 8, " %3s, %31s", regname, addrname) != 2)
@@ -1690,10 +1440,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "store"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
             char addrname[32];
             if (sscanf(s + 5, " %3s, %31s", regname, addrname) != 2)
@@ -1724,10 +1471,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "grow"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[32];
             if (sscanf(s + 4, " %31s", operand) != 1)
             {
@@ -1745,10 +1489,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "resize"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[32];
             if (sscanf(s + 6, " %31s", operand) != 1)
             {
@@ -1766,10 +1507,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "free"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[32];
             if (sscanf(s + 4, " %31s", operand) != 1)
             {
@@ -1787,10 +1525,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "fopen"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char filename[128];
             char mode_raw[8];
             char fid_raw[8];
@@ -1842,10 +1577,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "fclose"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char fid[4];
             if (sscanf(s + 6, " %3s", fid) != 1)
             {
@@ -1863,10 +1595,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "fread"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char fid_raw[8];
             char reg_raw[8];
             if (sscanf(s + 5, " %7[^,], %7[^,]", fid_raw, reg_raw) != 2)
@@ -1889,10 +1618,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "fseek"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char fid_raw[8];
             char offset_raw[64];
             if (sscanf(s + 5, " %7[^,], %63[^\n]", fid_raw, offset_raw) != 2)
@@ -1944,10 +1670,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "FWRITE"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char fid_raw[8];
             char size_raw[64];
             if (sscanf(s + 6, " %7[^,], %63[^\n]", fid_raw, size_raw) != 2)
@@ -1999,10 +1722,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "NOT"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
             if (sscanf(s + 3, " %3s", regname) != 1)
             {
@@ -2020,10 +1740,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "AND"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char reg1[16];
             char reg2[16];
             if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2)
@@ -2044,10 +1761,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "OR"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char reg1[16];
             char reg2[16];
             if (sscanf(s + 2, " %3s, %3s", reg1, reg2) != 2)
@@ -2068,10 +1782,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "XOR"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char reg1[16];
             char reg2[16];
             if (sscanf(s + 3, " %3s, %3s", reg1, reg2) != 2)
@@ -2092,10 +1803,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "READCHAR"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
 
             if (sscanf(s + 8, " %7s", regname) != 1)
@@ -2112,7 +1820,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 if (regname[i] == '\r' || regname[i] == '\n')
                 {
-                    regname[i] = '\0';
+                    bbxc::asm_helpers::trim_crlf(regname);
                     break;
                 }
             }
@@ -2123,10 +1831,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "READSTR"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
 
             if (sscanf(s + 7, " %7s", regname) != 1)
@@ -2143,7 +1848,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 if (regname[i] == '\r' || regname[i] == '\n')
                 {
-                    regname[i] = '\0';
+                    bbxc::asm_helpers::trim_crlf(regname);
                     break;
                 }
             }
@@ -2154,10 +1859,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "SLEEP"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[64];
             if (sscanf(s + 5, " %63s", operand) != 1)
             {
@@ -2185,18 +1887,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "clrscr"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_CLRSCR, out);
         }
         else if (starts_with_ci(s, "rand"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
             char rest[64] = {0};
             // RAND <reg>
@@ -2243,10 +1939,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "getkey"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
 
             if (sscanf(s + 6, " %7s", regname) != 1)
@@ -2266,10 +1959,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "read"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
 
             if (sscanf(s + 4, " %7s", regname) != 1)
@@ -2289,10 +1979,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "JL"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
             if (sscanf(s + 3, " %31s", label) != 1)
             {
@@ -2304,20 +1991,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels, label_count);
-            if (debug)
-            {
-                printf("[DEBUG] JL to %s (addr=%u)\n", label, (unsigned)addr);
-            }
+            uint32_t addr = find_label(label, labels.data(), labels.size());
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] JL to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JL, out);
             write_u32(out, addr);
         }
         else if (starts_with_ci(s, "JGE"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
             if (sscanf(s + 3, " %31s", label) != 1)
             {
@@ -2329,20 +2010,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels, label_count);
-            if (debug)
-            {
-                printf("[DEBUG] JGE to %s (addr=%u)\n", label, (unsigned)addr);
-            }
+            uint32_t addr = find_label(label, labels.data(), labels.size());
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] JGE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JGE, out);
             write_u32(out, addr);
         }
         else if (starts_with_ci(s, "JB"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
             if (sscanf(s + 2, " %31s", label) != 1)
             {
@@ -2354,20 +2029,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels, label_count);
-            if (debug)
-            {
-                printf("[DEBUG] JB to %s (addr=%u)\n", label, (unsigned)addr);
-            }
+            uint32_t addr = find_label(label, labels.data(), labels.size());
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] JB to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JB, out);
             write_u32(out, addr);
         }
         else if (starts_with_ci(s, "JAE"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
             if (sscanf(s + 3, " %31s", label) != 1)
             {
@@ -2379,20 +2048,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels, label_count);
-            if (debug)
-            {
-                printf("[DEBUG] JAE to %s (addr=%u)\n", label, (unsigned)addr);
-            }
+            uint32_t addr = find_label(label, labels.data(), labels.size());
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] JAE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JAE, out);
             write_u32(out, addr);
         }
         else if (starts_with_ci(s, "CALL"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
             if (sscanf(s + 4, " %31s", label) != 1)
             {
@@ -2410,10 +2073,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 frame_size = (uint32_t)strtoul(comma + 1, NULL, 0);
             }
-            uint32_t addr = find_label(label, labels, label_count);
+            uint32_t addr = find_label(label, labels.data(), labels.size());
             if (!comma)
             {
-                for (size_t i = 0; i < label_count; i++)
+                for (size_t i = 0; i < labels.size(); i++)
                 {
                     if (strcmp(labels[i].name, label) == 0)
                     {
@@ -2422,29 +2085,20 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     }
                 }
             }
-            if (debug)
-            {
-                printf("[DEBUG] CALL to %s (addr=%u frame=%u)\n", label,
-                       (unsigned)addr, (unsigned)frame_size);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] CALL to %s (addr=%u frame=%u)\n", label,
+                (unsigned)addr, (unsigned)frame_size);
             fputc(OPCODE_CALL, out);
             write_u32(out, addr);
             write_u32(out, frame_size);
         }
         else if (starts_with_ci(s, "RET"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_RET, out);
         }
         else if (starts_with_ci(s, "MOD"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char src_reg[16];
             char dst_reg[16];
             if (sscanf(s + 3, " %3s, %3s", dst_reg, src_reg) != 2)
@@ -2465,18 +2119,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "BREAK"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_BREAK, out);
         }
         else if (starts_with_ci(s, "EXEC"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char *str_start = strchr(s, '"');
             if (!str_start)
             {
@@ -2521,7 +2169,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 if (regname[i] == '\r' || regname[i] == '\n')
                 {
-                    regname[i] = '\0';
+                    bbxc::asm_helpers::trim_crlf(regname);
                     break;
                 }
             }
@@ -2534,17 +2182,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 fputc((uint8_t)str_start[i], out);
             }
-            if (debug)
-            {
-                printf("[DEBUG] EXEC -> %.*s (dest=%s)\n", (int)len, str_start, regname);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] EXEC -> %.*s (dest=%s)\n", (int)len, str_start, regname);
         }
         else if (starts_with_ci(s, "REGSYSCALL"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             uint8_t id;
             char label[32];
             if (sscanf(s + 10, " %hhu, %31s", &id, label) != 2)
@@ -2556,17 +2198,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels, label_count);
+            uint32_t addr = find_label(label, labels.data(), labels.size());
             fputc(OPCODE_REGSYSCALL, out);
             fputc(id, out);
             write_u32(out, addr);
         }
         else if (starts_with_ci(s, "SYSCALL"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             uint8_t id;
             if (sscanf(s + 7, " %hhu", &id) != 1)
             {
@@ -2582,18 +2221,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "SYSRET"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_SYSRET, out);
         }
         else if (starts_with_ci(s, "DROPPRIV"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_DROPPRIV, out);
         }
         else if (starts_with_ci(s, "GETMODE"))
@@ -2651,10 +2284,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         }
         else if (starts_with_ci(s, "DUMPREGS"))
         {
-            if (debug)
-            {
-                printf("[DEBUG] Encoding instruction: %s\n", s);
-            }
+            bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_DUMPREGS, out);
         }
         else if (starts_with_ci(s, "REGFAULT"))
@@ -2670,7 +2300,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels, label_count);
+            uint32_t addr = find_label(label, labels.data(), labels.size());
             fputc(OPCODE_REGFAULT, out);
             fputc(id, out);
             write_u32(out, addr);
@@ -2884,8 +2514,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 char *end = varname + strlen(varname) - 1;
                 while (end > varname && (*end == '\r' || *end == '\n'))
                 {
-                    *end = '\0';
-                    end--;
+                    bbxc::asm_helpers::trim_crlf(varname);
+                    break;
                 }
             }
 

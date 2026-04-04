@@ -13,7 +13,8 @@ compiler:
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/basic.cpp -o src/blackboxc/basic.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/data.cpp -o src/data.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/tools.cpp -o src/blackboxc/tools.o
-	$(CXX) src/blackboxc/compiler.o src/blackboxc/asm.o src/blackboxc/basic.o src/blackboxc/tools.o src/data.o -o src/blackboxc/bbxc
+	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/asm_util.cpp -o src/blackboxc/asm_util.o
+	$(CXX) src/blackboxc/compiler.o src/blackboxc/asm.o src/blackboxc/basic.o src/blackboxc/tools.o src/data.o src/blackboxc/asm_util.o -o src/blackboxc/bbxc
 
 interpreter:
 	$(CC) $(CFLAGS) -Isrc/blackbox -Isrc/blackboxc -c src/blackbox/blackbox.c -o src/blackbox/blackbox.o

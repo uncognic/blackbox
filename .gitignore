@@ -43,3 +43,4 @@ bbxd
 new.bbx
 test.bbs
 *.o
+*.pdb
