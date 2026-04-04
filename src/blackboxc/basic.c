@@ -132,7 +132,7 @@ static Variable *sym_add_int(SymbolTable *symtab, const char *name)
     var->slot = symtab->next_slot++;
     return var;
 }
-static Variable *sym_add_str(SymbolTable *symtab, const char *name, const char *data_name)
+static Variable *sym_add_str(SymbolTable *symtab, const char *name, const char *data_name, int is_const)
 {
     if (symtab->count + 1 >= symtab->cap)
     {
@@ -149,7 +149,9 @@ static Variable *sym_add_str(SymbolTable *symtab, const char *name, const char *
     memset(var, 0, sizeof(*var));
     strncpy(var->name, name, sizeof(var->name) - 1);
     var->type = VAR_STR;
-    var->slot = symtab->next_slot++;
+    var->is_const = is_const;
+    if (!is_const)
+        var->slot = symtab->next_slot++;
     strncpy(var->data_name, data_name, sizeof(var->data_name) - 1);
     return var;
 }
@@ -348,12 +350,10 @@ static int emit_atom(const char *s, const char **end, SymbolTable *st, RegAlloc 
         char rn[4];
         reg_name(reg, rn);
 
-        if (v->type == VAR_INT)
+        if (v->type == VAR_INT || !v->is_const)
             EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
         else
-        {
-            EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
-        }
+            EMIT_CODE(ob, "    LOADSTR $%s, %s", v->data_name, rn);
         *out_reg = reg;
         return 0;
     }
@@ -709,7 +709,10 @@ static int emit_write_values(const char *arg,
 
             if (v->type == VAR_STR)
             {
-                EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
+                if (v->is_const)
+                    EMIT_CODE(ob, "    LOADSTR $%s, %s", v->data_name, rn);
+                else
+                    EMIT_CODE(ob, "    LOADVAR %s, %u", rn, v->slot);
                 EMIT_CODE(ob, "    PRINTSTR %s", rn);
             }
             else
@@ -878,14 +881,13 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 EMIT_DATA(&ob, "    STR $%s, \"%.*s\"",
                           data_name, (int)(str_end - str_start), str_start);
 
-                Variable *v = sym_add_str(&st, name, data_name);
+                Variable *v = sym_add_str(&st, name, data_name, 1);
                 if (!v)
                 {
                     fprintf(stderr, "Out of memory\n");
                     result = 1;
                     break;
                 }
-                v->is_const = 1;
                 if (debug)
                     printf("[BASIC] CONST string %s -> $%s\n", name, data_name);
             }
@@ -962,7 +964,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name);
                 EMIT_DATA(&ob, "    STR $%s, \"%.*s\"",
                           data_name, (int)(str_end - str_start), str_start);
-                Variable *v = sym_add_str(&st, name, data_name);
+                Variable *v = sym_add_str(&st, name, data_name, 0);
                 int reg = ralloc_acquire(&ra);
                 char rn[4];
                 reg_name(reg, rn);
@@ -1077,6 +1079,13 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
                             strncpy(v->data_name, data_name, sizeof(v->data_name) - 1);
                             v->data_name[sizeof(v->data_name) - 1] = '\0';
+
+                            int reg = ralloc_acquire(&ra);
+                            char rn[4];
+                            reg_name(reg, rn);
+                            EMIT_CODE(&ob, "    LOADSTR $%s, %s", data_name, rn);
+                            EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
+                            ralloc_release(&ra, reg);
 
                             if (debug)
                                 printf("[BASIC] ASSIGN string %s -> $%s\n", name, data_name);
