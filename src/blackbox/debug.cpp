@@ -1,8 +1,8 @@
 #include "debug.h"
 #include "../define.h"
-#include <stddef.h>
-#include <stdint.h>
-#include <stdio.h>
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
 const char *opcode_name(uint8_t op) {
   switch (op) {
   case OPCODE_WRITE:

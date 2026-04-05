@@ -26,7 +26,7 @@ if errorlevel 1 (
 )
 
 echo Building interpreter...
-clang-cl /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%\blackbox" /I "%SRC%\blackboxc" "%SRC%\blackbox\blackbox.c" "%SRC%\blackbox\debug.c" "%SRC%\blackboxc\tools.cpp" "%SRC%\data.cpp" bcrypt.lib /Fe:"%ROOT%\bbx.exe"
+clang-cl /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%\blackbox" /I "%SRC%\blackboxc" "%SRC%\blackbox\blackbox.cpp" "%SRC%\blackbox\debug.cpp" "%SRC%\blackboxc\tools.cpp" "%SRC%\data.cpp" bcrypt.lib /Fe:"%ROOT%\bbx.exe"
 if errorlevel 1 (
     echo Failed to build interpreter
     exit /b 1

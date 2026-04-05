@@ -20,18 +20,16 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     {
         using FilePtr = std::unique_ptr<FILE, int (*)(FILE *)>;
         std::vector<std::string> lines;
-        char *preprocessed = preprocess_includes(filename);
-        if (!preprocessed)
+        std::string preprocessed;
+        if (!preprocess_includes(filename, preprocessed))
         {
             return 1;
         }
 
-        if (bbxc::asm_helpers::collect_lines_from_buffer(preprocessed, lines) != 0)
+        if (bbxc::asm_helpers::collect_lines_from_buffer(preprocessed.c_str(), lines) != 0)
         {
-            preprocess_includes_free(preprocessed);
             return 1;
         }
-        preprocess_includes_free(preprocessed);
 
         FilePtr tmp(tmpfile(), fclose);
         if (!tmp)

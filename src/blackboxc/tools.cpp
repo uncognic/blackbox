@@ -1,31 +1,20 @@
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cctype>
 #include <string>
 #include <vector>
 #include "tools.h"
 #include "../define.h"
-#include <stdbool.h>
-#include <stdarg.h>
+#include <cstdarg>
 #ifdef _WIN32
 #include <windows.h>
 #include <bcrypt.h>
-#include <stdio.h>
 #else
 #include <fcntl.h>
 #include <unistd.h>
 #endif
-
-static char *to_c_owned(const std::string &s)
-{
-    char *buf = (char *)malloc(s.size() + 1);
-    if (!buf)
-        return NULL;
-    memcpy(buf, s.c_str(), s.size() + 1);
-    return buf;
-}
 
 static inline unsigned char ascii_upper(unsigned char c)
 {
@@ -108,12 +97,12 @@ static std::string operand_after_comma(const std::string &line, size_t search_fr
     return trim_copy(line.substr(comma + 1));
 }
 
-static char *preprocess_includes_impl(const char *input, int depth)
+static bool preprocess_includes_impl(const char *input, int depth, std::string &out)
 {
     if (depth > 32)
     {
         fprintf(stderr, "Error: include nesting too deep\n");
-        return NULL;
+        return false;
     }
 
     const std::string input_path(input);
@@ -124,10 +113,10 @@ static char *preprocess_includes_impl(const char *input, int depth)
     if (!in)
     {
         perror("fopen");
-        return NULL;
+        return false;
     }
 
-    std::string out;
+    out.clear();
     out.reserve(4096);
 
     char line[8192];
@@ -151,7 +140,7 @@ static char *preprocess_includes_impl(const char *input, int depth)
             {
                 fprintf(stderr, "Error: malformed %%include directive\n");
                 fclose(in);
-                return NULL;
+                return false;
             }
 
             const char *end = strchr(p + 1, '"');
@@ -159,7 +148,7 @@ static char *preprocess_includes_impl(const char *input, int depth)
             {
                 fprintf(stderr, "Error: malformed %%include directive\n");
                 fclose(in);
-                return NULL;
+                return false;
             }
 
             std::string include_target(p + 1, (size_t)(end - (p + 1)));
@@ -170,14 +159,13 @@ static char *preprocess_includes_impl(const char *input, int depth)
             else
                 include_path = include_target;
 
-            char *included = preprocess_includes_impl(include_path.c_str(), depth + 1);
-            if (!included)
+            std::string included;
+            if (!preprocess_includes_impl(include_path.c_str(), depth + 1, included))
             {
                 fclose(in);
-                return NULL;
+                return false;
             }
             out += included;
-            free(included);
             continue;
         }
 
@@ -185,17 +173,12 @@ static char *preprocess_includes_impl(const char *input, int depth)
     }
 
     fclose(in);
-    return to_c_owned(out);
+    return true;
 }
 
-char *preprocess_includes(const char *input)
+bool preprocess_includes(const std::string &input, std::string &out)
 {
-    return preprocess_includes_impl(input, 0);
-}
-
-void preprocess_includes_free(char *buf)
-{
-    free(buf);
+    return preprocess_includes_impl(input.c_str(), 0, out);
 }
 
 uint32_t find_label(const char *name, Label *labels, size_t count)
@@ -572,30 +555,20 @@ Macro *find_macro(Macro *macros, size_t macro_count, const char *name)
     return NULL;
 }
 
-char *replace_all(const char *src, const char *find, const char *repl)
+std::string replace_all(const std::string &src, const std::string &find, const std::string &repl)
 {
-    if (!find || find[0] == '\0')
-        return strdup(src);
+    if (find.empty())
+        return src;
 
     std::string out(src);
-    const std::string needle(find);
-    const std::string replacement(repl);
-
     size_t pos = 0;
-    while ((pos = out.find(needle, pos)) != std::string::npos)
+    while ((pos = out.find(find, pos)) != std::string::npos)
     {
-        out.replace(pos, needle.size(), replacement);
-        pos += replacement.size();
+        out.replace(pos, find.size(), repl);
+        pos += repl.size();
     }
 
-    char *res = (char *)malloc(out.size() + 1);
-    if (!res)
-    {
-        fprintf(stderr, "Out of memory\n");
-        exit(1);
-    }
-    memcpy(res, out.c_str(), out.size() + 1);
-    return res;
+    return out;
 }
 
 static std::vector<std::string> split_tokens(const std::string &s)

@@ -1,8 +1,11 @@
 #pragma once
-#include <stdint.h>
-#include <stdio.h>
-#include <stddef.h>
-#include <ctype.h>
+
+#include <cstdint>
+#include <cstdio>
+#include <cstddef>
+#include <cctype>
+using std::FILE;
+
 #include "define.h"
 
 #ifdef __cplusplus

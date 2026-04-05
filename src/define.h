@@ -1,7 +1,6 @@
 #pragma once
 
-#include <stdint.h>
-
+#include <cstdint>
 #define MAGIC 0x626378
 #define MAGIC_SIZE 3
 #define HEADER_FIXED_SIZE 8

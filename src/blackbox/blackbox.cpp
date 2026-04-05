@@ -1,12 +1,11 @@
 #include "../define.h"
 #include "../blackboxc/tools.h"
 #include "../data.h"
-#include <stdbool.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
+#include <cstdint>
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <ctime>
 #ifdef _WIN32
 #include <conio.h>
 #include <windows.h>
@@ -26,7 +25,7 @@ static int ensure_u8_capacity(uint8_t **buf, size_t *cap, size_t need)
     if (new_cap < need)
         new_cap = need;
 
-    uint8_t *tmp = realloc(*buf, new_cap);
+    uint8_t *tmp = static_cast<uint8_t *>(realloc(*buf, new_cap));
     if (!tmp)
         return 1;
 
@@ -56,7 +55,7 @@ int main(int argc, char *argv[])
         printf("Usage: bbx [--debug|-d] program.bcx\n");
         return 1;
     }
-    srand((unsigned int)time(NULL) ^ (uintptr_t)&main);
+    srand((unsigned int)std::time(NULL) ^ (uintptr_t)&main);
     int64_t registers[REGISTERS] = {0};
     uint8_t ZF = 0;
     uint8_t CF = 0;
@@ -77,7 +76,7 @@ int main(int argc, char *argv[])
     size_t size = ftell(f);
     fseek(f, 0, SEEK_SET);
 
-    uint8_t *program = malloc(size);
+    uint8_t *program = static_cast<uint8_t *>(malloc(size));
     if (!program)
     {
         perror("malloc");
@@ -137,7 +136,7 @@ int main(int argc, char *argv[])
     size_t sp = 0;
     size_t stack_cap = STACK_SIZE;
     int64_t *stack = NULL;
-    stack = malloc(stack_cap * sizeof *stack);
+    stack = static_cast<int64_t *>(malloc(stack_cap * sizeof *stack));
     if (!stack)
     {
         perror("malloc");
@@ -148,7 +147,7 @@ int main(int argc, char *argv[])
     size_t csp = 0;
     size_t call_stack_cap = 1024;
     size_t *call_stack = NULL;
-    call_stack = malloc(call_stack_cap * sizeof *call_stack);
+    call_stack = static_cast<size_t *>(malloc(call_stack_cap * sizeof *call_stack));
     if (!call_stack)
     {
         perror("malloc");
@@ -160,7 +159,7 @@ int main(int argc, char *argv[])
     size_t vars_sp = 0;
     size_t vars_cap = VAR_CAPACITY;
     int64_t *vars = NULL;
-    vars = malloc(vars_cap * sizeof *vars);
+    vars = static_cast<int64_t *>(malloc(vars_cap * sizeof *vars));
     if (!vars)
     {
         perror("malloc");
@@ -173,7 +172,7 @@ int main(int argc, char *argv[])
     size_t fsp = 0;
     size_t frame_stack_cap = 1024;
     size_t *frame_base_stack = NULL;
-    frame_base_stack = malloc(frame_stack_cap * sizeof *frame_base_stack);
+    frame_base_stack = static_cast<size_t *>(malloc(frame_stack_cap * sizeof *frame_base_stack));
     if (!frame_base_stack)
     {
         perror("malloc");
@@ -210,7 +209,7 @@ int main(int argc, char *argv[])
     bool syscall_registered[MAX_SYSCALLS];
     memset(syscall_table, 0, sizeof(syscall_table));
     memset(syscall_registered, 0, sizeof(syscall_registered));
-    SlotPermission *permissions = calloc(stack_cap, sizeof(SlotPermission));
+    SlotPermission *permissions = static_cast<SlotPermission *>(calloc(stack_cap, sizeof(SlotPermission)));
     if (!permissions)
     {
         perror("calloc");
@@ -480,7 +479,7 @@ int main(int argc, char *argv[])
                 size_t new_cap = stack_cap + stack_cap / 2;
                 if (new_cap <= sp)
                     new_cap = sp + 1;
-                int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
+                int64_t *tmp = static_cast<int64_t *>(realloc(stack, new_cap * sizeof *stack));
                 if (!tmp)
                 {
                     perror("realloc");
@@ -520,7 +519,7 @@ int main(int argc, char *argv[])
                 size_t new_cap = stack_cap + stack_cap / 2;
                 if (new_cap <= sp)
                     new_cap = sp + 1;
-                int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
+                int64_t *tmp = static_cast<int64_t *>(realloc(stack, new_cap * sizeof *stack));
                 if (!tmp)
                 {
                     perror("realloc");
@@ -941,7 +940,7 @@ int main(int argc, char *argv[])
 
                 if (elems > stack_cap)
                 {
-                    int64_t *tmp = realloc(stack, elems * sizeof *stack);
+                    int64_t *tmp = static_cast<int64_t *>(realloc(stack, elems * sizeof *stack));
                     if (!tmp)
                     {
                         perror("realloc");
@@ -952,7 +951,7 @@ int main(int argc, char *argv[])
                     }
                     stack = tmp;
 
-                    SlotPermission *ptmp = realloc(permissions, elems * sizeof(SlotPermission));
+                    SlotPermission *ptmp = static_cast<SlotPermission *>(realloc(permissions, elems * sizeof(SlotPermission)));
                     if (!ptmp)
                     {
                         perror("realloc");
@@ -1311,7 +1310,7 @@ int main(int argc, char *argv[])
 
                 size_t new_cap = stack_cap + elem;
 
-                int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
+                int64_t *tmp = static_cast<int64_t *>(realloc(stack, new_cap * sizeof *stack));
                 if (!tmp)
                 {
                     perror("realloc");
@@ -1321,7 +1320,7 @@ int main(int argc, char *argv[])
                 }
                 stack = tmp;
 
-                SlotPermission *ptmp = realloc(permissions, new_cap * sizeof(SlotPermission));
+                SlotPermission *ptmp = static_cast<SlotPermission *>(realloc(permissions, new_cap * sizeof(SlotPermission)));
                 if (!ptmp)
                 {
                     perror("realloc");
@@ -1363,7 +1362,7 @@ int main(int argc, char *argv[])
 
                 size_t old_cap = stack_cap;
 
-                int64_t *tmp = realloc(stack, new_size * sizeof *stack);
+                int64_t *tmp = static_cast<int64_t *>(realloc(stack, new_size * sizeof *stack));
                 if (!tmp)
                 {
                     perror("realloc");
@@ -1373,7 +1372,7 @@ int main(int argc, char *argv[])
                 }
                 stack = tmp;
 
-                SlotPermission *ptmp = realloc(permissions, new_size * sizeof(SlotPermission));
+                SlotPermission *ptmp = static_cast<SlotPermission *>(realloc(permissions, new_size * sizeof(SlotPermission)));
                 if (!ptmp)
                 {
                     perror("realloc");
@@ -1422,7 +1421,7 @@ int main(int argc, char *argv[])
 
                 size_t new_cap = stack_cap - num;
 
-                int64_t *tmp = realloc(stack, new_cap * sizeof *stack);
+                int64_t *tmp = static_cast<int64_t *>(realloc(stack, new_cap * sizeof *stack));
                 if (!tmp)
                 {
                     perror("realloc");
@@ -2533,7 +2532,7 @@ int main(int argc, char *argv[])
             if (csp >= call_stack_cap)
             {
                 size_t new_cap = call_stack_cap + call_stack_cap / 2;
-                size_t *tmp = realloc(call_stack, new_cap * sizeof *call_stack);
+                size_t *tmp = static_cast<size_t *>(realloc(call_stack, new_cap * sizeof *call_stack));
                 if (!tmp)
                 {
                     perror("realloc");
@@ -2549,7 +2548,7 @@ int main(int argc, char *argv[])
             {
                 size_t new_cap = frame_stack_cap + frame_stack_cap / 2;
                 size_t *tmp =
-                    realloc(frame_base_stack, new_cap * sizeof *frame_base_stack);
+                    static_cast<size_t *>(realloc(frame_base_stack, new_cap * sizeof *frame_base_stack));
                 if (!tmp)
                 {
                     perror("realloc");
@@ -2572,7 +2571,7 @@ int main(int argc, char *argv[])
                 size_t new_cap = vars_cap + vars_cap / 2;
                 if (new_cap <= vars_sp + (size_t)frame_size)
                     new_cap = vars_sp + (size_t)frame_size;
-                int64_t *tmp = realloc(vars, new_cap * sizeof *vars);
+                int64_t *tmp = static_cast<int64_t *>(realloc(vars, new_cap * sizeof *vars));
                 if (!tmp)
                 {
                     perror("realloc");

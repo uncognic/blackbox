@@ -1,6 +1,7 @@
 #pragma once
-#include <stddef.h>
-#include <stdint.h>
+#include <cstddef>
+#include <cstdint>
+
 
 const char *opcode_name(uint8_t op);
 void print_regs(const int64_t *regs, int count);
