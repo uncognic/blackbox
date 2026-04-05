@@ -1,7 +1,10 @@
 ﻿#include <cstdint>
 #include <cstdio>
 #include <array>
+#include <vector>
 #include "data.h"
+namespace blackbox {
+namespace data {
 
 static void write_bytes(FILE *out, const std::array<uint8_t, 4> &bytes)
 {
@@ -69,3 +72,51 @@ uint32_t read_u32(const uint8_t *data, size_t *pc)
 {
     return static_cast<uint32_t>(read_le_uint(data, pc, 4));
 }
+
+bool read_u8(const std::vector<uint8_t> &bytes, size_t index, uint8_t &out)
+{
+    if (index >= bytes.size()) {
+        return false;
+    }
+    out = bytes[index];
+    return true;
+}
+
+bool read_u32_le(const std::vector<uint8_t> &bytes, size_t index, uint32_t &out)
+{
+    if (index + 4 > bytes.size()) {
+        return false;
+    }
+    out = static_cast<uint32_t>(bytes[index]) |
+          (static_cast<uint32_t>(bytes[index + 1]) << 8U) |
+          (static_cast<uint32_t>(bytes[index + 2]) << 16U) |
+          (static_cast<uint32_t>(bytes[index + 3]) << 24U);
+    return true;
+}
+
+bool read_i32_le(const std::vector<uint8_t> &bytes, size_t index, int32_t &out)
+{
+    uint32_t tmp = 0;
+    if (!read_u32_le(bytes, index, tmp)) {
+        return false;
+    }
+    out = static_cast<int32_t>(tmp);
+    return true;
+}
+
+bool read_u64_le(const std::vector<uint8_t> &bytes, size_t index, uint64_t &out)
+{
+    if (index + 8 > bytes.size()) {
+        return false;
+    }
+    out = static_cast<uint64_t>(bytes[index]) |
+          (static_cast<uint64_t>(bytes[index + 1]) << 8U) |
+          (static_cast<uint64_t>(bytes[index + 2]) << 16U) |
+          (static_cast<uint64_t>(bytes[index + 3]) << 24U) |
+          (static_cast<uint64_t>(bytes[index + 4]) << 32U) |
+          (static_cast<uint64_t>(bytes[index + 5]) << 40U) |
+          (static_cast<uint64_t>(bytes[index + 6]) << 48U) |
+          (static_cast<uint64_t>(bytes[index + 7]) << 56U);
+    return true;
+}
+}}

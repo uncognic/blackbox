@@ -25,15 +25,17 @@ interpreter:
 	$(CXX) src/blackbox/blackbox.o src/blackbox/debug.o src/tools.o src/data.o src/fmt.o -o src/blackbox/bbx
 
 disassembler:
-	cargo build --release --manifest-path=src/bbx-disasm/Cargo.toml
+	$(CXX) $(CXXFLAGS) -Isrc -c src/blackboxd/blackboxd.cpp -o src/blackboxd/blackboxd.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/data.cpp -o src/data.o
+	$(CXX) src/blackboxd/blackboxd.o src/data.o -o src/blackboxd/bbxd
 
 copy:
 	cp src/blackbox/bbx .
 	cp src/blackboxc/bbxc .
-	cp target/release/bbxd .
+	cp src/blackboxd/bbxd .
 
 clean:
 	rm -f bbx bbxc bbxd
-	rm -f src/blackbox/bbx src/blackboxc/bbxc
+	rm -f src/blackbox/bbx src/blackboxc/bbxc src/blackboxd/bbxd
 	rm -f src/blackbox/*.o src/blackboxc/*.o src/*.o
-	cargo clean --manifest-path=src/bbx-disasm/Cargo.toml || true
+	rm -f src/blackboxd/*.o

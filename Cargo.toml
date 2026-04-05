@@ -1,5 +1,0 @@
-[workspace]
-members = [
-    "src/bbx-disasm"
-]
-resolver = "3"

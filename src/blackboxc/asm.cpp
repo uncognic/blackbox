@@ -464,7 +464,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     fputc((MAGIC >> 8) & 0xFF, out);
     fputc((MAGIC >> 0) & 0xFF, out);
     fputc((uint8_t)data.size(), out);
-    write_u32(out, data_table_size);
+    blackbox::data::write_u32(out, data_table_size);
     if (data_table_size > 0)
         fwrite(data_table.data(), 1, data_table_size, out);
 
@@ -639,7 +639,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_LOADSTR, out);
             fputc(reg, out);
             uint32_t mem_offset = data[offset].offset;
-            write_u32(out, mem_offset);
+            blackbox::data::write_u32(out, mem_offset);
             if (debug)
                 printf("[DEBUG] LOADSTR $%s (offset=%u) -> %s\n", name, offset,
                        regname);
@@ -705,7 +705,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fprintf(stderr, "Warning line %d: LOADBYTE used on $%s which is not a BYTE\n", lineno, name);
             }
             uint32_t offset_in_table = d->offset;
-            write_u32(out, offset_in_table);
+            blackbox::data::write_u32(out, offset_in_table);
             if (debug)
                 printf("[DEBUG] LOADBYTE $%s (offset=%u) -> %s\n", name, offset,
                        regname);
@@ -735,7 +735,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fprintf(stderr, "Warning line %d: LOADWORD used on $%s which is not a WORD\n", lineno, name);
             }
             uint32_t offset_in_table = d->offset;
-            write_u32(out, offset_in_table);
+            blackbox::data::write_u32(out, offset_in_table);
             if (debug)
                 printf("[DEBUG] LOADWORD $%s (offset=%u) -> %s\n", name, offset,
                        regname);
@@ -765,7 +765,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fprintf(stderr, "Warning line %d: LOADDWORD used on $%s which is not a DWORD\n", lineno, name);
             }
             uint32_t offset_in_table = d->offset;
-            write_u32(out, offset_in_table);
+            blackbox::data::write_u32(out, offset_in_table);
             if (debug)
                 printf("[DEBUG] LOADDWORD $%s (offset=%u) -> %s\n", name,
                        offset, regname);
@@ -795,7 +795,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fprintf(stderr, "Warning line %d: LOADQWORD used on $%s which is not a QWORD\n", lineno, name);
             }
             uint32_t offset_in_table = d->offset;
-            write_u32(out, offset_in_table);
+            blackbox::data::write_u32(out, offset_in_table);
             if (debug)
                 printf("[DEBUG] LOADQWORD $%s (offset=%u) -> %s\n", name,
                        offset, regname);
@@ -831,7 +831,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JE, out);
-            write_u32(out, addr);
+            blackbox::data::write_u32(out, addr);
         }
         else if (blackbox::tools::starts_with_ci(s, "jne"))
         {
@@ -850,7 +850,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JNE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JNE, out);
-            write_u32(out, addr);
+            blackbox::data::write_u32(out, addr);
         }
 
         else if (blackbox::tools::starts_with_ci(s, "halt"))
@@ -1072,7 +1072,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JMPI to addr %u\n", addr);
             fputc(OPCODE_JMPI, out);
-            write_u32(out, addr);
+            blackbox::data::write_u32(out, addr);
         }
         else if (blackbox::tools::starts_with_ci(s, "jmp"))
         {
@@ -1092,7 +1092,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JMP to %s (addr=%u)\n", label_name,
                 (unsigned)addr);
             fputc(OPCODE_JMP, out);
-            write_u32(out, addr);
+            blackbox::data::write_u32(out, addr);
         }
         else if (blackbox::tools::starts_with_ci(s, "pop"))
         {
@@ -1219,14 +1219,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 int32_t imm = (int32_t)(unsigned char)src[1];
                 fputc(OPCODE_MOVI, out);
                 fputc(dst, out);
-                write_u32(out, imm);
+                blackbox::data::write_u32(out, imm);
             }
             else
             {
                 int32_t imm = strtol(src, NULL, 0);
                 fputc(OPCODE_MOVI, out);
                 fputc(dst, out);
-                write_u32(out, imm);
+                blackbox::data::write_u32(out, imm);
             }
         }
         else if (blackbox::tools::starts_with_ci(s, "mov"))
@@ -1296,7 +1296,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_PUSHI, out);
-            write_u32(out, imm);
+            blackbox::data::write_u32(out, imm);
         }
 
         else if (blackbox::tools::starts_with_ci(s, "cmp"))
@@ -1336,7 +1336,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_ALLOC, out);
-            write_u32(out, num);
+            blackbox::data::write_u32(out, num);
         }
         else if (blackbox::tools::starts_with_ci(s, "frame"))
         {
@@ -1370,7 +1370,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 uint32_t slot = strtoul(addrname, NULL, 0);
                 fputc(OPCODE_LOADVAR, out);
                 fputc(reg, out);
-                write_u32(out, slot);
+                blackbox::data::write_u32(out, slot);
             }
         }
         else if (blackbox::tools::starts_with_ci(s, "load"))
@@ -1401,7 +1401,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 uint32_t addr = strtoul(addrname, NULL, 0);
                 fputc(OPCODE_LOAD, out);
                 fputc(reg, out);
-                write_u32(out, addr);
+                blackbox::data::write_u32(out, addr);
             }
         }
         else if (blackbox::tools::starts_with_ci(s, "storevar"))
@@ -1432,7 +1432,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 uint32_t slot = strtoul(addrname, NULL, 0);
                 fputc(OPCODE_STOREVAR, out);
                 fputc(reg, out);
-                write_u32(out, slot);
+                blackbox::data::write_u32(out, slot);
             }
         }
         else if (blackbox::tools::starts_with_ci(s, "store"))
@@ -1463,7 +1463,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 uint32_t addr = strtoul(addrname, NULL, 0);
                 fputc(OPCODE_STORE, out);
                 fputc(reg, out);
-                write_u32(out, addr);
+                blackbox::data::write_u32(out, addr);
             }
         }
         else if (blackbox::tools::starts_with_ci(s, "grow"))
@@ -1482,7 +1482,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_GROW, out);
-            write_u32(out, num);
+            blackbox::data::write_u32(out, num);
         }
         else if (blackbox::tools::starts_with_ci(s, "resize"))
         {
@@ -1500,7 +1500,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_RESIZE, out);
-            write_u32(out, num);
+            blackbox::data::write_u32(out, num);
         }
         else if (blackbox::tools::starts_with_ci(s, "free"))
         {
@@ -1518,7 +1518,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             uint32_t num = strtoul(operand, NULL, 0);
             fputc(OPCODE_FREE, out);
-            write_u32(out, num);
+            blackbox::data::write_u32(out, num);
         }
         else if (blackbox::tools::starts_with_ci(s, "fopen"))
         {
@@ -1655,14 +1655,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 int32_t offset_imm = (int32_t)strtol(inner, NULL, 0);
                 fputc(OPCODE_FSEEK_IMM, out);
                 fputc(fd, out);
-                write_u32(out, offset_imm);
+                blackbox::data::write_u32(out, offset_imm);
             }
             else
             {
                 int32_t offset_imm = (int32_t)strtol(offset_tok, NULL, 0);
                 fputc(OPCODE_FSEEK_IMM, out);
                 fputc(fd, out);
-                write_u32(out, offset_imm);
+                blackbox::data::write_u32(out, offset_imm);
             }
         }
         else if (blackbox::tools::starts_with_ci(s, "FWRITE"))
@@ -1707,14 +1707,14 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 uint32_t size_imm = strtoul(inner, NULL, 0);
                 fputc(OPCODE_FWRITE_IMM, out);
                 fputc(fd, out);
-                write_u32(out, size_imm);
+                blackbox::data::write_u32(out, size_imm);
             }
             else
             {
                 uint32_t size_imm = strtoul(size_tok, NULL, 0);
                 fputc(OPCODE_FWRITE_IMM, out);
                 fputc(fd, out);
-                write_u32(out, size_imm);
+                blackbox::data::write_u32(out, size_imm);
             }
         }
         else if (blackbox::tools::starts_with_ci(s, "NOT"))
@@ -1879,7 +1879,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 uint32_t ms = (uint32_t)strtoul(operand, NULL, 0);
                 fputc(OPCODE_SLEEP, out);
-                write_u32(out, ms);
+                blackbox::data::write_u32(out, ms);
             }
         }
         else if (blackbox::tools::starts_with_ci(s, "clrscr"))
@@ -1919,19 +1919,19 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 {
                     int32_t min = (int32_t)strtol(blackbox::tools::trim(a), NULL, 0);
                     int32_t max = (int32_t)strtol(blackbox::tools::trim(b), NULL, 0);
-                    write_u64(out, (uint64_t)min);
-                    write_u64(out, (uint64_t)max);
+                    blackbox::data::write_u64(out, (uint64_t)min);
+                    blackbox::data::write_u64(out, (uint64_t)max);
                 }
                 else
                 {
-                    write_u64(out, (uint64_t)INT64_MIN);
-                    write_u64(out, (uint64_t)INT64_MAX);
+                    blackbox::data::write_u64(out, (uint64_t)INT64_MIN);
+                    blackbox::data::write_u64(out, (uint64_t)INT64_MAX);
                 }
             }
             else
             {
-                write_u64(out, (uint64_t)INT64_MIN);
-                write_u64(out, (uint64_t)INT64_MAX);
+                blackbox::data::write_u64(out, (uint64_t)INT64_MIN);
+                blackbox::data::write_u64(out, (uint64_t)INT64_MAX);
             }
         }
         else if (blackbox::tools::starts_with_ci(s, "getkey"))
@@ -1991,7 +1991,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JL to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JL, out);
-            write_u32(out, addr);
+            blackbox::data::write_u32(out, addr);
         }
         else if (blackbox::tools::starts_with_ci(s, "JGE"))
         {
@@ -2010,7 +2010,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JGE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JGE, out);
-            write_u32(out, addr);
+            blackbox::data::write_u32(out, addr);
         }
         else if (blackbox::tools::starts_with_ci(s, "JB"))
         {
@@ -2029,7 +2029,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JB to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JB, out);
-            write_u32(out, addr);
+            blackbox::data::write_u32(out, addr);
         }
         else if (blackbox::tools::starts_with_ci(s, "JAE"))
         {
@@ -2048,7 +2048,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JAE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JAE, out);
-            write_u32(out, addr);
+            blackbox::data::write_u32(out, addr);
         }
         else if (blackbox::tools::starts_with_ci(s, "CALL"))
         {
@@ -2085,8 +2085,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             bbxc::asm_helpers::dbg(debug, "[DEBUG] CALL to %s (addr=%u frame=%u)\n", label,
                 (unsigned)addr, (unsigned)frame_size);
             fputc(OPCODE_CALL, out);
-            write_u32(out, addr);
-            write_u32(out, frame_size);
+            blackbox::data::write_u32(out, addr);
+            blackbox::data::write_u32(out, frame_size);
         }
         else if (blackbox::tools::starts_with_ci(s, "RET"))
         {
@@ -2198,7 +2198,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             fputc(OPCODE_REGSYSCALL, out);
             fputc(id, out);
-            write_u32(out, addr);
+            blackbox::data::write_u32(out, addr);
         }
         else if (blackbox::tools::starts_with_ci(s, "SYSCALL"))
         {
@@ -2272,8 +2272,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint8_t prot_write = strchr(prot_str, 'W') ? 1 : 0;
 
             fputc(OPCODE_SETPERM, out);
-            write_u32(out, start);
-            write_u32(out, count);
+            blackbox::data::write_u32(out, start);
+            blackbox::data::write_u32(out, count);
             fputc(priv_read, out);
             fputc(priv_write, out);
             fputc(prot_read, out);
@@ -2300,7 +2300,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             fputc(OPCODE_REGFAULT, out);
             fputc(id, out);
-            write_u32(out, addr);
+            blackbox::data::write_u32(out, addr);
         }
         else if (blackbox::tools::starts_with_ci(s, "FAULTRET"))
         {
@@ -2350,7 +2350,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             fputc(OPCODE_SHLI, out);
             fputc(blackbox::tools::parse_register(reg, lineno), out);
-            write_u64(out, (uint64_t)shift);
+            blackbox::data::write_u64(out, (uint64_t)shift);
         }
         else if (blackbox::tools::starts_with_ci(s, "SHRI"))
         {
@@ -2383,7 +2383,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             fputc(OPCODE_SHRI, out);
             fputc(blackbox::tools::parse_register(reg, lineno), out);
-            write_u64(out, (uint64_t)shift);
+            blackbox::data::write_u64(out, (uint64_t)shift);
         }
         else if (blackbox::tools::starts_with_ci(s, "SHL"))
         {
@@ -2458,7 +2458,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             fputc(OPCODE_GETARG, out);
             fputc(blackbox::tools::parse_register(reg, lineno), out);
-            write_u32(out, idx);
+            blackbox::data::write_u32(out, idx);
         }
         else if (blackbox::tools::starts_with_ci(s, "GETENV"))
         {

@@ -33,15 +33,9 @@ if errorlevel 1 (
 )
 
 echo Building disassembler...
-cargo build --release --manifest-path "%SRC%\bbx-disasm\Cargo.toml"
+clang-cl /std:c++latest /EHsc /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%" "%SRC%\blackboxd\blackboxd.cpp" "%SRC%\data.cpp" /Fe:"%ROOT%\bbxd.exe"
 if errorlevel 1 (
     echo Failed to build disassembler
-    exit /b 1
-)
-
-copy /Y "%ROOT%\target\release\bbxd.exe" "%ROOT%\bbxd.exe" >nul
-if errorlevel 1 (
-    echo Failed to copy disassembler
     exit /b 1
 )
 

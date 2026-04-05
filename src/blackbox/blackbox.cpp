@@ -1782,8 +1782,8 @@ int main(int argc, char *argv[])
             }
             if (pc + 16 <= size)
             {
-                int64_t min = read_i64(program.data(), &pc);
-                int64_t max = read_i64(program.data(), &pc);
+                int64_t min = blackbox::data::read_i64(program.data(), &pc);
+                int64_t max = blackbox::data::read_i64(program.data(), &pc);
                 uint64_t r = blackbox::tools::get_true_random();
                 if (min > max)
                 {
@@ -2561,7 +2561,7 @@ int main(int argc, char *argv[])
         case OPCODE_SHLI:
         {
             uint8_t reg = program[pc++];
-            uint64_t shift = read_u64(program.data(), &pc);
+            uint64_t shift = blackbox::data::read_u64(program.data(), &pc);
             if (reg >= REGISTERS)
             {
                 blackbox::fmt::err_fmt( "Invalid register in SHLI at pc=%zu\n", pc);
@@ -2576,7 +2576,7 @@ int main(int argc, char *argv[])
         case OPCODE_SHRI:
         {
             uint8_t reg = program[pc++];
-            uint64_t shift = read_u64(program.data(), &pc);
+            uint64_t shift = blackbox::data::read_u64(program.data(), &pc);
             if (reg >= REGISTERS)
             {
                 blackbox::fmt::err_fmt( "Invalid register in SHRI at pc=%zu\n", pc);
@@ -2658,7 +2658,7 @@ int main(int argc, char *argv[])
                 goto fault_exit;
             }
             uint8_t reg = program[pc++];
-            uint32_t idx = read_u32(program.data(), &pc);
+            uint32_t idx = blackbox::data::read_u32(program.data(), &pc);
             if (reg >= REGISTERS)
             {
                 blackbox::fmt::err_fmt( "Invalid register in GETARG at pc=%zu\n", pc);
