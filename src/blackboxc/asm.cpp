@@ -4,7 +4,6 @@
 #include "../tools.h"
 #include "asm_util.h"
 
-
 #include <cctype>
 #include <cstdint>
 #include <cstdio>
@@ -133,7 +132,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
 
             s = blackbox::tools::trim(s);
         }
-        if (*s == '\0') continue;
+        if (*s == '\0') {
+            continue;
+        }
 
         if (blackbox::tools::equals_ci(s, "%asm")) {
             break;
@@ -164,7 +165,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             *comment = '\0';
             s = blackbox::tools::trim(s);
         }
-        if (*s == '\0' || *s == ';') continue;
+        if (*s == '\0' || *s == ';') {
+            continue;
+        }
 
         if (blackbox::tools::equals_ci(s, "%data")) {
             if (found_code_section) {
@@ -173,14 +176,18 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
                     lineno);
             }
             current_section = 1;
-            if (debug) printf("[DEBUG] Entering data section at line %d\n", lineno);
+            if (debug) {
+                printf("[DEBUG] Entering data section at line %d\n", lineno);
+            }
             continue;
         }
         if (blackbox::tools::equals_ci(s, "%main") == 1 ||
             blackbox::tools::equals_ci(s, "%entry") == 1) {
             current_section = 2;
             found_code_section = 1;
-            if (debug) printf("[DEBUG] Entering code section at line %d\n", lineno);
+            if (debug) {
+                printf("[DEBUG] Entering code section at line %d\n", lineno);
+            }
             continue;
         }
 
@@ -212,7 +219,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             data_table.push_back('\0');
             bbxc::asm_helpers::append_data_item(data, name, DATA_STRING, data_table_size, 0);
             data_table_size += (uint32_t) (len + 1);
-            if (debug) printf("[DEBUG] String $%s at offset %u\n", name, data.back().offset);
+            if (debug) {
+                printf("[DEBUG] String $%s at offset %u\n", name, data.back().offset);
+            }
             continue;
         } else if (blackbox::tools::starts_with_ci(s, "DWORD ")) {
             if (current_section != 1) {
@@ -233,7 +242,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             bbxc::asm_helpers::append_le_bytes(data_table, value, sizeof(value));
             bbxc::asm_helpers::append_data_item(data, name, DATA_DWORD, data_table_size, value);
             data_table_size += (uint32_t) sizeof(value);
-            if (debug) printf("[DEBUG] DWORD $%s at offset %u\n", name, data.back().offset);
+            if (debug) {
+                printf("[DEBUG] DWORD $%s at offset %u\n", name, data.back().offset);
+            }
             continue;
         } else if (blackbox::tools::starts_with_ci(s, "QWORD ")) {
             if (current_section != 1) {
@@ -256,7 +267,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             bbxc::asm_helpers::append_le_bytes(data_table, value, sizeof(value));
             bbxc::asm_helpers::append_data_item(data, name, DATA_QWORD, data_table_size, value);
             data_table_size += (uint32_t) sizeof(value);
-            if (debug) printf("[DEBUG] QWORD $%s at offset %u\n", name, data.back().offset);
+            if (debug) {
+                printf("[DEBUG] QWORD $%s at offset %u\n", name, data.back().offset);
+            }
             continue;
         } else if (blackbox::tools::starts_with_ci(s, "WORD ")) {
             if (current_section != 1) {
@@ -277,7 +290,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             bbxc::asm_helpers::append_le_bytes(data_table, value, sizeof(value));
             bbxc::asm_helpers::append_data_item(data, name, DATA_WORD, data_table_size, value);
             data_table_size += (uint32_t) sizeof(value);
-            if (debug) printf("[DEBUG] WORD $%s at offset %u\n", name, data.back().offset);
+            if (debug) {
+                printf("[DEBUG] WORD $%s at offset %u\n", name, data.back().offset);
+            }
             continue;
         } else if (blackbox::tools::starts_with_ci(s, "BYTE ")) {
             if (current_section != 1) {
@@ -298,7 +313,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             data_table.push_back(value);
             bbxc::asm_helpers::append_data_item(data, name, DATA_BYTE, data_table_size, value);
             data_table_size += (uint32_t) sizeof(value);
-            if (debug) printf("[DEBUG] BYTE $%s at offset %u\n", name, data.back().offset);
+            if (debug) {
+                printf("[DEBUG] BYTE $%s at offset %u\n", name, data.back().offset);
+            }
             continue;
         }
 
@@ -375,7 +392,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
     fputc((MAGIC >> 0) & 0xFF, out);
     fputc((uint8_t) data.size(), out);
     blackbox::data::write_u32(out, data_table_size);
-    if (data_table_size > 0) fwrite(data_table.data(), 1, data_table_size, out);
+    if (data_table_size > 0) {
+        fwrite(data_table.data(), 1, data_table_size, out);
+    }
 
     while (fgets(line, sizeof(line), in)) {
         lineno++;
@@ -385,7 +404,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             *comment = '\0';
             s = blackbox::tools::trim(s);
         }
-        if (*s == '\0' || *s == ';') continue;
+        if (*s == '\0' || *s == ';') {
+            continue;
+        }
         if (blackbox::tools::equals_ci(s, "%data")) {
             current_section = 1;
             continue;
@@ -396,9 +417,13 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             continue;
         }
 
-        if (current_section == 1) continue;
+        if (current_section == 1) {
+            continue;
+        }
 
-        if (current_section != 2) continue;
+        if (current_section != 2) {
+            continue;
+        }
 
         if (blackbox::tools::starts_with_ci(s, "STR ")) {
             fprintf(stderr,
@@ -496,7 +521,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
                 return 1;
             }
             size_t len = str_end - str_start;
-            if (len > 255) len = 255;
+            if (len > 255) {
+                len = 255;
+            }
 
             fputc(opcode_to_byte(Opcode::WRITE), out);
             fputc(fd, out);
@@ -523,9 +550,13 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             fputc(reg, out);
             uint32_t mem_offset = data[offset].offset;
             blackbox::data::write_u32(out, mem_offset);
-            if (debug) printf("[DEBUG] LOADSTR $%s (offset=%u) -> %s\n", name, offset, regname);
+            if (debug) {
+                printf("[DEBUG] LOADSTR $%s (offset=%u) -> %s\n", name, offset, regname);
+            }
         } else if (blackbox::tools::starts_with_ci(s, "printstr")) {
-            if (debug) printf("[DEBUG] Encoding instruction: %s\n", s);
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char regname[16];
             if (sscanf(s + 8, " %15s", regname) != 1) {
                 fprintf(stderr, "Syntax error line %d: expected PRINTSTR <register>\n", lineno);
@@ -537,7 +568,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             fputc(opcode_to_byte(Opcode::PRINTSTR), out);
             fputc(reg, out);
         } else if (blackbox::tools::starts_with_ci(s, "eprintstr")) {
-            if (debug) printf("[DEBUG] Encoding instruction: %s\n", s);
+            if (debug) {
+                printf("[DEBUG] Encoding instruction: %s\n", s);
+            }
             char regname[16];
             if (sscanf(s + 9, " %15s", regname) != 1) {
                 fprintf(stderr, "Syntax error line %d: expected EPRINTSTR <register>\n", lineno);
@@ -572,7 +605,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             }
             uint32_t offset_in_table = d->offset;
             blackbox::data::write_u32(out, offset_in_table);
-            if (debug) printf("[DEBUG] LOADBYTE $%s (offset=%u) -> %s\n", name, offset, regname);
+            if (debug) {
+                printf("[DEBUG] LOADBYTE $%s (offset=%u) -> %s\n", name, offset, regname);
+            }
         } else if (blackbox::tools::starts_with_ci(s, "loadword")) {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
@@ -597,7 +632,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             }
             uint32_t offset_in_table = d->offset;
             blackbox::data::write_u32(out, offset_in_table);
-            if (debug) printf("[DEBUG] LOADWORD $%s (offset=%u) -> %s\n", name, offset, regname);
+            if (debug) {
+                printf("[DEBUG] LOADWORD $%s (offset=%u) -> %s\n", name, offset, regname);
+            }
         } else if (blackbox::tools::starts_with_ci(s, "loaddword")) {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
@@ -622,7 +659,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             }
             uint32_t offset_in_table = d->offset;
             blackbox::data::write_u32(out, offset_in_table);
-            if (debug) printf("[DEBUG] LOADDWORD $%s (offset=%u) -> %s\n", name, offset, regname);
+            if (debug) {
+                printf("[DEBUG] LOADDWORD $%s (offset=%u) -> %s\n", name, offset, regname);
+            }
         } else if (blackbox::tools::starts_with_ci(s, "loadqword")) {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
@@ -647,7 +686,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             }
             uint32_t offset_in_table = d->offset;
             blackbox::data::write_u32(out, offset_in_table);
-            if (debug) printf("[DEBUG] LOADQWORD $%s (offset=%u) -> %s\n", name, offset, regname);
+            if (debug) {
+                printf("[DEBUG] LOADQWORD $%s (offset=%u) -> %s\n", name, offset, regname);
+            }
         } else if (blackbox::tools::starts_with_ci(s, "continue")) {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(opcode_to_byte(Opcode::CONTINUE), out);
@@ -1728,10 +1769,14 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             }
 
             size_t len = (size_t) (str_end - str_start);
-            if (len > 255) len = 255;
+            if (len > 255) {
+                len = 255;
+            }
 
             char* after = str_end + 1;
-            while (*after == ' ' || *after == '\t' || *after == ',') after++;
+            while (*after == ' ' || *after == '\t' || *after == ',') {
+                after++;
+            }
             char regname[16];
             if (sscanf(after, " %15s", regname) != 1) {
                 fprintf(stderr, "Syntax error on line %d: expected EXEC \"<cmd>\", <register>\n",
@@ -2003,7 +2048,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             }
 
             const char* p = comma + 1;
-            while (*p && isspace((unsigned char) *p)) p++;
+            while (*p && isspace((unsigned char) *p)) {
+                p++;
+            }
 
             if (*p == '"') {
                 const char* end = strchr(p + 1, '"');
@@ -2017,7 +2064,9 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
                     return 1;
                 }
                 size_t len = (size_t) (end - (p + 1));
-                if (len >= sizeof(varname)) len = sizeof(varname) - 1;
+                if (len >= sizeof(varname)) {
+                    len = sizeof(varname) - 1;
+                }
                 memcpy(varname, p + 1, len);
                 varname[len] = '\0';
             } else {

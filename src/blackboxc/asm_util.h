@@ -9,7 +9,6 @@
 #include <utility>
 #include <vector>
 
-
 namespace bbxc {
 namespace asm_helpers {
 
@@ -28,7 +27,9 @@ bool build_macro_owned(const std::string& name, const std::vector<std::string>& 
 int collect_lines_from_buffer(const char* src, std::vector<std::string>& lines);
 
 template <typename... Args> void dbg(bool debug, const char* fmt, const Args&... args) {
-    if (debug) printf(fmt, args...);
+    if (debug) {
+        printf(fmt, args...);
+    }
 }
 
 } // namespace asm_helpers

@@ -31,24 +31,32 @@
 using size_t = decltype(sizeof(0));
 
 static std::string_view trim_left(std::string_view text) {
-    while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) text.remove_prefix(1);
+    while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) {
+        text.remove_prefix(1);
+    }
     return text;
 }
 
 static bool parse_int(std::string_view text, int& value) {
     int parsed = 0;
     auto result = std::from_chars(text.data(), text.data() + text.size(), parsed);
-    if (result.ec != std::errc() || result.ptr != text.data() + text.size()) return false;
+    if (result.ec != std::errc() || result.ptr != text.data() + text.size()) {
+        return false;
+    }
     value = parsed;
     return true;
 }
 
 template <typename T> static bool ensure_capacity(std::vector<T>& buf, size_t needed) {
-    if (needed <= buf.size()) return false;
+    if (needed <= buf.size()) {
+        return false;
+    }
 
     try {
         size_t new_cap = buf.size() ? (buf.size() * 2) : 256;
-        while (new_cap < needed) new_cap *= 2;
+        while (new_cap < needed) {
+            new_cap *= 2;
+        }
         buf.resize(new_cap);
     } catch (...) {
         return true;
@@ -66,10 +74,11 @@ int main(int argc, char* argv[]) {
     }
     for (int i = 1; i < argc; i++) {
         std::string_view arg = argv[i];
-        if (arg == "-d" || arg == "--debug")
+        if (arg == "-d" || arg == "--debug") {
             debug = true;
-        else if (!prog_path)
+        } else if (!prog_path) {
             prog_path = argv[i];
+        }
     }
     if (!prog_path) {
         std::println("Usage: bbx [--debug|-d] program.bcx");
@@ -261,8 +270,12 @@ int main(int argc, char* argv[]) {
                     return 0;
                 } else if (!p.empty() && p[0] == 'r') {
                     int n = 0;
-                    if (p.size() > 1) parse_int(p.substr(1), n);
-                    if (n <= 0) n = 16;
+                    if (p.size() > 1) {
+                        parse_int(p.substr(1), n);
+                    }
+                    if (n <= 0) {
+                        n = 16;
+                    }
                     print_regs(registers, n);
                     continue;
                 } else if (!p.empty() && p[0] == 's') {
@@ -277,22 +290,29 @@ int main(int argc, char* argv[]) {
                         int b = 0;
                         parse_int(q.substr(0, dash), a);
                         parse_int(q.substr(dash + 1), b);
-                        if (a < 0) a = 0;
-                        if (b < 0) b = 0;
+                        if (a < 0) {
+                            a = 0;
+                        }
+                        if (b < 0) {
+                            b = 0;
+                        }
                         if ((size_t) a >= sp || (size_t) b >= sp || a > b) {
                             std::println("Invalid stack range {}-{} (stack size={})", a, b, sp);
                             continue;
                         }
                         std::println("Stack entries {}..{}:", a, b);
-                        for (int i = a; i <= b; i++)
+                        for (int i = a; i <= b; i++) {
                             std::print(" [{}]={}", i, (long long) stack[i]);
+                        }
                         std::println("");
                         continue;
                     }
                     if (!q.empty() && q[0] >= '0' && q[0] <= '9') {
                         int n = 0;
                         parse_int(q, n);
-                        if (n <= 0) n = 8;
+                        if (n <= 0) {
+                            n = 8;
+                        }
                         size_t show = (size_t) n < sp ? (size_t) n : sp;
                         std::println("Stack size={}, top {} entries:", sp, show);
                         for (size_t i = 0; i < show; i++) {
@@ -361,7 +381,9 @@ int main(int argc, char* argv[]) {
                 }
                 if (sp >= stack_cap) {
                     size_t new_cap = stack_cap + stack_cap / 2;
-                    if (new_cap <= sp) new_cap = sp + 1;
+                    if (new_cap <= sp) {
+                        new_cap = sp + 1;
+                    }
                     stack.resize(new_cap);
                     stack_cap = new_cap;
                 }
@@ -384,7 +406,9 @@ int main(int argc, char* argv[]) {
                 }
                 if (sp >= stack_cap) {
                     size_t new_cap = stack_cap + stack_cap / 2;
-                    if (new_cap <= sp) new_cap = sp + 1;
+                    if (new_cap <= sp) {
+                        new_cap = sp + 1;
+                    }
                     stack.resize(new_cap);
                     stack_cap = new_cap;
                 }
@@ -929,7 +953,9 @@ int main(int argc, char* argv[]) {
                                     (program[pc + 3] << 24);
                     pc += 4;
 
-                    if (elem == 0) break;
+                    if (elem == 0) {
+                        break;
+                    }
 
                     size_t new_cap = stack_cap + elem;
 
@@ -972,7 +998,9 @@ int main(int argc, char* argv[]) {
                         permissions[i].prot_write = 1;
                     }
                     stack_cap = new_size;
-                    if (sp > stack_cap) sp = stack_cap;
+                    if (sp > stack_cap) {
+                        sp = stack_cap;
+                    }
                     break;
                 }
             case Opcode::FREE:
@@ -987,7 +1015,9 @@ int main(int argc, char* argv[]) {
                                    (program[pc + 3] << 24);
                     pc += 4;
 
-                    if (num == 0) break;
+                    if (num == 0) {
+                        break;
+                    }
 
                     if (num > stack_cap) {
                         blackbox::fmt::err_fmt("FREE size out of bounds: %u at pc=%zu\n", num, pc);
@@ -1044,12 +1074,13 @@ int main(int argc, char* argv[]) {
                         fds[fd].in = &std::cin;
                     } else {
                         std::ios::openmode open_mode{};
-                        if (mode_str == 0)
+                        if (mode_str == 0) {
                             open_mode = std::ios::in;
-                        else if (mode_str == 1)
+                        } else if (mode_str == 1) {
                             open_mode = std::ios::out | std::ios::trunc;
-                        else
+                        } else {
                             open_mode = std::ios::out | std::ios::app;
+                        }
 
                         auto file = std::make_unique<std::fstream>(fname, open_mode);
                         if (!file->is_open()) {
@@ -1057,10 +1088,11 @@ int main(int argc, char* argv[]) {
                             return 1;
                         }
 
-                        if (mode_str == 0)
+                        if (mode_str == 0) {
                             fds[fd].in = file.get();
-                        else
+                        } else {
                             fds[fd].out = file.get();
+                        }
 
                         fds[fd].owned = std::move(file);
                     }
@@ -1285,7 +1317,9 @@ int main(int argc, char* argv[]) {
                     size_t i = offset;
                     while (i < str_heap_size) {
                         char c = (char) str_heap[i];
-                        if (c == '\0') break;
+                        if (c == '\0') {
+                            break;
+                        }
                         putchar(c);
                         i++;
                     }
@@ -1322,7 +1356,9 @@ int main(int argc, char* argv[]) {
                     size_t i = offset;
                     while (i < str_heap_size) {
                         char c = (char) str_heap[i];
-                        if (c == '\0') break;
+                        if (c == '\0') {
+                            break;
+                        }
                         fputc(c, stderr);
                         i++;
                     }
@@ -1501,10 +1537,11 @@ int main(int argc, char* argv[]) {
                         registers[reg] = (int64_t) r;
                     } else {
                         range = (uint64_t) (max - min) + 1;
-                        if (range == 0)
+                        if (range == 0) {
                             registers[reg] = (int64_t) r;
-                        else
+                        } else {
                             registers[reg] = min + (int64_t) (r % range);
+                        }
                     }
                 } else {
                     registers[reg] = (int64_t) blackbox::tools::get_true_random();
@@ -1567,14 +1604,16 @@ int main(int argc, char* argv[]) {
                 }
 
                 long long v;
-                if (scanf("%lld", &v) != 1)
+                if (scanf("%lld", &v) != 1) {
                     registers[reg] = 0;
-                else
+                } else {
                     registers[reg] = (int64_t) v;
+                }
 
                 // drain remainder of line so next readstr gets a clean buffer
                 int c;
-                while ((c = getchar()) != EOF && c != '\n');
+                while ((c = getchar()) != EOF && c != '\n')
+                    ;
                 break;
             }
             case Opcode::READCHAR: {
@@ -1589,13 +1628,15 @@ int main(int argc, char* argv[]) {
                 }
 
                 int c;
-                while ((c = getchar()) != EOF && (c == ' ' || c == '\t' || c == '\n' || c == '\r'));
+                while ((c = getchar()) != EOF && (c == ' ' || c == '\t' || c == '\n' || c == '\r'))
+                    ;
                 if (c == EOF) {
                     registers[reg] = 0;
                 } else {
                     registers[reg] = (int64_t) (unsigned char) c;
                     int ch;
-                    while ((ch = getchar()) != EOF && ch != '\n');
+                    while ((ch = getchar()) != EOF && ch != '\n')
+                        ;
                 }
                 break;
             }
@@ -1618,7 +1659,9 @@ int main(int argc, char* argv[]) {
                         std::print("> ");
                         fflush(stdout);
                         char cmdb[128];
-                        if (!fgets(cmdb, sizeof(cmdb), stdin)) break;
+                        if (!fgets(cmdb, sizeof(cmdb), stdin)) {
+                            break;
+                        }
                         std::string_view p = trim_left(cmdb);
                         if (!p.empty() && p[0] == 'c') {
                             break;
@@ -1626,8 +1669,12 @@ int main(int argc, char* argv[]) {
                             return 0;
                         } else if (!p.empty() && p[0] == 'r') {
                             int n = 0;
-                            if (p.size() > 1) parse_int(p.substr(1), n);
-                            if (n <= 0) n = 16;
+                            if (p.size() > 1) {
+                                parse_int(p.substr(1), n);
+                            }
+                            if (n <= 0) {
+                                n = 16;
+                            }
                             print_regs(registers, n);
                             continue;
                         } else if (!p.empty() && p[0] == 's') {
@@ -1641,21 +1688,28 @@ int main(int argc, char* argv[]) {
                                     int b = 0;
                                     parse_int(q.substr(0, dash), a);
                                     parse_int(q.substr(dash + 1), b);
-                                    if (a < 0) a = 0;
-                                    if (b < 0) b = 0;
+                                    if (a < 0) {
+                                        a = 0;
+                                    }
+                                    if (b < 0) {
+                                        b = 0;
+                                    }
                                     if ((size_t) a >= sp || (size_t) b >= sp || a > b) {
                                         std::println("Invalid stack range {}-{} (stack size={})", a,
                                                      b, sp);
                                     } else {
                                         std::println("Stack entries {}..{}:", a, b);
-                                        for (int i = a; i <= b; i++)
+                                        for (int i = a; i <= b; i++) {
                                             std::print(" [{}]={}", i, (long long) stack[i]);
+                                        }
                                         std::println("");
                                     }
                                 } else if (!q.empty() && q[0] >= '0' && q[0] <= '9') {
                                     int n = 0;
                                     parse_int(q, n);
-                                    if (n <= 0) n = 8;
+                                    if (n <= 0) {
+                                        n = 8;
+                                    }
                                     size_t show = (size_t) n < sp ? (size_t) n : sp;
                                     std::println("Stack size={}, top {} entries:", sp, show);
                                     for (size_t i = 0; i < show; i++) {
@@ -1781,8 +1835,9 @@ int main(int argc, char* argv[]) {
 
                 if (vars_sp + (size_t) frame_size > vars_cap) {
                     size_t new_cap = vars_cap + vars_cap / 2;
-                    if (new_cap <= vars_sp + (size_t) frame_size)
+                    if (new_cap <= vars_sp + (size_t) frame_size) {
                         new_cap = vars_sp + (size_t) frame_size;
+                    }
                     vars.resize(new_cap);
                     vars_cap = new_cap;
                 }
@@ -1898,7 +1953,9 @@ int main(int argc, char* argv[]) {
                     exit(1);
                 }
                 int64_t val = 0;
-                for (int i = 0; i < 8; i++) val |= ((uint64_t) data_table[offset + i]) << (8 * i);
+                for (int i = 0; i < 8; i++) {
+                    val |= ((uint64_t) data_table[offset + i]) << (8 * i);
+                }
                 registers[reg] = val;
 
                 break;
@@ -1958,12 +2015,16 @@ int main(int argc, char* argv[]) {
                         return 1;
                     }
                     char cmd[256];
-                    if (len > 255) len = 255;
+                    if (len > 255) {
+                        len = 255;
+                    }
                     std::copy_n(&program[pc], len, cmd);
                     cmd[len] = '\0';
                     pc += len;
 
-                    if (debug) std::println("[DEBUG] EXEC: {} -> r{:02}", cmd, dest);
+                    if (debug) {
+                        std::println("[DEBUG] EXEC: {} -> r{:02}", cmd, dest);
+                    }
 
                     int ret = std::system(cmd);
                     registers[dest] = (int64_t) ret;
@@ -2051,7 +2112,9 @@ int main(int argc, char* argv[]) {
 
                     for (uint32_t i = 0; i < count; i++) {
                         size_t idx = start + i;
-                        if (idx >= stack_cap) break;
+                        if (idx >= stack_cap) {
+                            break;
+                        }
                         permissions[idx].priv_read = priv_read;
                         permissions[idx].priv_write = priv_write;
                         permissions[idx].prot_read = prot_read;
@@ -2134,10 +2197,11 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Invalid register in SHLI at pc=%zu\n", pc);
                     goto fault_exit;
                 }
-                if (shift >= 64)
+                if (shift >= 64) {
                     registers[reg] = 0;
-                else
+                } else {
                     registers[reg] = registers[reg] << shift;
+                }
                 break;
             }
             case Opcode::SHRI: {
@@ -2148,10 +2212,11 @@ int main(int argc, char* argv[]) {
                     goto fault_exit;
                 }
                 if (shift >= 64) {
-                    if (registers[reg] < 0)
+                    if (registers[reg] < 0) {
                         registers[reg] = -1;
-                    else
+                    } else {
                         registers[reg] = 0;
+                    }
                 } else {
                     registers[reg] = registers[reg] >> shift;
                 }
@@ -2165,10 +2230,11 @@ int main(int argc, char* argv[]) {
                     goto fault_exit;
                 }
                 if (registers[src] >= 64) {
-                    if (registers[dst] < 0)
+                    if (registers[dst] < 0) {
                         registers[dst] = -1;
-                    else
+                    } else {
                         registers[dst] = 0;
+                    }
                 } else {
                     registers[dst] = registers[dst] >> registers[src];
                 }
@@ -2182,10 +2248,11 @@ int main(int argc, char* argv[]) {
                     goto fault_exit;
                 }
                 if (registers[src] >= 64) {
-                    if (registers[dst] < 0)
+                    if (registers[dst] < 0) {
                         registers[dst] = -1;
-                    else
+                    } else {
                         registers[dst] = 0;
+                    }
                 } else {
                     registers[dst] = registers[dst] << registers[src];
                 }
@@ -2249,7 +2316,9 @@ int main(int argc, char* argv[]) {
                     goto fault_exit;
                 }
                 char envname[256];
-                if (envlen > sizeof(envname) - 1) envlen = sizeof(envname) - 1;
+                if (envlen > sizeof(envname) - 1) {
+                    envlen = sizeof(envname) - 1;
+                }
                 std::copy_n(&program[pc], envlen, envname);
                 envname[envlen] = '\0';
                 pc += envlen;

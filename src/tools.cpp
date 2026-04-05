@@ -22,30 +22,40 @@ static inline unsigned char ascii_upper(unsigned char c) {
 }
 
 static bool equals_ci_str(const std::string& a, const std::string& b) {
-    if (a.size() != b.size()) return false;
+    if (a.size() != b.size()) {
+        return false;
+    }
     for (size_t i = 0; i < a.size(); i++) {
-        if (ascii_upper((unsigned char) a[i]) != ascii_upper((unsigned char) b[i])) return false;
+        if (ascii_upper((unsigned char) a[i]) != ascii_upper((unsigned char) b[i])) {
+            return false;
+        }
     }
     return true;
 }
 
 static bool starts_with_ci_str(const std::string& s, const std::string& prefix) {
-    if (s.size() < prefix.size()) return false;
+    if (s.size() < prefix.size()) {
+        return false;
+    }
     for (size_t i = 0; i < prefix.size(); i++) {
-        if (ascii_upper((unsigned char) s[i]) != ascii_upper((unsigned char) prefix[i]))
+        if (ascii_upper((unsigned char) s[i]) != ascii_upper((unsigned char) prefix[i])) {
             return false;
+        }
     }
     return true;
 }
 
 static std::string trim_copy(const std::string& s) {
     size_t start = 0;
-    while (start < s.size() && isspace((unsigned char) s[start])) start++;
+    while (start < s.size() && isspace((unsigned char) s[start])) {
+        start++;
+    }
 
     size_t end = s.size();
     while (end > start &&
-           (isspace((unsigned char) s[end - 1]) || s[end - 1] == '\r' || s[end - 1] == '\n'))
+           (isspace((unsigned char) s[end - 1]) || s[end - 1] == '\r' || s[end - 1] == '\n')) {
         end--;
+    }
 
     return s.substr(start, end - start);
 }
@@ -53,23 +63,33 @@ static std::string trim_copy(const std::string& s) {
 static bool second_operand_is_reg(const char* line, size_t op_len) {
     const char* p = line + op_len;
     const char* comma = strchr(p, ',');
-    if (!comma) return false;
+    if (!comma) {
+        return false;
+    }
     const char* q = comma + 1;
-    while (*q && isspace((unsigned char) *q)) q++;
+    while (*q && isspace((unsigned char) *q)) {
+        q++;
+    }
     return ascii_upper((unsigned char) q[0]) == 'R';
 }
 
 static size_t quoted_payload_size_or(const std::string& line, size_t fallback) {
     size_t first = line.find('"');
-    if (first == std::string::npos) return fallback;
+    if (first == std::string::npos) {
+        return fallback;
+    }
     size_t second = line.find('"', first + 1);
-    if (second == std::string::npos) return fallback;
+    if (second == std::string::npos) {
+        return fallback;
+    }
     size_t len = second - (first + 1);
     return len > 255 ? 255 : len;
 }
 
 static std::string operand_after_opcode(const std::string& line, size_t op_len) {
-    if (line.size() <= op_len) return std::string();
+    if (line.size() <= op_len) {
+        return std::string();
+    }
     return trim_copy(line.substr(op_len));
 }
 
@@ -98,13 +118,17 @@ static bool preprocess_includes_impl(const char* input, int depth, std::string& 
         std::string source(line);
         std::string trimmed = trim_copy(source);
         size_t comment_pos = trimmed.find(';');
-        if (comment_pos != std::string::npos) trimmed.erase(comment_pos);
+        if (comment_pos != std::string::npos) {
+            trimmed.erase(comment_pos);
+        }
         trimmed = trim_copy(trimmed);
         const char* s = trimmed.c_str();
 
         if (starts_with_ci(s, "%include")) {
             const char* p = s + 8;
-            while (*p && isspace((unsigned char) *p)) p++;
+            while (*p && isspace((unsigned char) *p)) {
+                p++;
+            }
 
             if (*p != '"') {
                 fprintf(stderr, "Error: malformed %%include directive\n");
@@ -122,10 +146,11 @@ static bool preprocess_includes_impl(const char* input, int depth, std::string& 
             std::string include_target(p + 1, (size_t) (end - (p + 1)));
 
             std::string include_path;
-            if (!base_dir.empty())
+            if (!base_dir.empty()) {
                 include_path = base_dir + "/" + include_target;
-            else
+            } else {
                 include_path = include_target;
+            }
 
             std::string included;
             if (!preprocess_includes_impl(include_path.c_str(), depth + 1, included)) {
@@ -158,7 +183,9 @@ uint32_t find_label(const char* name, Label* labels, size_t count) {
 }
 uint32_t find_data(const char* name, Data* data, size_t count) {
     for (size_t i = 0; i < count; i++) {
-        if (equals_ci(data[i].name, name)) return i;
+        if (equals_ci(data[i].name, name)) {
+            return i;
+        }
     }
     fprintf(stderr, "Error: undefined string constant '%s'\n", name);
     exit(1);
@@ -170,217 +197,254 @@ size_t instr_size(const char* line) {
     if (starts_with_ci(line, "MOV")) {
         std::string rest = line_sv.size() > 3 ? line_sv.substr(3) : std::string();
         size_t comma = rest.find(',');
-        if (comma == std::string::npos) return 0;
+        if (comma == std::string::npos) {
+            return 0;
+        }
 
         std::string src = trim_copy(rest.substr(comma + 1));
-        if (!src.empty() && ascii_upper((unsigned char) src[0]) == 'R')
+        if (!src.empty() && ascii_upper((unsigned char) src[0]) == 'R') {
             return 3;
-        else
+        } else {
             return 6;
-    } else if (starts_with_ci(line, "PUSH"))
+        }
+    } else if (starts_with_ci(line, "PUSH")) {
         return 2;
-    else if (starts_with_ci(line, "PUSHI"))
+    } else if (starts_with_ci(line, "PUSHI")) {
         return 5;
-    else if (starts_with_ci(line, "POP"))
+    } else if (starts_with_ci(line, "POP")) {
         return 2;
-    else if (starts_with_ci(line, "ADD"))
+    } else if (starts_with_ci(line, "ADD")) {
         return 3;
-    else if (starts_with_ci(line, "SUB"))
+    } else if (starts_with_ci(line, "SUB")) {
         return 3;
-    else if (starts_with_ci(line, "MUL"))
+    } else if (starts_with_ci(line, "MUL")) {
         return 3;
-    else if (starts_with_ci(line, "DIV"))
+    } else if (starts_with_ci(line, "DIV")) {
         return 3;
-    else if (equals_ci(line, "PRINT_STACKSIZE"))
+    } else if (equals_ci(line, "PRINT_STACKSIZE")) {
         return 1;
-    else if (starts_with_ci(line, "PRINTREG"))
+    } else if (starts_with_ci(line, "PRINTREG")) {
         return 2;
-    else if (starts_with_ci(line, "EPRINTREG"))
+    } else if (starts_with_ci(line, "EPRINTREG")) {
         return 2;
-    else if (starts_with_ci(line, "PRINT"))
+    } else if (starts_with_ci(line, "PRINT")) {
         return 2;
-    else if (starts_with_ci(line, "WRITE")) {
+    } else if (starts_with_ci(line, "WRITE")) {
         return 3 + quoted_payload_size_or(line_sv, 0);
     } else if (starts_with_ci(line, "EXEC")) {
         return 3 + quoted_payload_size_or(line_sv, 0);
-    } else if (starts_with_ci(line, "JMPI"))
+    } else if (starts_with_ci(line, "JMPI")) {
         return 5;
-    else if (starts_with_ci(line, "JMP"))
+    } else if (starts_with_ci(line, "JMP")) {
         return 5;
-    else if (starts_with_ci(line, "ALLOC"))
+    } else if (starts_with_ci(line, "ALLOC")) {
         return 5;
-    else if (starts_with_ci(line, "NEWLINE"))
+    } else if (starts_with_ci(line, "NEWLINE")) {
         return 1;
-    else if (starts_with_ci(line, "JE"))
+    } else if (starts_with_ci(line, "JE")) {
         return 5;
-    else if (starts_with_ci(line, "JNE"))
+    } else if (starts_with_ci(line, "JNE")) {
         return 5;
-    else if (starts_with_ci(line, "INC"))
+    } else if (starts_with_ci(line, "INC")) {
         return 2;
-    else if (starts_with_ci(line, "DEC"))
+    } else if (starts_with_ci(line, "DEC")) {
         return 2;
-    else if (starts_with_ci(line, "CMP"))
+    } else if (starts_with_ci(line, "CMP")) {
         return 3;
-    else if (starts_with_ci(line, "STORE")) {
-        if (!strchr(line + 5, ',')) return 6;
-        if (second_operand_is_reg(line, 5)) return 3;
+    } else if (starts_with_ci(line, "STORE")) {
+        if (!strchr(line + 5, ',')) {
+            return 6;
+        }
+        if (second_operand_is_reg(line, 5)) {
+            return 3;
+        }
         return 6;
-    } else if (starts_with_ci(line, "LOADSTR"))
+    } else if (starts_with_ci(line, "LOADSTR")) {
         return 6;
-    else if (starts_with_ci(line, "LOADBYTE"))
+    } else if (starts_with_ci(line, "LOADBYTE")) {
         return 6;
-    else if (starts_with_ci(line, "LOADWORD"))
+    } else if (starts_with_ci(line, "LOADWORD")) {
         return 6;
-    else if (starts_with_ci(line, "LOADDWORD"))
+    } else if (starts_with_ci(line, "LOADDWORD")) {
         return 6;
-    else if (starts_with_ci(line, "LOADQWORD"))
+    } else if (starts_with_ci(line, "LOADQWORD")) {
         return 6;
-    else if (starts_with_ci(line, "LOAD")) {
-        if (!strchr(line + 4, ',')) return 6;
-        if (second_operand_is_reg(line, 4)) return 3;
+    } else if (starts_with_ci(line, "LOAD")) {
+        if (!strchr(line + 4, ',')) {
+            return 6;
+        }
+        if (second_operand_is_reg(line, 4)) {
+            return 3;
+        }
         return 6;
     }
 
     else if (starts_with_ci(line, "LOADVAR")) {
-        if (!strchr(line + 7, ',')) return 6;
-        if (second_operand_is_reg(line, 7)) return 3;
+        if (!strchr(line + 7, ',')) {
+            return 6;
+        }
+        if (second_operand_is_reg(line, 7)) {
+            return 3;
+        }
         return 6;
-    } else if (starts_with_ci(line, "GROW"))
+    } else if (starts_with_ci(line, "GROW")) {
         return 5;
+    }
 
     else if (starts_with_ci(line, "STOREVAR")) {
-        if (!strchr(line + 8, ',')) return 6;
-        if (second_operand_is_reg(line, 8)) return 3;
+        if (!strchr(line + 8, ',')) {
+            return 6;
+        }
+        if (second_operand_is_reg(line, 8)) {
+            return 3;
+        }
         return 6;
-    } else if (starts_with_ci(line, "RESIZE"))
+    } else if (starts_with_ci(line, "RESIZE")) {
         return 5;
-    else if (starts_with_ci(line, "FREE"))
+    } else if (starts_with_ci(line, "FREE")) {
         return 5;
-    else if (starts_with_ci(line, "MOD"))
+    } else if (starts_with_ci(line, "MOD")) {
         return 3;
-    else if (starts_with_ci(line, "FOPEN")) {
+    } else if (starts_with_ci(line, "FOPEN")) {
         return 4 + quoted_payload_size_or(line_sv, 0);
-    } else if (starts_with_ci(line, "FCLOSE"))
+    } else if (starts_with_ci(line, "FCLOSE")) {
         return 2;
-    else if (starts_with_ci(line, "FREAD"))
+    } else if (starts_with_ci(line, "FREAD")) {
         return 3;
-    else if (starts_with_ci(line, "FWRITE")) {
-        if (!strchr(line + 6, ',')) return 6;
-        if (second_operand_is_reg(line, 6))
-            return 3;
-        else
+    } else if (starts_with_ci(line, "FWRITE")) {
+        if (!strchr(line + 6, ',')) {
             return 6;
+        }
+        if (second_operand_is_reg(line, 6)) {
+            return 3;
+        } else {
+            return 6;
+        }
     } else if (starts_with_ci(line, "FSEEK")) {
-        if (!strchr(line + 5, ',')) return 6;
-        if (second_operand_is_reg(line, 5))
-            return 3;
-        else
+        if (!strchr(line + 5, ',')) {
             return 6;
-    } else if (starts_with_ci(line, "PRINTSTR"))
+        }
+        if (second_operand_is_reg(line, 5)) {
+            return 3;
+        } else {
+            return 6;
+        }
+    } else if (starts_with_ci(line, "PRINTSTR")) {
         return 2;
-    else if (starts_with_ci(line, "EPRINTSTR"))
+    } else if (starts_with_ci(line, "EPRINTSTR")) {
         return 2;
-    else if (starts_with_ci(line, "HALT")) {
+    } else if (starts_with_ci(line, "HALT")) {
         std::string operand = operand_after_opcode(line_sv, 4);
-        if (!operand.empty())
+        if (!operand.empty()) {
             return 2;
-        else
+        } else {
             return 1;
-    } else if (starts_with_ci(line, "NOT"))
+        }
+    } else if (starts_with_ci(line, "NOT")) {
         return 2;
-    else if (starts_with_ci(line, "AND"))
+    } else if (starts_with_ci(line, "AND")) {
         return 3;
-    else if (starts_with_ci(line, "OR"))
+    } else if (starts_with_ci(line, "OR")) {
         return 3;
-    else if (starts_with_ci(line, "XOR"))
+    } else if (starts_with_ci(line, "XOR")) {
         return 3;
-    else if (starts_with_ci(line, "READSTR"))
+    } else if (starts_with_ci(line, "READSTR")) {
         return 2;
-    else if (starts_with_ci(line, "READCHAR"))
+    } else if (starts_with_ci(line, "READCHAR")) {
         return 2;
-    else if (starts_with_ci(line, "SLEEP")) {
+    } else if (starts_with_ci(line, "SLEEP")) {
         std::string operand = operand_after_opcode(line_sv, 5);
-        if (!operand.empty() && ascii_upper((unsigned char) operand[0]) == 'R')
+        if (!operand.empty() && ascii_upper((unsigned char) operand[0]) == 'R') {
             return 2; // opcode + register
-        return 5;     // opcode + u32 immediate
-    } else if (starts_with_ci(line, "CLRSCR"))
+        }
+        return 5; // opcode + u32 immediate
+    } else if (starts_with_ci(line, "CLRSCR")) {
         return 1;
-    else if (starts_with_ci(line, "RAND"))
+    } else if (starts_with_ci(line, "RAND")) {
         return 18;
-    else if (starts_with_ci(line, "GETKEY"))
+    } else if (starts_with_ci(line, "GETKEY")) {
         return 2;
-    else if (starts_with_ci(line, "READ"))
+    } else if (starts_with_ci(line, "READ")) {
         return 2;
-    else if (equals_ci(line, "CONTINUE"))
+    } else if (equals_ci(line, "CONTINUE")) {
         return 1;
-    else if (starts_with_ci(line, "JL"))
+    } else if (starts_with_ci(line, "JL")) {
         return 5;
-    else if (starts_with_ci(line, "JGE"))
+    } else if (starts_with_ci(line, "JGE")) {
         return 5;
-    else if (starts_with_ci(line, "JB"))
+    } else if (starts_with_ci(line, "JB")) {
         return 5;
-    else if (starts_with_ci(line, "JAE"))
+    } else if (starts_with_ci(line, "JAE")) {
         return 5;
-    else if (starts_with_ci(line, "CALL"))
+    } else if (starts_with_ci(line, "CALL")) {
         return 9;
-    else if (starts_with_ci(line, "RET"))
+    } else if (starts_with_ci(line, "RET")) {
         return 1;
-    else if (starts_with_ci(line, "BREAK"))
+    } else if (starts_with_ci(line, "BREAK")) {
         return 1;
-    else if (starts_with_ci(line, "REGSYSCALL"))
+    } else if (starts_with_ci(line, "REGSYSCALL")) {
         return 6;
-    else if (starts_with_ci(line, "SYSCALL"))
+    } else if (starts_with_ci(line, "SYSCALL")) {
         return 2;
-    else if (starts_with_ci(line, "SYSRET"))
+    } else if (starts_with_ci(line, "SYSRET")) {
         return 1;
-    else if (starts_with_ci(line, "DROPPRIV"))
+    } else if (starts_with_ci(line, "DROPPRIV")) {
         return 1;
-    else if (starts_with_ci(line, "GETMODE"))
+    } else if (starts_with_ci(line, "GETMODE")) {
         return 2;
-    else if (starts_with_ci(line, "SETPERM"))
+    } else if (starts_with_ci(line, "SETPERM")) {
         return 13;
-    else if (starts_with_ci(line, "REGFAULT"))
+    } else if (starts_with_ci(line, "REGFAULT")) {
         return 6;
-    else if (starts_with_ci(line, "FAULTRET"))
+    } else if (starts_with_ci(line, "FAULTRET")) {
         return 1;
-    else if (starts_with_ci(line, "GETFAULT"))
+    } else if (starts_with_ci(line, "GETFAULT")) {
         return 2;
-    else if (starts_with_ci(line, "DUMPREGS"))
+    } else if (starts_with_ci(line, "DUMPREGS")) {
         return 1;
-    else if (starts_with_ci(line, "PRINTCHAR"))
+    } else if (starts_with_ci(line, "PRINTCHAR")) {
         return 2;
-    else if (starts_with_ci(line, "EPRINTCHAR"))
+    } else if (starts_with_ci(line, "EPRINTCHAR")) {
         return 2;
-    else if (starts_with_ci(line, "SHL"))
+    } else if (starts_with_ci(line, "SHL")) {
         return 3; // opcode + reg + reg
-    else if (starts_with_ci(line, "SHR"))
+    } else if (starts_with_ci(line, "SHR")) {
         return 3; // opcode + reg + reg
-    else if (starts_with_ci(line, "SHLI"))
+    } else if (starts_with_ci(line, "SHLI")) {
         return 10; // opcode + reg + u64 immediate
-    else if (starts_with_ci(line, "SHRI"))
+    } else if (starts_with_ci(line, "SHRI")) {
         return 10; // opcode + reg + u64 immediate
-    else if (starts_with_ci(line, "GETARG"))
+    } else if (starts_with_ci(line, "GETARG")) {
         return 6; // opcode + reg + u32 index
-    else if (starts_with_ci(line, "GETARGC"))
+    } else if (starts_with_ci(line, "GETARGC")) {
         return 2; // opcode + reg
-    else if (starts_with_ci(line, "GETENV")) {
+    } else if (starts_with_ci(line, "GETENV")) {
         size_t comma = line_sv.find(',', 6);
-        if (comma == std::string::npos) return 3;
+        if (comma == std::string::npos) {
+            return 3;
+        }
 
         std::string operand = trim_copy(line_sv.substr(comma + 1));
-        if (operand.empty()) return 3;
+        if (operand.empty()) {
+            return 3;
+        }
 
         size_t len = 0;
         if (operand[0] == '"') {
             size_t end = operand.find('"', 1);
-            if (end == std::string::npos) return 3;
+            if (end == std::string::npos) {
+                return 3;
+            }
             len = end - 1;
         } else {
             while (len < operand.size() && operand[len] != '\r' && operand[len] != '\n' &&
-                   !isspace((unsigned char) operand[len]))
+                   !isspace((unsigned char) operand[len])) {
                 len++;
+            }
         }
-        if (len > 255) len = 255;
+        if (len > 255) {
+            len = 255;
+        }
         return 3 + len;
     }
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
@@ -413,11 +477,17 @@ uint8_t parse_file(const char* r, int lineno) {
     return (uint8_t) v;
 }
 char* trim(char* s) {
-    while (isspace((unsigned char) *s)) s++;
-    if (*s == '\0') return s;
+    while (isspace((unsigned char) *s)) {
+        s++;
+    }
+    if (*s == '\0') {
+        return s;
+    }
 
     char* end = s + strlen(s) - 1;
-    while (end >= s && (isspace(*end) || *end == '\r' || *end == '\n')) *end-- = '\0';
+    while (end >= s && (isspace(*end) || *end == '\r' || *end == '\n')) {
+        *end-- = '\0';
+    }
     return s;
 }
 uint64_t get_true_random() {
@@ -452,13 +522,17 @@ uint64_t get_true_random() {
 Macro* find_macro(Macro* macros, size_t macro_count, const char* name) {
     const std::string needle(name ? name : "");
     for (size_t m = 0; m < macro_count; m++) {
-        if (std::string(macros[m].name) == needle) return &macros[m];
+        if (std::string(macros[m].name) == needle) {
+            return &macros[m];
+        }
     }
     return NULL;
 }
 
 std::string replace_all(const std::string& src, const std::string& find, const std::string& repl) {
-    if (find.empty()) return src;
+    if (find.empty()) {
+        return src;
+    }
 
     std::string out(src);
     size_t pos = 0;
@@ -474,10 +548,16 @@ static std::vector<std::string> split_tokens(const std::string& s) {
     std::vector<std::string> tokens;
     size_t i = 0;
     while (i < s.size()) {
-        while (i < s.size() && (isspace((unsigned char) s[i]) || s[i] == ',')) i++;
-        if (i >= s.size()) break;
+        while (i < s.size() && (isspace((unsigned char) s[i]) || s[i] == ',')) {
+            i++;
+        }
+        if (i >= s.size()) {
+            break;
+        }
         size_t start = i;
-        while (i < s.size() && !isspace((unsigned char) s[i]) && s[i] != ',') i++;
+        while (i < s.size() && !isspace((unsigned char) s[i]) && s[i] != ',') {
+            i++;
+        }
         tokens.emplace_back(s.substr(start, i - start));
     }
     return tokens;
@@ -485,7 +565,9 @@ static std::vector<std::string> split_tokens(const std::string& s) {
 
 static std::string replace_all_cpp(std::string text, const std::string& needle,
                                    const std::string& replacement) {
-    if (needle.empty()) return text;
+    if (needle.empty()) {
+        return text;
+    }
 
     size_t pos = 0;
     while ((pos = text.find(needle, pos)) != std::string::npos) {
@@ -497,21 +579,31 @@ static std::string replace_all_cpp(std::string text, const std::string& needle,
 
 int expand_invocation(const char* invocation_line, FILE* dest, int depth, Macro* macros,
                       size_t macro_count, unsigned long* expand_id) {
-    if (depth > 32) return -1;
+    if (depth > 32) {
+        return -1;
+    }
 
     std::vector<char> inv_mut(invocation_line, invocation_line + strlen(invocation_line));
     inv_mut.push_back('\0');
     char* t = trim(inv_mut.data());
-    if (t[0] != '%') return 0;
+    if (t[0] != '%') {
+        return 0;
+    }
 
     std::vector<std::string> tokens = split_tokens(std::string(t + 1));
-    if (tokens.empty()) return 0;
+    if (tokens.empty()) {
+        return 0;
+    }
 
     Macro* m = find_macro(macros, macro_count, tokens[0].c_str());
-    if (!m) return 0;
+    if (!m) {
+        return 0;
+    }
 
     std::vector<std::string> args;
-    for (size_t i = 1; i < tokens.size() && args.size() < 32; i++) args.push_back(tokens[i]);
+    for (size_t i = 1; i < tokens.size() && args.size() < 32; i++) {
+        args.push_back(tokens[i]);
+    }
 
     (*expand_id)++;
     std::string id_prefix = "M" + std::to_string(*expand_id);
@@ -541,7 +633,9 @@ int expand_invocation(const char* invocation_line, FILE* dest, int depth, Macro*
             out.append(pcur, prefixlen);
             const char* ident = atpos + 2;
             int il = 0;
-            while (ident[il] && (isalnum((unsigned char) ident[il]) || ident[il] == '_')) il++;
+            while (ident[il] && (isalnum((unsigned char) ident[il]) || ident[il] == '_')) {
+                il++;
+            }
             out += id_prefix;
             out += "_";
             out.append(ident, (size_t) il);
@@ -556,19 +650,25 @@ int expand_invocation(const char* invocation_line, FILE* dest, int depth, Macro*
         } else {
             fputs(wline, dest);
             size_t l = strlen(wline);
-            if (l == 0 || wline[l - 1] != '\n') fputc('\n', dest);
+            if (l == 0 || wline[l - 1] != '\n') {
+                fputc('\n', dest);
+            }
         }
     }
 
     return 1;
 }
 int equals_ci(const char* a, const char* b) {
-    if (!a || !b) return 0;
+    if (!a || !b) {
+        return 0;
+    }
     return equals_ci_str(std::string(a), std::string(b)) ? 1 : 0;
 }
 
 int starts_with_ci(const char* s, const char* prefix) {
-    if (!s || !prefix) return 0;
+    if (!s || !prefix) {
+        return 0;
+    }
     return starts_with_ci_str(std::string(s), std::string(prefix)) ? 1 : 0;
 }
 } // namespace tools

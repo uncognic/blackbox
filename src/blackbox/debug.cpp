@@ -192,10 +192,16 @@ const char* opcode_name(uint8_t op) {
 }
 
 void print_regs(const int64_t* regs, int count) {
-    if (count <= 0) count = 16;
-    if (count > REGISTERS) count = REGISTERS;
+    if (count <= 0) {
+        count = 16;
+    }
+    if (count > REGISTERS) {
+        count = REGISTERS;
+    }
     std::print("Registers (first {}):\n", count);
-    for (int i = 0; i < count; i++) std::print(" r{:02}={}\n", i, regs[i]);
+    for (int i = 0; i < count; i++) {
+        std::print(" r{:02}={}\n", i, regs[i]);
+    }
 }
 
 void print_stack(const int64_t* stack, size_t sp) {

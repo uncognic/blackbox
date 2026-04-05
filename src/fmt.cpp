@@ -3,7 +3,6 @@
 #include <print>
 #include <string>
 
-
 namespace blackbox {
 namespace fmt {
 std::string fmt_to_string(const char* fmt, va_list args) {
@@ -11,7 +10,9 @@ std::string fmt_to_string(const char* fmt, va_list args) {
     va_copy(copied, args);
     int needed = std::vsnprintf(nullptr, 0, fmt, copied);
     va_end(copied);
-    if (needed <= 0) return {};
+    if (needed <= 0) {
+        return {};
+    }
 
     std::string out(static_cast<size_t>(needed), '\0');
     std::vsnprintf(out.data(), out.size() + 1, fmt, args);

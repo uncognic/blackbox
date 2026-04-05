@@ -2,7 +2,6 @@
 #include "../define.h"
 #include "../tools.h"
 
-
 #include <cctype>
 #include <cstdarg>
 #include <cstdint>
@@ -11,18 +10,23 @@
 #include <cstring>
 #include <string>
 
-
 static void copy_cstr(char* dst, size_t dst_size, const char* src) {
-    if (dst_size == 0) return;
+    if (dst_size == 0) {
+        return;
+    }
     snprintf(dst, dst_size, "%s", src ? src : "");
 }
 
 static std::string trim_copy(const std::string& s) {
     size_t start = 0;
-    while (start < s.size() && isspace((unsigned char) s[start])) start++;
+    while (start < s.size() && isspace((unsigned char) s[start])) {
+        start++;
+    }
 
     size_t end = s.size();
-    while (end > start && isspace((unsigned char) s[end - 1])) end--;
+    while (end > start && isspace((unsigned char) s[end - 1])) {
+        end--;
+    }
 
     return s.substr(start, end - start);
 }
@@ -43,10 +47,14 @@ static const char* block_kind_name(BlockKind kind) {
 }
 
 static void set_emit_context(int lineno, const char* stmt, const BlockStack* bs) {
-    if (!stmt) stmt = "";
+    if (!stmt) {
+        stmt = "";
+    }
 
     std::string snippet(stmt);
-    if (snippet.size() > 191) snippet.resize(191);
+    if (snippet.size() > 191) {
+        snippet.resize(191);
+    }
 
     if (bs && !bs->items.empty()) {
         const Block* top = &bs->items.back();
@@ -74,7 +82,9 @@ static int ralloc_acquire(RegAlloc* ra) {
 }
 
 static void ralloc_release(RegAlloc* ra, int reg) {
-    if (reg < SCRATCH_MIN || reg > SCRATCH_MAX) return;
+    if (reg < SCRATCH_MIN || reg > SCRATCH_MAX) {
+        return;
+    }
     ra->used &= ~(1u << (reg - SCRATCH_MIN));
 }
 
@@ -84,7 +94,9 @@ static void reg_name(int reg, char* buf) {
 
 static Variable* sym_find(SymbolTable* symtab, const char* name) {
     for (size_t i = 0; i < symtab->vars.size(); i++) {
-        if (strcmp(symtab->vars[i].name, name) == 0) return &symtab->vars[i];
+        if (strcmp(symtab->vars[i].name, name) == 0) {
+            return &symtab->vars[i];
+        }
     }
     return nullptr;
 }
@@ -105,7 +117,9 @@ static Variable* sym_add_str(SymbolTable* symtab, const char* name, const char* 
     copy_cstr(var->name, sizeof(var->name), name);
     var->type = VAR_STR;
     var->is_const = is_const;
-    if (!is_const) var->slot = symtab->next_slot++;
+    if (!is_const) {
+        var->slot = symtab->next_slot++;
+    }
     copy_cstr(var->data_name, sizeof(var->data_name), data_name);
     return var;
 }
@@ -119,7 +133,8 @@ static int outbuf_append(std::string* buf, const char* txt) {
     do {                                                                                           \
         char _tmp[512];                                                                            \
         snprintf(_tmp, sizeof(_tmp), fmt "\n", ##__VA_ARGS__);                                     \
-        if (outbuf_append(&(ob)->data_sec, _tmp)) return 1;                                        \
+        if (outbuf_append(&(ob)->data_sec, _tmp))                                                  \
+            return 1;                                                                              \
     } while (0)
 
 static int emit_code_comment(OutBuf* ob, const char* detail, const char* fmt, ...) {
@@ -130,46 +145,61 @@ static int emit_code_comment(OutBuf* ob, const char* detail, const char* fmt, ..
     va_end(ap);
 
     char line[1024];
-    if (detail && *detail)
+    if (detail && *detail) {
         snprintf(line, sizeof(line), "%s ; %s | %s\n\n", ins, g_emit_ctx[0] ? g_emit_ctx : "BASIC",
                  detail);
-    else
+    } else {
         snprintf(line, sizeof(line), "%s ; %s\n\n", ins, g_emit_ctx[0] ? g_emit_ctx : "BASIC");
+    }
 
-    if (outbuf_append(&ob->code_sec, line)) return 1;
+    if (outbuf_append(&ob->code_sec, line)) {
+        return 1;
+    }
     return 0;
 }
 
 #define EMIT_CODE(ob, fmt, ...)                                                                    \
     do {                                                                                           \
-        if (emit_code_comment((ob), NULL, fmt, ##__VA_ARGS__)) return 1;                           \
+        if (emit_code_comment((ob), NULL, fmt, ##__VA_ARGS__))                                     \
+            return 1;                                                                              \
     } while (0)
 
 #define EMIT_CODE_META(ob, meta, fmt, ...)                                                         \
     do {                                                                                           \
-        if (emit_code_comment((ob), (meta), fmt, ##__VA_ARGS__)) return 1;                         \
+        if (emit_code_comment((ob), (meta), fmt, ##__VA_ARGS__))                                   \
+            return 1;                                                                              \
     } while (0)
 
 static int emit_expr(const char* s, SymbolTable* st, RegAlloc* ra, OutBuf* ob, int debug,
                      int* out_reg);
 
 static const char* skip_ws(const char* s) {
-    while (*s && isspace((unsigned char) *s)) s++;
+    while (*s && isspace((unsigned char) *s)) {
+        s++;
+    }
     return s;
 }
 
 static bool parse_identifier(const char* p, const char** next, std::string& out) {
     size_t n = 0;
-    while (isalnum((unsigned char) p[n]) || p[n] == '_') n++;
-    if (n == 0) return false;
+    while (isalnum((unsigned char) p[n]) || p[n] == '_') {
+        n++;
+    }
+    if (n == 0) {
+        return false;
+    }
     out.assign(p, n);
-    if (next) *next = p + n;
+    if (next) {
+        *next = p + n;
+    }
     return true;
 }
 
 static int get_file_handle_index(const std::vector<FileHandle>& handles, const char* name) {
     for (size_t i = 0; i < handles.size(); i++) {
-        if (handles[i].name == name) return (int) i;
+        if (handles[i].name == name) {
+            return (int) i;
+        }
     }
     return -1;
 }
@@ -205,22 +235,32 @@ static int allocate_file_handle_fd(std::vector<FileHandle>& handles, const char*
 }
 
 static size_t skip_ws(const std::string& s, size_t pos) {
-    while (pos < s.size() && isspace((unsigned char) s[pos])) pos++;
+    while (pos < s.size() && isspace((unsigned char) s[pos])) {
+        pos++;
+    }
     return pos;
 }
 
 static bool parse_identifier(const std::string& s, size_t& pos, std::string& out) {
     size_t start = pos;
-    while (pos < s.size() && (isalnum((unsigned char) s[pos]) || s[pos] == '_')) pos++;
-    if (pos == start) return false;
+    while (pos < s.size() && (isalnum((unsigned char) s[pos]) || s[pos] == '_')) {
+        pos++;
+    }
+    if (pos == start) {
+        return false;
+    }
     out = s.substr(start, pos - start);
     return true;
 }
 
 static bool parse_quoted_string(const std::string& s, size_t& pos, std::string& out) {
-    if (pos >= s.size() || s[pos] != '"') return false;
+    if (pos >= s.size() || s[pos] != '"') {
+        return false;
+    }
     size_t end = s.find('"', pos + 1);
-    if (end == std::string::npos) return false;
+    if (end == std::string::npos) {
+        return false;
+    }
     out = s.substr(pos + 1, end - pos - 1);
     pos = end + 1;
     return true;
@@ -228,12 +268,20 @@ static bool parse_quoted_string(const std::string& s, size_t& pos, std::string& 
 
 static bool parse_file_mode(const std::string& s, size_t& pos, std::string& mode_out) {
     pos = skip_ws(s, pos);
-    if (pos >= s.size()) return false;
-    if (s[pos] == '"') return parse_quoted_string(s, pos, mode_out);
+    if (pos >= s.size()) {
+        return false;
+    }
+    if (s[pos] == '"') {
+        return parse_quoted_string(s, pos, mode_out);
+    }
 
     size_t start = pos;
-    while (pos < s.size() && (isalnum((unsigned char) s[pos]) || s[pos] == '_')) pos++;
-    if (pos == start || pos - start >= 8) return false;
+    while (pos < s.size() && (isalnum((unsigned char) s[pos]) || s[pos] == '_')) {
+        pos++;
+    }
+    if (pos == start || pos - start >= 8) {
+        return false;
+    }
     mode_out = s.substr(start, pos - start);
     return true;
 }
@@ -241,11 +289,15 @@ static bool parse_file_mode(const std::string& s, size_t& pos, std::string& mode
 static const char* find_keyword_token(const char* s, const char* kw) {
     size_t n = strlen(kw);
     for (const char* p = s; *p; p++) {
-        if (!blackbox::tools::starts_with_ci(p, kw)) continue;
+        if (!blackbox::tools::starts_with_ci(p, kw)) {
+            continue;
+        }
 
         int left_ok = (p == s) || !(isalnum((unsigned char) p[-1]) || p[-1] == '_');
         int right_ok = !(isalnum((unsigned char) p[n]) || p[n] == '_');
-        if (left_ok && right_ok) return p;
+        if (left_ok && right_ok) {
+            return p;
+        }
     }
     return nullptr;
 }
@@ -259,7 +311,9 @@ static int emit_atom(const char* s, const char** end, SymbolTable* st, RegAlloc*
         s++;
 
         int res = emit_expr(s, st, ra, ob, debug, out_reg);
-        if (res != 0) return res;
+        if (res != 0) {
+            return res;
+        }
 
         s = skip_ws(*end); // emit_expr sets *end
 
@@ -311,10 +365,11 @@ static int emit_atom(const char* s, const char** end, SymbolTable* st, RegAlloc*
         char rn[4];
         reg_name(reg, rn);
 
-        if (v->type == VAR_INT || !v->is_const)
+        if (v->type == VAR_INT || !v->is_const) {
             EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
-        else
+        } else {
             EMIT_CODE(ob, "    LOADSTR $%s, %s", v->data_name, rn);
+        }
         *out_reg = reg;
         return 0;
     }
@@ -328,7 +383,9 @@ static int emit_unary(const char* s, const char** end, SymbolTable* st, RegAlloc
     if (*s == '~') {
         s++;
         int reg;
-        if (emit_unary(s, end, st, ra, ob, debug, &reg)) return 1;
+        if (emit_unary(s, end, st, ra, ob, debug, &reg)) {
+            return 1;
+        }
         char rn[4];
         reg_name(reg, rn);
         EMIT_CODE(ob, "    NOT %s", rn);
@@ -340,7 +397,9 @@ static int emit_unary(const char* s, const char** end, SymbolTable* st, RegAlloc
 static int emit_bitwise(const char* s, const char** end, SymbolTable* st, RegAlloc* ra, OutBuf* ob,
                         int debug, int* out_reg) {
     int lreg;
-    if (emit_unary(s, end, st, ra, ob, debug, &lreg)) return 1;
+    if (emit_unary(s, end, st, ra, ob, debug, &lreg)) {
+        return 1;
+    }
     s = skip_ws(*end);
 
     while (*s == '&' || *s == '|' || *s == '^' || (s[0] == '<' && s[1] == '<') ||
@@ -370,16 +429,17 @@ static int emit_bitwise(const char* s, const char** end, SymbolTable* st, RegAll
         reg_name(lreg, ln);
         reg_name(rreg, rn);
 
-        if (op[0] == '&')
+        if (op[0] == '&') {
             EMIT_CODE(ob, "    AND %s, %s", ln, rn);
-        else if (op[0] == '|')
+        } else if (op[0] == '|') {
             EMIT_CODE(ob, "    OR %s, %s", ln, rn);
-        else if (op[0] == '^')
+        } else if (op[0] == '^') {
             EMIT_CODE(ob, "    XOR %s, %s", ln, rn);
-        else if (op[0] == '<')
+        } else if (op[0] == '<') {
             EMIT_CODE(ob, "    SHL %s, %s", ln, rn);
-        else
+        } else {
             EMIT_CODE(ob, "    SHR %s, %s", ln, rn);
+        }
 
         ralloc_release(ra, rreg);
     }
@@ -390,7 +450,9 @@ static int emit_bitwise(const char* s, const char** end, SymbolTable* st, RegAll
 static int emit_mul(const char* s, const char** end, SymbolTable* st, RegAlloc* ra, OutBuf* ob,
                     int debug, int* out_reg) {
     int lreg;
-    if (emit_bitwise(s, end, st, ra, ob, debug, &lreg)) return 1;
+    if (emit_bitwise(s, end, st, ra, ob, debug, &lreg)) {
+        return 1;
+    }
     s = skip_ws(*end);
 
     while (*s == '*' || *s == '/' || *s == '%') {
@@ -407,12 +469,13 @@ static int emit_mul(const char* s, const char** end, SymbolTable* st, RegAlloc* 
         reg_name(lreg, ln);
         reg_name(rreg, rn);
 
-        if (op == '*')
+        if (op == '*') {
             EMIT_CODE(ob, "    MUL %s, %s", ln, rn);
-        else if (op == '/')
+        } else if (op == '/') {
             EMIT_CODE(ob, "    DIV %s, %s", ln, rn);
-        else
+        } else {
             EMIT_CODE(ob, "    MOD %s, %s", ln, rn);
+        }
 
         ralloc_release(ra, rreg);
     }
@@ -425,7 +488,9 @@ static int emit_expr(const char* s, SymbolTable* st, RegAlloc* ra, OutBuf* ob, i
                      int* out_reg) {
     const char* p = s;
     int lreg;
-    if (emit_mul(p, &p, st, ra, ob, debug, &lreg)) return 1;
+    if (emit_mul(p, &p, st, ra, ob, debug, &lreg)) {
+        return 1;
+    }
     p = skip_ws(p);
 
     while (*p == '+' || *p == '-') {
@@ -442,10 +507,11 @@ static int emit_expr(const char* s, SymbolTable* st, RegAlloc* ra, OutBuf* ob, i
         reg_name(lreg, ln);
         reg_name(rreg, rn);
 
-        if (op == '+')
+        if (op == '+') {
             EMIT_CODE(ob, "    ADD %s, %s", ln, rn);
-        else
+        } else {
             EMIT_CODE(ob, "    SUB %s, %s", ln, rn);
+        }
 
         ralloc_release(ra, rreg);
     }
@@ -458,7 +524,9 @@ static int emit_expr_p(const char* s, const char** end, SymbolTable* st, RegAllo
                        int debug, int* out_reg) {
     const char* p = s;
     int lreg;
-    if (emit_mul(p, &p, st, ra, ob, debug, &lreg)) return 1;
+    if (emit_mul(p, &p, st, ra, ob, debug, &lreg)) {
+        return 1;
+    }
     p = skip_ws(p);
 
     while (*p == '+' || *p == '-') {
@@ -475,10 +543,11 @@ static int emit_expr_p(const char* s, const char** end, SymbolTable* st, RegAllo
         reg_name(lreg, ln);
         reg_name(rreg, rn);
 
-        if (op == '+')
+        if (op == '+') {
             EMIT_CODE(ob, "    ADD %s, %s", ln, rn);
-        else
+        } else {
             EMIT_CODE(ob, "    SUB %s, %s", ln, rn);
+        }
 
         ralloc_release(ra, rreg);
     }
@@ -503,12 +572,16 @@ static int emit_condition(const char* s, SymbolTable* st, RegAlloc* ra, OutBuf* 
             snprintf(next_or_label, sizeof(next_or_label), "_or_next_%lu", (*uid)++);
             snprintf(pass_label, sizeof(pass_label), "_or_pass_%lu", (*uid)++);
 
-            if (emit_condition(left.data(), st, ra, ob, debug, next_or_label, uid)) return 1;
+            if (emit_condition(left.data(), st, ra, ob, debug, next_or_label, uid)) {
+                return 1;
+            }
 
             EMIT_CODE(ob, "    JMP %s", pass_label);
             EMIT_CODE(ob, ".%s:", next_or_label);
 
-            if (emit_condition(skip_ws(q + 2), st, ra, ob, debug, skip_label, uid)) return 1;
+            if (emit_condition(skip_ws(q + 2), st, ra, ob, debug, skip_label, uid)) {
+                return 1;
+            }
 
             EMIT_CODE(ob, ".%s:", pass_label);
             return 0;
@@ -517,7 +590,9 @@ static int emit_condition(const char* s, SymbolTable* st, RegAlloc* ra, OutBuf* 
 
     while (1) {
         int lreg;
-        if (emit_expr_p(p, &p, st, ra, ob, debug, &lreg)) return 1;
+        if (emit_expr_p(p, &p, st, ra, ob, debug, &lreg)) {
+            return 1;
+        }
         p = skip_ws(p);
 
         char op[3] = {0};
@@ -571,18 +646,19 @@ static int emit_condition(const char* s, SymbolTable* st, RegAlloc* ra, OutBuf* 
         EMIT_CODE(ob, "    CMP %s, %s", strcmp(op, ">") == 0 || strcmp(op, "<=") == 0 ? rn : ln,
                   strcmp(op, ">") == 0 || strcmp(op, "<=") == 0 ? ln : rn);
 
-        if (strcmp(op, "==") == 0)
+        if (strcmp(op, "==") == 0) {
             EMIT_CODE(ob, "    JNE %s", skip_label);
-        else if (strcmp(op, "!=") == 0)
+        } else if (strcmp(op, "!=") == 0) {
             EMIT_CODE(ob, "    JE  %s", skip_label);
-        else if (strcmp(op, "<") == 0)
+        } else if (strcmp(op, "<") == 0) {
             EMIT_CODE(ob, "    JGE %s", skip_label);
-        else if (strcmp(op, ">=") == 0)
+        } else if (strcmp(op, ">=") == 0) {
             EMIT_CODE(ob, "    JL  %s", skip_label);
-        else if (strcmp(op, ">") == 0)
+        } else if (strcmp(op, ">") == 0) {
             EMIT_CODE(ob, "    JGE %s", skip_label);
-        else if (strcmp(op, "<=") == 0)
+        } else if (strcmp(op, "<=") == 0) {
             EMIT_CODE(ob, "    JL  %s", skip_label);
+        }
 
         ralloc_release(ra, lreg);
         ralloc_release(ra, rreg);
@@ -623,18 +699,22 @@ static int emit_write_values(const char* arg, SymbolTable* st, RegAlloc* ra, Out
                     char rn[4];
                     reg_name(reg, rn);
 
-                    if (v->is_const)
+                    if (v->is_const) {
                         EMIT_CODE(ob, "    LOADSTR $%s, %s", v->data_name, rn);
-                    else
+                    } else {
                         EMIT_CODE_META(ob, v->name, "    LOADVAR %s, %u", rn, v->slot);
+                    }
 
-                    if (to_stderr)
+                    if (to_stderr) {
                         EMIT_CODE(ob, "    EPRINTSTR %s", rn);
-                    else
+                    } else {
                         EMIT_CODE(ob, "    PRINTSTR %s", rn);
+                    }
                     ralloc_release(ra, reg);
 
-                    if (debug) printf("[BASIC] %s %s\n", stmt_name, name.data());
+                    if (debug) {
+                        printf("[BASIC] %s %s\n", stmt_name, name.data());
+                    }
 
                     arg = skip_ws(p);
                     goto emit_write_values_next_arg;
@@ -667,31 +747,38 @@ static int emit_write_values(const char* arg, SymbolTable* st, RegAlloc* ra, Out
             reg_name(reg, rn);
 
             EMIT_CODE(ob, "    LOADSTR $%s, %s", data_name, rn);
-            if (to_stderr)
+            if (to_stderr) {
                 EMIT_CODE(ob, "    EPRINTSTR %s", rn);
-            else
+            } else {
                 EMIT_CODE(ob, "    PRINTSTR %s", rn);
+            }
             ralloc_release(ra, reg);
 
-            if (debug)
+            if (debug) {
                 printf("[BASIC] %s \"%.*s\"\n", stmt_name, (int) (str_end - str_start), str_start);
+            }
 
             arg = skip_ws(str_end + 1);
         } else {
             const char* expr_end = NULL;
             int reg = 0;
 
-            if (emit_expr_p(arg, &expr_end, st, ra, ob, debug, &reg)) return 1;
+            if (emit_expr_p(arg, &expr_end, st, ra, ob, debug, &reg)) {
+                return 1;
+            }
 
             char rn[4];
             reg_name(reg, rn);
-            if (to_stderr)
+            if (to_stderr) {
                 EMIT_CODE(ob, "    EPRINTREG %s", rn);
-            else
+            } else {
                 EMIT_CODE(ob, "    PRINTREG %s", rn);
+            }
             ralloc_release(ra, reg);
 
-            if (debug) printf("[BASIC] %s %.*s\n", stmt_name, (int) (expr_end - arg), arg);
+            if (debug) {
+                printf("[BASIC] %s %.*s\n", stmt_name, (int) (expr_end - arg), arg);
+            }
 
             arg = skip_ws(expr_end);
         }
@@ -769,7 +856,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             stmt = trim_copy(stmt);
         }
 
-        if (stmt.empty()) continue;
+        if (stmt.empty()) {
+            continue;
+        }
 
         char* s = &stmt[0];
 
@@ -840,7 +929,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                     result = 1;
                     break;
                 }
-                if (debug) printf("[BASIC] CONST string %s -> $%s\n", name.data(), data_name);
+                if (debug) {
+                    printf("[BASIC] CONST string %s -> $%s\n", name.data(), data_name);
+                }
             } else {
                 Variable* v = sym_add_int(&st, name.data());
                 if (!v) {
@@ -871,7 +962,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 ralloc_release(&ra, ereg);
                 ralloc_release(&ra, reg);
 
-                if (debug) printf("[BASIC] CONST int %s -> slot %u\n", name.data(), v->slot);
+                if (debug) {
+                    printf("[BASIC] CONST int %s -> slot %u\n", name.data(), v->slot);
+                }
             }
             continue;
         }
@@ -923,7 +1016,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 EMIT_CODE(&ob, "    LOADSTR $%s, %s", data_name, rn);
                 EMIT_CODE_META(&ob, name.data(), "    STOREVAR %s, %u", rn, v->slot);
                 ralloc_release(&ra, reg);
-                if (debug) printf("[BASIC] VAR string %s -> $%s\n", name.data(), data_name);
+                if (debug) {
+                    printf("[BASIC] VAR string %s -> $%s\n", name.data(), data_name);
+                }
             } else {
                 Variable* v = sym_find(&st, name.data());
                 if (v) {
@@ -1020,8 +1115,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                             EMIT_CODE_META(&ob, name.data(), "    STOREVAR %s, %u", rn, v->slot);
                             ralloc_release(&ra, reg);
 
-                            if (debug)
+                            if (debug) {
                                 printf("[BASIC] ASSIGN string %s -> $%s\n", name.data(), data_name);
+                            }
                             continue;
                         }
 
@@ -1043,7 +1139,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                         reg_name(ereg, ern);
                         EMIT_CODE_META(&ob, name.data(), "    STOREVAR %s, %u", ern, v->slot);
                         ralloc_release(&ra, ereg);
-                        if (debug) printf("[BASIC] ASSIGN %s -> slot %u\n", name.data(), v->slot);
+                        if (debug) {
+                            printf("[BASIC] ASSIGN %s -> slot %u\n", name.data(), v->slot);
+                        }
                         continue;
                     }
                 }
@@ -1078,7 +1176,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             }
 
             bstack_push(&bs, b);
-            if (debug) printf("[BASIC] IF condition, skip to %s if false\n", b.else_label);
+            if (debug) {
+                printf("[BASIC] IF condition, skip to %s if false\n", b.else_label);
+            }
             continue;
         }
 
@@ -1100,7 +1200,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
                 const char* if_start = p + 3;
                 size_t if_len = strlen(if_start);
-                if (if_len > 0 && if_start[if_len - 1] == ':') if_len--;
+                if (if_len > 0 && if_start[if_len - 1] == ':') {
+                    if_len--;
+                }
 
                 std::string if_stmt(if_start, if_len);
 
@@ -1120,9 +1222,10 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 new_b.loop_label[0] = '\0';
 
                 bstack_push(&bs, new_b);
-                if (debug)
+                if (debug) {
                     printf("[BASIC] ELSE IF condition, else to %s, exit to %s\n", new_b.else_label,
                            new_b.end_label);
+                }
                 continue;
             }
         }
@@ -1139,7 +1242,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
             EMIT_CODE(&ob, "    JMP %s", b->end_label + 1);
             EMIT_CODE(&ob, "%s:", b->else_label);
-            if (debug) printf("[BASIC] ELSE\n");
+            if (debug) {
+                printf("[BASIC] ELSE\n");
+            }
             continue;
         }
 
@@ -1155,13 +1260,17 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 EMIT_CODE(&ob, "%s:", b.else_label);
             }
             EMIT_CODE(&ob, "%s:", b.end_label);
-            if (debug) printf("[BASIC] ENDIF\n");
+            if (debug) {
+                printf("[BASIC] ENDIF\n");
+            }
             continue;
         }
         // WHILE condition: ... ENDWHILE
         if (blackbox::tools::starts_with_ci(s, "WHILE ")) {
             size_t slen = strlen(s);
-            if (s[slen - 1] == ':') s[slen - 1] = '\0';
+            if (s[slen - 1] == ':') {
+                s[slen - 1] = '\0';
+            }
 
             char loop_label[64], end_label[64];
             snprintf(loop_label, sizeof(loop_label), "while_%lu", uid);
@@ -1183,7 +1292,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             }
 
             bstack_push(&bs, b);
-            if (debug) printf("[BASIC] WHILE -> top=%s end=%s\n", b.loop_label, b.end_label);
+            if (debug) {
+                printf("[BASIC] WHILE -> top=%s end=%s\n", b.loop_label, b.end_label);
+            }
             continue;
         }
 
@@ -1197,7 +1308,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             }
             EMIT_CODE(&ob, "    JMP %s", b.loop_label + 1);
             EMIT_CODE(&ob, "%s:", b.end_label);
-            if (debug) printf("[BASIC] ENDWHILE\n");
+            if (debug) {
+                printf("[BASIC] ENDWHILE\n");
+            }
             continue;
         }
 
@@ -1274,7 +1387,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             EMIT_CODE(&ob, "    PRINTCHAR %s", nl_rn);
             ralloc_release(&ra, nl_reg);
 
-            if (debug) printf("[BASIC] PRINT <newline>\n");
+            if (debug) {
+                printf("[BASIC] PRINT <newline>\n");
+            }
 
             continue;
         }
@@ -1310,7 +1425,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             EMIT_CODE(&ob, "    EPRINTCHAR %s", nl_rn);
             ralloc_release(&ra, nl_reg);
 
-            if (debug) printf("[BASIC] EPRINT <newline>\n");
+            if (debug) {
+                printf("[BASIC] EPRINT <newline>\n");
+            }
 
             continue;
         }
@@ -1350,7 +1467,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             reg_name(reg, rn);
             EMIT_CODE(&ob, "    SLEEP %s", rn);
             ralloc_release(&ra, reg);
-            if (debug) printf("[BASIC] SLEEP %s\n", arg);
+            if (debug) {
+                printf("[BASIC] SLEEP %s\n", arg);
+            }
             continue;
         }
 
@@ -1366,12 +1485,16 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
             if (arg.empty()) {
                 EMIT_CODE(&ob, "    HALT");
-                if (debug) printf("[BASIC] HALT\n");
+                if (debug) {
+                    printf("[BASIC] HALT\n");
+                }
                 continue;
             }
 
             size_t tok_len = 0;
-            while (tok_len < arg.size() && !std::isspace((unsigned char) arg[tok_len])) tok_len++;
+            while (tok_len < arg.size() && !std::isspace((unsigned char) arg[tok_len])) {
+                tok_len++;
+            }
 
             std::string token = arg.substr(0, tok_len);
 
@@ -1404,34 +1527,44 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 EMIT_CODE(&ob, "    HALT %lu", v);
             }
 
-            if (debug) printf("[BASIC] HALT %s\n", token.data());
+            if (debug) {
+                printf("[BASIC] HALT %s\n", token.data());
+            }
             continue;
         }
 
         if (blackbox::tools::starts_with_ci(s, "LABEL ")) {
             std::string name = trim_copy(s + 6);
             EMIT_CODE(&ob, ".%s:", name.data());
-            if (debug) printf("[BASIC] LABEL %s\n", name.data());
+            if (debug) {
+                printf("[BASIC] LABEL %s\n", name.data());
+            }
             continue;
         }
 
         if (blackbox::tools::starts_with_ci(s, "GOTO ")) {
             std::string name = trim_copy(s + 5);
             EMIT_CODE(&ob, "    JMP %s", name.data());
-            if (debug) printf("[BASIC] GOTO %s\n", name.data());
+            if (debug) {
+                printf("[BASIC] GOTO %s\n", name.data());
+            }
             continue;
         }
 
         if (blackbox::tools::starts_with_ci(s, "CALL ")) {
             std::string name = trim_copy(s + 5);
             EMIT_CODE(&ob, "    CALL %s", name.data());
-            if (debug) printf("[BASIC] CALL %s\n", name.data());
+            if (debug) {
+                printf("[BASIC] CALL %s\n", name.data());
+            }
             continue;
         }
 
         if (blackbox::tools::equals_ci(s, "RETURN")) {
             EMIT_CODE(&ob, "    RET");
-            if (debug) printf("[BASIC] RETURN\n");
+            if (debug) {
+                printf("[BASIC] RETURN\n");
+            }
             continue;
         }
 
@@ -1464,7 +1597,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             }
 
             command_text.assign(str_start, (size_t) (str_end - str_start));
-            if (command_text.size() > 255) command_text.resize(255);
+            if (command_text.size() > 255) {
+                command_text.resize(255);
+            }
 
             const char* after = skip_ws(str_end + 1);
 
@@ -1472,9 +1607,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             Variable* v = NULL;
 
             if (*after != '\0') {
-                if (*after == ',')
+                if (*after == ',') {
                     after = skip_ws(after + 1);
-                else {
+                } else {
                     fprintf(stderr, "Syntax error line %d: expected ',' before EXEC destination\n",
                             lineno);
                     result = 1;
@@ -1536,10 +1671,11 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             ralloc_release(&ra, reg);
 
             if (debug) {
-                if (have_dest)
+                if (have_dest) {
                     printf("[BASIC] EXEC \"%s\" -> %s\n", command_text.data(), v->name);
-                else
+                } else {
                     printf("[BASIC] EXEC \"%s\"\n", command_text.data());
+                }
             }
 
             continue;
@@ -1639,7 +1775,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             EMIT_CODE_META(&ob, v->name, "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
 
-            if (debug) printf("[BASIC] FOPEN %s -> %s\n", filename.data(), handle_name.data());
+            if (debug) {
+                printf("[BASIC] FOPEN %s -> %s\n", filename.data(), handle_name.data());
+            }
             continue;
         }
 
@@ -1665,7 +1803,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 break;
             }
             EMIT_CODE(&ob, "    FCLOSE F%u", fd);
-            if (debug) printf("[BASIC] FCLOSE %s\n", handle_name.data());
+            if (debug) {
+                printf("[BASIC] FCLOSE %s\n", handle_name.data());
+            }
             continue;
         }
 
@@ -1738,7 +1878,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             EMIT_CODE(&ob, "    FREAD F%u, %s", fd, rn);
             EMIT_CODE_META(&ob, dest->name, "    STOREVAR %s, %u", rn, dest->slot);
             ralloc_release(&ra, reg);
-            if (debug) printf("[BASIC] FREAD %s -> %s\n", handle_name.data(), target_name.data());
+            if (debug) {
+                printf("[BASIC] FREAD %s -> %s\n", handle_name.data(), target_name.data());
+            }
             continue;
         }
 
@@ -1783,7 +1925,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             reg_name(reg, rn);
             EMIT_CODE(&ob, "    FWRITE F%u, %s", fd, rn);
             ralloc_release(&ra, reg);
-            if (debug) printf("[BASIC] FWRITE %s\n", handle_name.data());
+            if (debug) {
+                printf("[BASIC] FWRITE %s\n", handle_name.data());
+            }
             continue;
         }
 
@@ -1828,7 +1972,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             reg_name(reg, rn);
             EMIT_CODE(&ob, "    FSEEK F%u, %s", fd, rn);
             ralloc_release(&ra, reg);
-            if (debug) printf("[BASIC] FSEEK %s\n", handle_name.data());
+            if (debug) {
+                printf("[BASIC] FSEEK %s\n", handle_name.data());
+            }
             continue;
         }
 
@@ -1911,7 +2057,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 ralloc_release(&ra, reg);
             }
 
-            if (debug) printf("[BASIC] FPRINT %s\n", handle_name.data());
+            if (debug) {
+                printf("[BASIC] FPRINT %s\n", handle_name.data());
+            }
             continue;
         }
 
@@ -1963,7 +2111,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 EMIT_CODE_META(&ob, name, "    STOREVAR %s, %u", rn, v->slot);
             }
             ralloc_release(&ra, reg);
-            if (debug) printf("[BASIC] INPUT %s\n", name);
+            if (debug) {
+                printf("[BASIC] INPUT %s\n", name);
+            }
             continue;
         }
         if (blackbox::tools::starts_with_ci(s, "GETKEY")) {
@@ -2013,7 +2163,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             EMIT_CODE(&ob, "    GETKEY %s", rn);
             EMIT_CODE_META(&ob, name.data(), "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
-            if (debug) printf("[BASIC] GETKEY %s\n", name.data());
+            if (debug) {
+                printf("[BASIC] GETKEY %s\n", name.data());
+            }
             continue;
         }
         if (blackbox::tools::starts_with_ci(s, "GETARGC")) {
@@ -2064,7 +2216,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             EMIT_CODE(&ob, "    GETARGC %s", rn);
             EMIT_CODE_META(&ob, name.data(), "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
-            if (debug) printf("[BASIC] GETARGC %s\n", name.data());
+            if (debug) {
+                printf("[BASIC] GETARGC %s\n", name.data());
+            }
             continue;
         }
         if (blackbox::tools::starts_with_ci(s, "GETARG")) {
@@ -2148,7 +2302,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             EMIT_CODE(&ob, "    GETARG %s, %lu", rn, idx);
             EMIT_CODE_META(&ob, name.data(), "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
-            if (debug) printf("[BASIC] GETARG %s, %lu\n", name.data(), idx);
+            if (debug) {
+                printf("[BASIC] GETARG %s, %lu\n", name.data(), idx);
+            }
             continue;
         }
         if (blackbox::tools::starts_with_ci(s, "GETENV")) {
@@ -2237,7 +2393,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             EMIT_CODE(&ob, "    GETENV %s, \"%s\"", rn, envname.data());
             EMIT_CODE_META(&ob, name.data(), "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
-            if (debug) printf("[BASIC] GETENV %s, %s\n", name.data(), envname.data());
+            if (debug) {
+                printf("[BASIC] GETENV %s, %s\n", name.data(), envname.data());
+            }
             continue;
         }
         if (blackbox::tools::starts_with_ci(s, "RANDOM")) {
@@ -2320,12 +2478,16 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
             EMIT_CODE_META(&ob, name.data(), "    STOREVAR %s, %u", rn, v->slot);
             ralloc_release(&ra, reg);
-            if (debug) printf("[BASIC] RANDOM %s\n", name.data());
+            if (debug) {
+                printf("[BASIC] RANDOM %s\n", name.data());
+            }
             continue;
         }
         if (blackbox::tools::starts_with_ci(s, "FOR ")) {
             size_t slen = strlen(s);
-            if (slen > 0 && s[slen - 1] == ':') s[slen - 1] = '\0';
+            if (slen > 0 && s[slen - 1] == ':') {
+                s[slen - 1] = '\0';
+            }
 
             const char* p = skip_ws(s + 4);
             int inline_decl = 0;
@@ -2482,10 +2644,18 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             int var_r = ralloc_acquire(&ra);
             int limit_r = ralloc_acquire(&ra);
             if (step_r < 0 || zero_r < 0 || var_r < 0 || limit_r < 0) {
-                if (step_r >= 0) ralloc_release(&ra, step_r);
-                if (zero_r >= 0) ralloc_release(&ra, zero_r);
-                if (var_r >= 0) ralloc_release(&ra, var_r);
-                if (limit_r >= 0) ralloc_release(&ra, limit_r);
+                if (step_r >= 0) {
+                    ralloc_release(&ra, step_r);
+                }
+                if (zero_r >= 0) {
+                    ralloc_release(&ra, zero_r);
+                }
+                if (var_r >= 0) {
+                    ralloc_release(&ra, var_r);
+                }
+                if (limit_r >= 0) {
+                    ralloc_release(&ra, limit_r);
+                }
                 fprintf(stderr, "Out of scratch registers\n");
                 result = 1;
                 break;
@@ -2522,9 +2692,10 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
             bstack_push(&bs, b);
 
-            if (debug)
+            if (debug) {
                 printf("[BASIC] FOR %s = (%s) TO (%s) STEP (%s)\n", var_name.data(),
                        init_expr.data(), limit_expr.data(), step_expr.data());
+            }
             continue;
         }
 
@@ -2568,8 +2739,12 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             int var_r = ralloc_acquire(&ra);
             int step_r = ralloc_acquire(&ra);
             if (var_r < 0 || step_r < 0) {
-                if (var_r >= 0) ralloc_release(&ra, var_r);
-                if (step_r >= 0) ralloc_release(&ra, step_r);
+                if (var_r >= 0) {
+                    ralloc_release(&ra, var_r);
+                }
+                if (step_r >= 0) {
+                    ralloc_release(&ra, step_r);
+                }
                 fprintf(stderr, "Out of scratch registers\n");
                 result = 1;
                 break;
@@ -2589,7 +2764,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             ralloc_release(&ra, var_r);
             ralloc_release(&ra, step_r);
 
-            if (debug) printf("[BASIC] NEXT %s\n", b.for_var_name);
+            if (debug) {
+                printf("[BASIC] NEXT %s\n", b.for_var_name);
+            }
             continue;
         }
         if (blackbox::tools::starts_with_ci(s, "INC")) {
@@ -2677,7 +2854,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             }
 
             EMIT_CODE(&ob, "    JMP %s", target->end_label + 1);
-            if (debug) printf("[BASIC] BREAK\n");
+            if (debug) {
+                printf("[BASIC] BREAK\n");
+            }
             continue;
         }
         if (blackbox::tools::equals_ci(s, "CONTINUE")) {
@@ -2698,13 +2877,19 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
             if (target->kind == BLOCK_WHILE) {
                 EMIT_CODE(&ob, "    JMP %s", target->loop_label + 1);
-                if (debug) printf("[BASIC] CONTINUE (WHILE)\n");
+                if (debug) {
+                    printf("[BASIC] CONTINUE (WHILE)\n");
+                }
             } else {
                 int var_r = ralloc_acquire(&ra);
                 int step_r = ralloc_acquire(&ra);
                 if (var_r < 0 || step_r < 0) {
-                    if (var_r >= 0) ralloc_release(&ra, var_r);
-                    if (step_r >= 0) ralloc_release(&ra, step_r);
+                    if (var_r >= 0) {
+                        ralloc_release(&ra, var_r);
+                    }
+                    if (step_r >= 0) {
+                        ralloc_release(&ra, step_r);
+                    }
                     fprintf(stderr, "Out of scratch registers\n");
                     result = 1;
                     break;
@@ -2725,13 +2910,17 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 ralloc_release(&ra, var_r);
                 ralloc_release(&ra, step_r);
 
-                if (debug) printf("[BASIC] CONTINUE (FOR %s)\n", target->for_var_name);
+                if (debug) {
+                    printf("[BASIC] CONTINUE (FOR %s)\n", target->for_var_name);
+                }
             }
             continue;
         }
         if (blackbox::tools::equals_ci(s, "CLRSCR")) {
             EMIT_CODE(&ob, "    CLRSCR");
-            if (debug) printf("[BASIC] CLRSCR\n");
+            if (debug) {
+                printf("[BASIC] CLRSCR\n");
+            }
             continue;
         }
 
@@ -2777,16 +2966,19 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     fprintf(out, "    HALT OK\n");
 
     fprintf(out, ".__bbx_basic_main:\n");
-    if (st.next_slot > 0) fprintf(out, "    FRAME %u\n", st.next_slot);
+    if (st.next_slot > 0) {
+        fprintf(out, "    FRAME %u\n", st.next_slot);
+    }
 
     fwrite(ob.code_sec.data(), 1, code_len, out);
     fprintf(out, "    RET\n");
 
     fclose(out);
 
-    if (debug)
+    if (debug) {
         printf("[BASIC] Emitted %zu data bytes, %zu code bytes, %u slots\n", data_len, code_len,
                slot_count);
+    }
 
     return 0;
 }
