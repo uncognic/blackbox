@@ -197,6 +197,12 @@ int main(int argc, char *argv[])
         fds[i] = NULL;
         fds_owned[i] = 0;
     }
+    fds[0] = stdin;
+    fds_owned[0] = 0;
+    fds[1] = stdout;
+    fds_owned[1] = 0;
+    fds[2] = stderr;
+    fds_owned[2] = 0;
 
     // permissions
     Mode cur_mode = MODE_PRIVILEGED;
@@ -945,6 +951,24 @@ int main(int argc, char *argv[])
                         return 1;
                     }
                     stack = tmp;
+
+                    SlotPermission *ptmp = realloc(permissions, elems * sizeof(SlotPermission));
+                    if (!ptmp)
+                    {
+                        perror("realloc");
+                        free(program);
+                        free(stack);
+                        free(call_stack);
+                        return 1;
+                    }
+                    for (size_t i = stack_cap; i < elems; i++)
+                    {
+                        ptmp[i].priv_read = 1;
+                        ptmp[i].priv_write = 1;
+                        ptmp[i].prot_read = 1;
+                        ptmp[i].prot_write = 1;
+                    }
+                    permissions = ptmp;
                     stack_cap = elems;
                 }
                 break;
@@ -1296,6 +1320,23 @@ int main(int argc, char *argv[])
                     return 1;
                 }
                 stack = tmp;
+
+                SlotPermission *ptmp = realloc(permissions, new_cap * sizeof(SlotPermission));
+                if (!ptmp)
+                {
+                    perror("realloc");
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                for (size_t i = stack_cap; i < new_cap; i++)
+                {
+                    ptmp[i].priv_read = 1;
+                    ptmp[i].priv_write = 1;
+                    ptmp[i].prot_read = 1;
+                    ptmp[i].prot_write = 1;
+                }
+                permissions = ptmp;
                 stack_cap = new_cap;
                 break;
             }
@@ -1320,6 +1361,8 @@ int main(int argc, char *argv[])
                                     (program[pc + 2] << 16) | (program[pc + 3] << 24);
                 pc += 4;
 
+                size_t old_cap = stack_cap;
+
                 int64_t *tmp = realloc(stack, new_size * sizeof *stack);
                 if (!tmp)
                 {
@@ -1329,11 +1372,26 @@ int main(int argc, char *argv[])
                     return 1;
                 }
                 stack = tmp;
+
+                SlotPermission *ptmp = realloc(permissions, new_size * sizeof(SlotPermission));
+                if (!ptmp)
+                {
+                    perror("realloc");
+                    free(program);
+                    free(stack);
+                    return 1;
+                }
+                for (size_t i = old_cap; i < new_size; i++)
+                {
+                    ptmp[i].priv_read = 1;
+                    ptmp[i].priv_write = 1;
+                    ptmp[i].prot_read = 1;
+                    ptmp[i].prot_write = 1;
+                }
+                permissions = ptmp;
                 stack_cap = new_size;
                 if (sp > stack_cap)
-                {
                     sp = stack_cap;
-                }
                 break;
             }
         case OPCODE_FREE:
