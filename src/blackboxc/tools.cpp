@@ -7,7 +7,6 @@
 #include <vector>
 #include "tools.h"
 #include "../define.h"
-#include <cstdarg>
 #ifdef _WIN32
 #include <windows.h>
 #include <bcrypt.h>
@@ -87,14 +86,6 @@ static std::string operand_after_opcode(const std::string &line, size_t op_len)
     if (line.size() <= op_len)
         return std::string();
     return trim_copy(line.substr(op_len));
-}
-
-static std::string operand_after_comma(const std::string &line, size_t search_from)
-{
-    size_t comma = line.find(',', search_from);
-    if (comma == std::string::npos)
-        return std::string();
-    return trim_copy(line.substr(comma + 1));
 }
 
 static bool preprocess_includes_impl(const char *input, int depth, std::string &out)

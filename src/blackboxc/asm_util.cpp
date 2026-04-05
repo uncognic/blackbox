@@ -1,6 +1,7 @@
 #include "asm_util.h"
 
 #include <cctype>
+#include <cstdarg>
 #include <cstring>
 #include <cstdlib>
 #include <cstdio>

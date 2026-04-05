@@ -1,8 +1,10 @@
 #include <cctype>
 #include <cstdint>
-#include <cstdio>
+#include <cerrno>
+#include <cstring>
 #include <fstream>
 #include <iostream>
+#include <print>
 #include <string>
 #include <vector>
 
@@ -44,7 +46,7 @@ int main(int argc, char *argv[])
 {
     if (argc > 1 && is_help_argument(argv[1]))
     {
-        std::printf("Usage: %s [-d, --debug] [-h, --help] [-a, --asm] input.bbx/.bbs <output.bcx>\n", argv[0]);
+        std::println("Usage: {} [-d, --debug] [-h, --help] [-a, --asm] input.bbx/.bbs <output.bcx>", argv[0]);
         return 1;
     }
 
@@ -73,7 +75,7 @@ int main(int argc, char *argv[])
 
     if (input_file.empty())
     {
-        std::fprintf(stderr, "Usage: %s [-d, --debug] [-h, --help] [-a, --asm] input.bbx/.bbs <output.bcx>\n", argv[0]);
+        std::cerr << "Usage: " << argv[0] << " [-d, --debug] [-h, --help] [-a, --asm] input.bbx/.bbs <output.bcx>\n";
         return 1;
     }
 
@@ -88,14 +90,14 @@ int main(int argc, char *argv[])
     }
     else if (output_file.empty())
     {
-        std::printf("Output file not specified, defaulting to 'out.bcx'\n");
+        std::println("Output file not specified, defaulting to 'out.bcx'");
         output_file = "out.bcx";
     }
 
     std::ifstream input_stream(input_file);
     if (!input_stream)
     {
-        std::perror("fopen input");
+        std::cerr << "fopen input: " << std::strerror(errno) << '\n';
         return 1;
     }
 
@@ -119,10 +121,10 @@ int main(int argc, char *argv[])
     {
         if (debug)
         {
-            std::printf("Debug mode ON\n");
-            std::printf("[DEBUG] Input file:  %s\n", input_file.c_str());
-            std::printf("[DEBUG] Output file: %s\n", output_file.c_str());
-            std::printf("[DEBUG] Pathway: assembly\n");
+            std::println("Debug mode ON");
+            std::println("[DEBUG] Input file:  {}", input_file);
+            std::println("[DEBUG] Output file: {}", output_file);
+            std::println("[DEBUG] Pathway: assembly");
         }
         result = assemble_file(input_file.c_str(), output_file.c_str(), debug ? 1 : 0);
         if (result == 0)
@@ -132,17 +134,17 @@ int main(int argc, char *argv[])
     {
         if (debug)
         {
-            std::printf("Debug mode ON\n");
-            std::printf("[DEBUG] Input file:  %s\n", input_file.c_str());
-            std::printf("[DEBUG] Output file: %s\n", output_file.c_str());
-            std::printf("[DEBUG] Pathway: basic\n");
+            std::println("Debug mode ON");
+            std::println("[DEBUG] Input file:  {}", input_file);
+            std::println("[DEBUG] Output file: {}", output_file);
+            std::println("[DEBUG] Pathway: basic");
         }
         result = preprocess_basic(input_file.c_str(), output_file.c_str(), debug ? 1 : 0);
 
         if (result != 0)
             return result;
 
-        std::printf("BASIC preprocessing successful.\n");
+        std::println("BASIC preprocessing successful.");
 
         if (assembly)
             return result;

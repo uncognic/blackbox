@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <string>
+#include <utility>
 #include <vector>
 #include "../data.h"
 
@@ -14,6 +15,7 @@ namespace asm_helpers {
 std::string trim_copy(const std::string &s);
 void trim_crlf(char *s);
 int failf(FILE *in, FILE *out, const char *fmt, ...);
+
 void append_le_bytes(std::vector<uint8_t> &buf, uint64_t value, size_t width);
 void append_data_item(std::vector<Data> &data, const char *name, DataType type, uint32_t offset, uint64_t value);
 std::vector<std::string> split_tokens(const std::string &s);

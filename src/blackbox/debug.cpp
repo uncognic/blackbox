@@ -2,7 +2,8 @@
 #include "../define.h"
 #include <cstddef>
 #include <cstdint>
-#include <cstdio>
+#include <print>
+
 const char *opcode_name(uint8_t op) {
   switch (op) {
   case OPCODE_WRITE:
@@ -151,18 +152,16 @@ void print_regs(const int64_t *regs, int count) {
     count = 16;
   if (count > REGISTERS)
     count = REGISTERS;
-  printf("Registers (first %d):\n", count);
+  std::print("Registers (first {}):\n", count);
   for (int i = 0; i < count; i++)
-    printf(" r%02d=%lld", i, (long long)regs[i]);
-  printf("\n");
+    std::print(" r{:02}={}\n", i, regs[i]);
 }
 
 void print_stack(const int64_t *stack, size_t sp) {
   size_t show = sp < 8 ? sp : 8;
-  printf("Stack size=%zu, top %zu entries:\n", sp, show);
+  std::print("Stack size={}, top {} entries:\n", sp, show);
   for (size_t i = 0; i < show; i++) {
     size_t idx = (sp == 0) ? 0 : sp - 1 - i;
-    printf(" [%zu]=%lld", idx, (long long)stack[idx]);
+    std::print(" [{}]={}\n", idx, stack[idx]);
   }
-  printf("\n");
 }

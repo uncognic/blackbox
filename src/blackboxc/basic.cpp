@@ -3,7 +3,6 @@
 #include "../define.h"
 
 #include <cctype>
-#include <iostream>
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
@@ -246,36 +245,6 @@ static int allocate_file_handle_fd(std::vector<FileHandle> &handles, const char 
     handles.back().fd = *next_fd;
     *out_fd = *next_fd;
     (*next_fd)++;
-    return 0;
-}
-
-static int parse_file_mode(const char *s, const char **end, char *mode_out)
-{
-    s = skip_ws(s);
-    if (*s == '\0')
-        return 1;
-
-    if (*s == '"')
-    {
-        const char *quote_end = strchr(s + 1, '"');
-        if (!quote_end)
-            return 1;
-        size_t len = (size_t)(quote_end - (s + 1));
-        if (len == 0 || len >= 8)
-            return 1;
-        memcpy(mode_out, s + 1, len);
-        mode_out[len] = '\0';
-        *end = quote_end + 1;
-        return 0;
-    }
-
-    std::string token;
-    if (!parse_identifier(s, end, token))
-        return 1;
-    if (token.size() >= 8)
-        return 1;
-    memcpy(mode_out, token.data(), token.size());
-    mode_out[token.size()] = '\0';
     return 0;
 }
 
