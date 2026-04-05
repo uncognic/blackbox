@@ -136,8 +136,52 @@ const char *opcode_name(uint8_t op) {
     return "LOADQWORD";
   case OPCODE_MOD:
     return "MOD";
+  case OPCODE_JMPI:
+    return "JMPI";
   case OPCODE_EXEC:
     return "EXEC";
+  case OPCODE_SYSCALL:
+    return "SYSCALL";
+  case OPCODE_SYSRET:
+    return "SYSRET";
+  case OPCODE_DROPPRIV:
+    return "DROPPRIV";
+  case OPCODE_REGSYSCALL:
+    return "REGSYSCALL";
+  case OPCODE_SETPERM:
+    return "SETPERM";
+  case OPCODE_GETMODE:
+    return "GETMODE";
+  case OPCODE_REGFAULT:
+    return "REGFAULT";
+  case OPCODE_FAULTRET:
+    return "FAULTRET";
+  case OPCODE_GETFAULT:
+    return "GETFAULT";
+  case OPCODE_DUMPREGS:
+    return "DUMPREGS";
+  case OPCODE_PRINTCHAR:
+    return "PRINTCHAR";
+  case OPCODE_EPRINTREG:
+    return "EPRINTREG";
+  case OPCODE_EPRINTSTR:
+    return "EPRINTSTR";
+  case OPCODE_EPRINTCHAR:
+    return "EPRINTCHAR";
+  case OPCODE_SHLI:
+    return "SHLI";
+  case OPCODE_SHRI:
+    return "SHRI";
+  case OPCODE_SHR:
+    return "SHR";
+  case OPCODE_SHL:
+    return "SHL";
+  case OPCODE_GETARG:
+    return "GETARG";
+  case OPCODE_GETARGC:
+    return "GETARGC";
+  case OPCODE_GETENV:
+    return "GETENV";
   case OPCODE_BREAK:
     return "BREAK";
   case OPCODE_HALT:
