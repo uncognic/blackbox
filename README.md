@@ -8,11 +8,11 @@
 A small, Turing-complete bytecode virtual machine with an assembly and BASIC-like language. It also features a disassembler/decompiler and debugger.
 
 ## Links
-- Docs (assembly): [docs/DOCS.md](docs/DOCS.md)
+- Docs (assembly): [docs/asm/DOCS.md](docs/asm/DOCS.md)
 - Docs (BASIC): [docs/basic/DOCS.md](docs/basic/DOCS.md)
-- ISA reference (assembly): [docs/ISA.md](docs/ISA.md)  
+- ISA reference (assembly): [docs/asm/ISA.md](docs/asm/ISA.md)  
 - BASIC syntax reference: [docs/basic/SYNTAX.md](docs/basic/SYNTAX.md)
-- Debugger [docs/DEBUGGER.md](docs/DEBUGGER.md)
+- Debugger [docs/asm/DEBUGGER.md](docs/asm/DEBUGGER.md)
 - Examples: [examples/](examples/)
 - License: [LICENSE](LICENSE)
 
