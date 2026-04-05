@@ -1,11 +1,22 @@
 #include "../define.h"
 #include "../blackboxc/tools.h"
 #include "../data.h"
+#include "fmt.h"
+#include <algorithm>
+#include <array>
+
+#include <charconv>
+#include <cstdlib>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <ctime>
+#include <fstream>
+
+#include <iostream>
+#include <memory>
+#include <print>
+#include <system_error>
+#include <vector>
+#include <string_view>
 #ifdef _WIN32
 #include <conio.h>
 #include <windows.h>
@@ -16,23 +27,47 @@
 #endif
 #include "debug.h"
 
-static int ensure_u8_capacity(uint8_t **buf, size_t *cap, size_t need)
+using size_t = decltype(sizeof(0));
+
+static std::string_view trim_left(std::string_view text)
 {
-    if (*cap >= need)
-        return 0;
-
-    size_t new_cap = (*cap) ? (*cap + *cap / 2) : 256;
-    if (new_cap < need)
-        new_cap = need;
-
-    uint8_t *tmp = static_cast<uint8_t *>(realloc(*buf, new_cap));
-    if (!tmp)
-        return 1;
-
-    *buf = tmp;
-    *cap = new_cap;
-    return 0;
+    while (!text.empty() && (text.front() == ' ' || text.front() == '\t'))
+        text.remove_prefix(1);
+    return text;
 }
+
+static bool parse_int(std::string_view text, int &value)
+{
+    int parsed = 0;
+    auto result = std::from_chars(text.data(), text.data() + text.size(), parsed);
+    if (result.ec != std::errc() || result.ptr != text.data() + text.size())
+        return false;
+    value = parsed;
+    return true;
+}
+
+template <typename T>
+static bool ensure_capacity(std::vector<T> &buf, size_t needed)
+{
+    if (needed <= buf.size())
+        return false;
+
+    try
+    {
+        size_t new_cap = buf.size() ? (buf.size() * 2) : 256;
+        while (new_cap < needed)
+            new_cap *= 2;
+        buf.resize(new_cap);
+    }
+    catch (...)
+    {
+        return true;
+    }
+
+    return false;
+}
+
+
 
 int main(int argc, char *argv[])
 {
@@ -40,22 +75,23 @@ int main(int argc, char *argv[])
     bool debug = false;
     if (argc < 2)
     {
-        printf("Usage: bbx [--debug|-d] program.bcx\n");
+        std::println("Usage: bbx [--debug|-d] program.bcx");
         return 1;
     }
     for (int i = 1; i < argc; i++)
     {
-        if (strcmp(argv[i], "-d") == 0 || strcmp(argv[i], "--debug") == 0)
+        std::string_view arg = argv[i];
+        if (arg == "-d" || arg == "--debug")
             debug = true;
         else if (!prog_path)
             prog_path = argv[i];
     }
     if (!prog_path)
     {
-        printf("Usage: bbx [--debug|-d] program.bcx\n");
+        std::println("Usage: bbx [--debug|-d] program.bcx");
         return 1;
     }
-    srand((unsigned int)std::time(NULL) ^ (uintptr_t)&main);
+
     int64_t registers[REGISTERS] = {0};
     uint8_t ZF = 0;
     uint8_t CF = 0;
@@ -65,161 +101,108 @@ int main(int argc, char *argv[])
     uint8_t PF = 0;
     bool dbg_instructions_shown = false;
 
-    FILE *f = fopen(prog_path, "rb");
-    if (!f)
+    std::ifstream input(prog_path, std::ios::binary);
+    if (!input)
     {
-        perror("fopen");
+        std::println(stderr, "Error opening file: {}", prog_path);
         return 1;
     }
 
-    fseek(f, 0, SEEK_END);
-    size_t size = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    input.seekg(0, std::ios::end);
+    std::streamsize file_size = input.tellg();
+    if (file_size < 0)
+    {
+        std::println(stderr, "Error reading file size: {}", prog_path);
+        return 1;
+    }
+    input.seekg(0, std::ios::beg);
 
-    uint8_t *program = static_cast<uint8_t *>(malloc(size));
-    if (!program)
+    size_t size = static_cast<size_t>(file_size);
+
+    std::vector<uint8_t> program(size);
+    if (!input.read(reinterpret_cast<char *>(program.data()), file_size))
     {
-        perror("malloc");
-        fclose(f);
+        std::println(stderr, "Error reading file: {}", prog_path);
         return 1;
     }
-    size_t n = fread(program, 1, size, f);
-    if (n != size)
+
+    if (program.size() < 3)
     {
-        perror("fread");
-        free(program);
-        fclose(f);
-        return 1;
-    }
-    if (size < 3)
-    {
-        fprintf(stderr, "Error: program too small (missing magic)\n");
-        free(program);
-        fclose(f);
+        std::println(stderr, "Error: program too small (missing magic)");
         return 1;
     }
     uint8_t m0 = (MAGIC >> 16) & 0xFF;
     uint8_t m1 = (MAGIC >> 8) & 0xFF;
-    uint8_t m2 = (MAGIC) & 0xFF;
+    uint8_t m2 = (MAGIC)&0xFF;
     if (program[0] != m0 || program[1] != m1 || program[2] != m2)
     {
-        fprintf(stderr, "Error: invalid magic (expected '%c%c%c')\n", m0, m1, m2);
-        free(program);
-        fclose(f);
+        std::println(stderr, "Error: invalid magic (expected '{}{}{}')",
+                     static_cast<char>(m0), static_cast<char>(m1), static_cast<char>(m2));
         return 1;
     }
 
-    if (size < HEADER_FIXED_SIZE)
+    if (program.size() < HEADER_FIXED_SIZE)
     {
-        fprintf(stderr, "Error: program too small (missing data table header)\n");
-        free(program);
-        fclose(f);
+        std::println(stderr, "Error: program too small (missing data table header)");
         return 1;
     }
     uint8_t data_count = program[MAGIC_SIZE];
-    uint32_t data_table_size = (uint32_t)program[MAGIC_SIZE + 1] |
-                               ((uint32_t)program[MAGIC_SIZE + 2] << 8) |
-                               ((uint32_t)program[MAGIC_SIZE + 3] << 16) |
-                               ((uint32_t)program[MAGIC_SIZE + 4] << 24);
-    uint8_t *data_table = &program[HEADER_FIXED_SIZE];
-
-    if (size < HEADER_FIXED_SIZE + data_table_size)
+    uint32_t data_table_size = static_cast<uint32_t>(program[MAGIC_SIZE + 1]) |
+                               (static_cast<uint32_t>(program[MAGIC_SIZE + 2]) << 8) |
+                               (static_cast<uint32_t>(program[MAGIC_SIZE + 3]) << 16) |
+                               (static_cast<uint32_t>(program[MAGIC_SIZE + 4]) << 24);
+    if (program.size() < HEADER_FIXED_SIZE + data_table_size)
     {
-        fprintf(stderr, "Error: program too small for declared data table\n");
-        free(program);
-        fclose(f);
+        std::println(stderr, "Error: program too small for declared data table");
         return 1;
     }
-
-    fclose(f);
+    uint8_t *data_table = program.data() + HEADER_FIXED_SIZE;
 
     size_t sp = 0;
     size_t stack_cap = STACK_SIZE;
-    int64_t *stack = NULL;
-    stack = static_cast<int64_t *>(malloc(stack_cap * sizeof *stack));
-    if (!stack)
-    {
-        perror("malloc");
-        free(program);
-        return 1;
-    }
+    std::vector<int64_t> stack(stack_cap);
 
     size_t csp = 0;
     size_t call_stack_cap = 1024;
-    size_t *call_stack = NULL;
-    call_stack = static_cast<size_t *>(malloc(call_stack_cap * sizeof *call_stack));
-    if (!call_stack)
-    {
-        perror("malloc");
-        free(program);
-        free(stack);
-        return 1;
-    }
+    std::vector<size_t> call_stack(call_stack_cap);
 
     size_t vars_sp = 0;
     size_t vars_cap = VAR_CAPACITY;
-    int64_t *vars = NULL;
-    vars = static_cast<int64_t *>(malloc(vars_cap * sizeof *vars));
-    if (!vars)
-    {
-        perror("malloc");
-        free(program);
-        free(stack);
-        free(call_stack);
-        return 1;
-    }
+    std::vector<int64_t> vars(vars_cap);
 
     size_t fsp = 0;
     size_t frame_stack_cap = 1024;
-    size_t *frame_base_stack = NULL;
-    frame_base_stack = static_cast<size_t *>(malloc(frame_stack_cap * sizeof *frame_base_stack));
-    if (!frame_base_stack)
-    {
-        perror("malloc");
-        free(program);
-        free(stack);
-        free(call_stack);
-        free(vars);
-        return 1;
-    }
+    std::vector<size_t> frame_base_stack(frame_stack_cap);
 
     size_t pc = HEADER_FIXED_SIZE + data_table_size;
 
-    uint8_t *str_heap = NULL;
     size_t str_heap_size = 0;
-    size_t str_heap_cap = 0;
+    std::vector<uint8_t> str_heap(256);
 
-    FILE *fds[FILE_DESCRIPTORS];
-    uint8_t fds_owned[FILE_DESCRIPTORS];
-    for (size_t i = 0; i < FILE_DESCRIPTORS; i++)
+    struct FileSlot
     {
-        fds[i] = NULL;
-        fds_owned[i] = 0;
-    }
-    fds[0] = stdin;
-    fds_owned[0] = 0;
-    fds[1] = stdout;
-    fds_owned[1] = 0;
-    fds[2] = stderr;
-    fds_owned[2] = 0;
+        std::unique_ptr<std::fstream> owned;
+        std::istream *in = nullptr;
+        std::ostream *out = nullptr;
+    };
+
+    std::array<FileSlot, FILE_DESCRIPTORS> fds{};
+    auto close_fd = [&](uint8_t fd)
+    {
+        fds[fd].owned.reset();
+        fds[fd].in = nullptr;
+        fds[fd].out = nullptr;
+    };
+
+    fds[0].in = &std::cin;
+    fds[1].out = &std::cout;
+    fds[2].out = &std::cerr;
 
     // permissions
     Mode cur_mode = MODE_PRIVILEGED;
-    uint32_t syscall_table[MAX_SYSCALLS];
-    bool syscall_registered[MAX_SYSCALLS];
-    memset(syscall_table, 0, sizeof(syscall_table));
-    memset(syscall_registered, 0, sizeof(syscall_registered));
-    SlotPermission *permissions = static_cast<SlotPermission *>(calloc(stack_cap, sizeof(SlotPermission)));
-    if (!permissions)
-    {
-        perror("calloc");
-        free(program);
-        free(stack);
-        free(call_stack);
-        free(vars);
-        free(frame_base_stack);
-        return 1;
-    }
+    std::array<uint32_t, MAX_SYSCALLS> syscall_table{};
+    std::array<bool, MAX_SYSCALLS> syscall_registered{};
+    std::vector<SlotPermission> permissions(stack_cap);
     for (size_t i = 0; i < stack_cap; i++)
     {
         permissions[i].priv_read = 1;
@@ -235,14 +218,14 @@ int main(int argc, char *argv[])
     bool fault_registered[FAULT_COUNT];
     Fault current_fault = FAULT_COUNT; // no fault
     size_t fault_return_pc = 0;
-    memset(fault_table, 0, sizeof(fault_table));
-    memset(fault_registered, 0, sizeof(fault_registered));
+    std::fill_n(fault_table, FAULT_COUNT, 0u);
+    std::fill_n(fault_registered, FAULT_COUNT, false);
 
     bool breakpoints_enabled = false;
     bool debug_step = false;
     if (debug)
     {
-        printf("Debugger mode: (s)tep or (b)reakpoint? ");
+        std::print("Debugger mode: (s)tep or (b)reakpoint? ");
         fflush(stdout);
         char modebuf[16];
         if (fgets(modebuf, sizeof(modebuf), stdin))
@@ -287,7 +270,7 @@ int main(int argc, char *argv[])
         }                                                       \
         else                                                    \
         {                                                       \
-            fprintf(stderr, "FAULT: " msg "\n", ##__VA_ARGS__); \
+            bbxc::fmt::err_fmt( "FAULT: " msg "\n", ##__VA_ARGS__); \
             goto fault_exit;                                    \
         }                                                       \
     } while (0)
@@ -297,95 +280,87 @@ int main(int argc, char *argv[])
         if (debug && debug_step)
         {
             uint8_t nxt = program[pc];
-            printf("[DEBUG] pc=%zu opcode=0x%02X %s\n", pc, nxt, opcode_name(nxt));
+            std::println("[DEBUG] pc={} opcode=0x{:02X} {}", pc, nxt, opcode_name(nxt));
             if (!dbg_instructions_shown)
             {
-                printf("Debugger commands:\n");
-                printf("  Enter - step one instruction\n");
-                printf("  c - continue (disable debugger)\n");
-                printf("  q - quit interpreter\n");
-                printf("  rN - show first N registers (e.g. r20)\n");
-                printf("  s - show top 8 stack entries\n");
-                printf("  sN - show top N stack entries (e.g. s10)\n");
-                printf("  sM-N - show stack entries from index M to N (inclusive)\n");
+                std::println("Debugger commands:");
+                std::println("  Enter - step one instruction");
+                std::println("  c - continue (disable debugger)");
+                std::println("  q - quit interpreter");
+                std::println("  rN - show first N registers (e.g. r20)");
+                std::println("  s - show top 8 stack entries");
+                std::println("  sN - show top N stack entries (e.g. s10)");
+                std::println("  sM-N - show stack entries from index M to N (inclusive)");
                 dbg_instructions_shown = true;
             }
-            printf("> ");
+            std::print("> ");
             fflush(stdout);
             char cmd[128];
             if (fgets(cmd, sizeof(cmd), stdin))
             {
-                char *p = cmd;
-                while (*p == ' ' || *p == '\t')
-                    p++;
-                if (p[0] == 'c')
+                std::string_view p = trim_left(cmd);
+                if (!p.empty() && p[0] == 'c')
                 {
                     debug = false;
                 }
-                else if (p[0] == 'q')
+                else if (!p.empty() && p[0] == 'q')
                 {
-                    free(program);
-                    free(stack);
-                    free(call_stack);
-                    free(vars);
-                    free(frame_base_stack);
-                    free(str_heap);
                     return 0;
                 }
-                else if (p[0] == 'r')
+                else if (!p.empty() && p[0] == 'r')
                 {
                     int n = 0;
-                    if (p[1] != '\0' && (p[1] >= '0' && p[1] <= '9'))
-                        n = atoi(p + 1);
+                    if (p.size() > 1)
+                        parse_int(p.substr(1), n);
                     if (n <= 0)
                         n = 16;
                     print_regs(registers, n);
                     continue;
                 }
-                else if (p[0] == 's')
+                else if (!p.empty() && p[0] == 's')
                 {
-                    char *q = p + 1;
-                    while (*q == ' ' || *q == '\t')
-                        q++;
-                    if (*q == '\0' || *q == '\n')
+                    std::string_view q = trim_left(p.substr(1));
+                    if (q.empty() || q == "\n")
                     {
-                        print_stack(stack, sp);
+                        print_stack(stack.data(), sp);
                         continue;
                     }
-                    char *dash = strchr(q, '-');
-                    if (dash)
+                    size_t dash = q.find('-');
+                    if (dash != std::string_view::npos)
                     {
-                        *dash = '\0';
-                        int a = atoi(q);
-                        int b = atoi(dash + 1);
+                        int a = 0;
+                        int b = 0;
+                        parse_int(q.substr(0, dash), a);
+                        parse_int(q.substr(dash + 1), b);
                         if (a < 0)
                             a = 0;
                         if (b < 0)
                             b = 0;
                         if ((size_t)a >= sp || (size_t)b >= sp || a > b)
                         {
-                            printf("Invalid stack range %d-%d (stack size=%zu)\n", a, b, sp);
+                            std::println("Invalid stack range {}-{} (stack size={})", a, b, sp);
                             continue;
                         }
-                        printf("Stack entries %d..%d:\n", a, b);
+                        std::println("Stack entries {}..{}:", a, b);
                         for (int i = a; i <= b; i++)
-                            printf(" [%d]=%lld", i, (long long)stack[i]);
-                        printf("\n");
+                            std::print(" [{}]={}", i, (long long)stack[i]);
+                        std::println("");
                         continue;
                     }
-                    if (q[0] >= '0' && q[0] <= '9')
+                    if (!q.empty() && q[0] >= '0' && q[0] <= '9')
                     {
-                        int n = atoi(q);
+                        int n = 0;
+                        parse_int(q, n);
                         if (n <= 0)
                             n = 8;
                         size_t show = (size_t)n < sp ? (size_t)n : sp;
-                        printf("Stack size=%zu, top %zu entries:\n", sp, show);
+                        std::println("Stack size={}, top {} entries:", sp, show);
                         for (size_t i = 0; i < show; i++)
                         {
                             size_t idx = (sp == 0) ? 0 : sp - 1 - i;
-                            printf(" [%zu]=%lld", idx, (long long)stack[idx]);
+                            std::print(" [{}]={}", idx, (long long)stack[idx]);
                         }
-                        printf("\n");
+                        std::println("");
                         continue;
                     }
                 }
@@ -400,16 +375,12 @@ int main(int argc, char *argv[])
             uint8_t len = program[pc++];
             if (fd != 1 && fd != 2)
             {
-                fprintf(stderr, "Error: invalid fd %hhu at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Error: invalid fd %hhu at pc=%zu\n", fd, pc);
                 return 1;
             }
             if (pc + len > size)
             {
-                fprintf(stderr, "Error: string past end of program at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Error: string past end of program at pc=%zu\n", pc);
                 return 1;
             }
             FILE *out = (fd == 1) ? stdout : stderr;
@@ -417,9 +388,7 @@ int main(int argc, char *argv[])
             fflush(out);
             if (written != len)
             {
-                perror("fwrite");
-                free(program);
-                free(stack);
+                bbxc::fmt::err_errno("fwrite");
                 return 1;
             }
             pc += len;
@@ -429,17 +398,13 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for INC at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for INC at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in INC at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in INC at pc=%zu\n", pc);
                 return 1;
             }
             registers[reg] += 1;
@@ -449,17 +414,13 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for DEC at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for DEC at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in DEC at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in DEC at pc=%zu\n", pc);
                 return 1;
             }
             registers[reg] -= 1;
@@ -469,9 +430,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operand for PUSH at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for PUSH at pc=%zu\n", pc);
                 return 1;
             }
             if (sp >= stack_cap)
@@ -479,15 +438,7 @@ int main(int argc, char *argv[])
                 size_t new_cap = stack_cap + stack_cap / 2;
                 if (new_cap <= sp)
                     new_cap = sp + 1;
-                int64_t *tmp = static_cast<int64_t *>(realloc(stack, new_cap * sizeof *stack));
-                if (!tmp)
-                {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    return 1;
-                }
-                stack = tmp;
+                stack.resize(new_cap);
                 stack_cap = new_cap;
             }
             int32_t value = program[pc] | (program[pc + 1] << 8) |
@@ -501,17 +452,13 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operands for PUSH_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for PUSH_REG at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t src = program[pc++];
             if (src >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in PUSH_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in PUSH_REG at pc=%zu\n", pc);
                 return 1;
             }
             if (sp >= stack_cap)
@@ -519,15 +466,7 @@ int main(int argc, char *argv[])
                 size_t new_cap = stack_cap + stack_cap / 2;
                 if (new_cap <= sp)
                     new_cap = sp + 1;
-                int64_t *tmp = static_cast<int64_t *>(realloc(stack, new_cap * sizeof *stack));
-                if (!tmp)
-                {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    return 1;
-                }
-                stack = tmp;
+                stack.resize(new_cap);
                 stack_cap = new_cap;
             }
             stack[sp++] = registers[src];
@@ -537,18 +476,14 @@ int main(int argc, char *argv[])
         {
             if (pc + 2 >= size)
             {
-                fprintf(stderr, "Missing operands for CMP at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for CMP at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t src = program[pc++];
             uint8_t dst = program[pc++];
             if (src >= REGISTERS || dst >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in CMP at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in CMP at pc=%zu\n", pc);
                 return 1;
             }
 
@@ -614,24 +549,18 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for POP at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for POP at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register %u at pc=%zu\n", reg, pc);
                 return 1;
             }
             if (sp == 0)
             {
-                fprintf(stderr, "Stack underflow at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Stack underflow at pc=%zu\n", pc);
                 return 1;
             }
             registers[reg] = stack[--sp];
@@ -641,9 +570,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for JE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for JE at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
@@ -653,9 +580,7 @@ int main(int argc, char *argv[])
             {
                 if (addr >= size)
                 {
-                    fprintf(stderr, "JE address out of bounds: %u at pc=%zu\n", addr, pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "JE address out of bounds: %u at pc=%zu\n", addr, pc);
                     return 1;
                 }
                 pc = addr;
@@ -666,9 +591,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for JNE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for JNE at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
@@ -678,10 +601,8 @@ int main(int argc, char *argv[])
             {
                 if (addr >= size)
                 {
-                    fprintf(stderr, "JNE address out of bounds: %u at pc=%zu\n", addr,
+                    bbxc::fmt::err_fmt( "JNE address out of bounds: %u at pc=%zu\n", addr,
                             pc);
-                    free(program);
-                    free(stack);
                     return 1;
                 }
                 pc = addr;
@@ -692,19 +613,15 @@ int main(int argc, char *argv[])
         {
             if (pc + 2 >= size)
             {
-                fprintf(stderr, "Missing operands for ADD at pc=%zu at pc=%zu\n", pc,
+                bbxc::fmt::err_fmt( "Missing operands for ADD at pc=%zu at pc=%zu\n", pc,
                         pc);
-                free(program);
-                free(stack);
                 return 1;
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
             if (src >= REGISTERS || dst >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in ADD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in ADD at pc=%zu\n", pc);
                 return 1;
             }
             registers[dst] += registers[src];
@@ -714,18 +631,14 @@ int main(int argc, char *argv[])
         {
             if (pc + 2 >= size)
             {
-                fprintf(stderr, "Missing operands for SUB at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for SUB at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
             if (src >= REGISTERS || dst >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in SUB at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in SUB at pc=%zu\n", pc);
                 return 1;
             }
             registers[dst] -= registers[src];
@@ -735,18 +648,14 @@ int main(int argc, char *argv[])
         {
             if (pc + 2 >= size)
             {
-                fprintf(stderr, "Missing operands for MUL at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for MUL at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
             if (src >= REGISTERS || dst >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in MUL at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in MUL at pc=%zu\n", pc);
                 return 1;
             }
             registers[dst] *= registers[src];
@@ -756,18 +665,14 @@ int main(int argc, char *argv[])
         {
             if (pc + 2 >= size)
             {
-                fprintf(stderr, "Missing operands for DIV at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for DIV at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
             if (src >= REGISTERS || dst >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in DIV at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in DIV at pc=%zu\n", pc);
                 return 1;
             }
             if (registers[src] == 0)
@@ -783,21 +688,17 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for PRINTREG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for PRINTREG at pc=%zu\n", pc);
                 return 1;
             }
 
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register");
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register");
                 return 1;
             }
-            printf("%lld", (long long)registers[reg]);
+            std::print("{}", (long long)registers[reg]);
             fflush(stdout);
             break;
         }
@@ -805,21 +706,17 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for EPRINTREG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for EPRINTREG at pc=%zu\n", pc);
                 return 1;
             }
 
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register");
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register");
                 return 1;
             }
-            fprintf(stderr, "%lld", (long long)registers[reg]);
+            std::print(stderr, "{}", (long long)registers[reg]);
             fflush(stderr);
             break;
         }
@@ -827,18 +724,14 @@ int main(int argc, char *argv[])
         {
             if (pc + 2 >= size)
             {
-                fprintf(stderr, "Missing operands for MOV_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for MOV_REG at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
             if (dst >= REGISTERS || src >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in MOV_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in MOV_REG at pc=%zu\n", pc);
                 return 1;
             }
             registers[dst] = registers[src];
@@ -848,17 +741,13 @@ int main(int argc, char *argv[])
         {
             if (pc + 4 >= size)
             {
-                fprintf(stderr, "Missing operands for MOVI at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for MOVI at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t dst = program[pc++];
             if (dst >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in MOVI at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in MOVI at pc=%zu\n", pc);
                 return 1;
             }
             int32_t value = program[pc] | (program[pc + 1] << 8) |
@@ -871,9 +760,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operand for JMP at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for JMP at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
@@ -881,9 +768,7 @@ int main(int argc, char *argv[])
             pc = addr;
             if (pc >= size)
             {
-                fprintf(stderr, "JMP addr out of bounds: %zu at pc=%u\n", pc, addr);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "JMP addr out of bounds: %zu at pc=%u\n", pc, addr);
                 return 1;
             }
             break;
@@ -900,22 +785,13 @@ int main(int argc, char *argv[])
             {
                 code = program[pc++];
             }
-            free(program);
-            free(stack);
-            free(call_stack);
-            free(vars);
-            free(frame_base_stack);
-            free(str_heap);
             return (int)code;
         }
         case OPCODE_PRINT:
         {
             if (pc >= size)
             {
-                printf("Error: missing operand for PRINT at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                free(call_stack);
+                std::println(stderr, "Error: missing operand for PRINT at pc={}", pc);
                 return 1;
             }
             uint8_t value = program[pc++];
@@ -927,10 +803,7 @@ int main(int argc, char *argv[])
             {
                 if (pc + 3 >= size)
                 {
-                    fprintf(stderr, "Missing operand for ALLOC at pc=%zu\n", pc);
-                    free(program);
-                    free(stack);
-                    free(call_stack);
+                    bbxc::fmt::err_fmt( "Missing operand for ALLOC at pc=%zu\n", pc);
                     return 1;
                 }
 
@@ -940,34 +813,16 @@ int main(int argc, char *argv[])
 
                 if (elems > stack_cap)
                 {
-                    int64_t *tmp = static_cast<int64_t *>(realloc(stack, elems * sizeof *stack));
-                    if (!tmp)
+                    size_t old_cap = stack_cap;
+                    stack.resize(elems);
+                    permissions.resize(elems);
+                    for (size_t i = old_cap; i < elems; i++)
                     {
-                        perror("realloc");
-                        free(program);
-                        free(stack);
-                        free(call_stack);
-                        return 1;
+                        permissions[i].priv_read = 1;
+                        permissions[i].priv_write = 1;
+                        permissions[i].prot_read = 1;
+                        permissions[i].prot_write = 1;
                     }
-                    stack = tmp;
-
-                    SlotPermission *ptmp = static_cast<SlotPermission *>(realloc(permissions, elems * sizeof(SlotPermission)));
-                    if (!ptmp)
-                    {
-                        perror("realloc");
-                        free(program);
-                        free(stack);
-                        free(call_stack);
-                        return 1;
-                    }
-                    for (size_t i = stack_cap; i < elems; i++)
-                    {
-                        ptmp[i].priv_read = 1;
-                        ptmp[i].priv_write = 1;
-                        ptmp[i].prot_read = 1;
-                        ptmp[i].prot_write = 1;
-                    }
-                    permissions = ptmp;
                     stack_cap = elems;
                 }
                 break;
@@ -976,9 +831,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 5 >= size)
             {
-                fprintf(stderr, "Missing operands for LOAD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for LOAD at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
@@ -987,9 +840,7 @@ int main(int argc, char *argv[])
             pc += 4;
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in LOAD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in LOAD at pc=%zu\n", pc);
                 return 1;
             }
             if ((size_t)addr >= stack_cap)
@@ -1018,27 +869,21 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for LOAD_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for LOAD_REG at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             uint8_t idxreg = program[pc++];
             if (reg >= REGISTERS || idxreg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in LOAD_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in LOAD_REG at pc=%zu\n", pc);
                 return 1;
             }
             int64_t idx64 = registers[idxreg];
             if (idx64 < 0 || (size_t)idx64 >= stack_cap)
             {
-                fprintf(stderr, "LOAD_REG address out of bounds: %lld at pc=%zu\n",
+                bbxc::fmt::err_fmt( "LOAD_REG address out of bounds: %lld at pc=%zu\n",
                         (long long)idx64, pc);
-                free(program);
-                free(stack);
                 return 1;
             }
 
@@ -1062,9 +907,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 5 >= size)
             {
-                fprintf(stderr, "Missing operands for STORE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for STORE at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
@@ -1073,9 +916,7 @@ int main(int argc, char *argv[])
             pc += 4;
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in STORE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in STORE at pc=%zu\n", pc);
                 return 1;
             }
             if ((size_t)addr >= stack_cap)
@@ -1104,27 +945,21 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for STORE_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for STORE_REG at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             uint8_t idxreg = program[pc++];
             if (reg >= REGISTERS || idxreg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in STORE_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in STORE_REG at pc=%zu\n", pc);
                 return 1;
             }
             int64_t idx64 = registers[idxreg];
             if (idx64 < 0 || (size_t)idx64 >= stack_cap)
             {
-                fprintf(stderr, "STORE_REG address out of bounds: %lld at pc=%zu\n",
+                bbxc::fmt::err_fmt( "STORE_REG address out of bounds: %lld at pc=%zu\n",
                         (long long)idx64, pc);
-                free(program);
-                free(stack);
                 return 1;
             }
 
@@ -1148,9 +983,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 5 >= size)
             {
-                fprintf(stderr, "Missing operands for LOADVAR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for LOADVAR at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
@@ -1159,19 +992,15 @@ int main(int argc, char *argv[])
             pc += 4;
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in LOADVAR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in LOADVAR at pc=%zu\n", pc);
                 return 1;
             }
             size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
             size_t abs_idx = frame_base + (size_t)slot;
             if (abs_idx >= vars_cap || abs_idx >= vars_sp)
             {
-                fprintf(stderr, "LOADVAR slot out of bounds: %zu at pc=%zu\n", abs_idx,
+                bbxc::fmt::err_fmt( "LOADVAR slot out of bounds: %zu at pc=%zu\n", abs_idx,
                         pc);
-                free(program);
-                free(stack);
                 return 1;
             }
             registers[reg] = vars[abs_idx];
@@ -1181,37 +1010,29 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for LOADVAR_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for LOADVAR_REG at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             uint8_t idxreg = program[pc++];
             if (reg >= REGISTERS || idxreg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in LOADVAR_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in LOADVAR_REG at pc=%zu\n", pc);
                 return 1;
             }
             int64_t slot64 = registers[idxreg];
             if (slot64 < 0)
             {
-                fprintf(stderr, "LOADVAR_REG negative slot: %lld at pc=%zu\n",
+                bbxc::fmt::err_fmt( "LOADVAR_REG negative slot: %lld at pc=%zu\n",
                         (long long)slot64, pc);
-                free(program);
-                free(stack);
                 return 1;
             }
             size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
             size_t abs_idx = frame_base + (size_t)slot64;
             if (abs_idx >= vars_cap || abs_idx >= vars_sp)
             {
-                fprintf(stderr, "LOADVAR_REG slot out of bounds: %zu at pc=%zu\n",
+                bbxc::fmt::err_fmt( "LOADVAR_REG slot out of bounds: %zu at pc=%zu\n",
                         abs_idx, pc);
-                free(program);
-                free(stack);
                 return 1;
             }
             registers[reg] = vars[abs_idx];
@@ -1221,9 +1042,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 5 >= size)
             {
-                fprintf(stderr, "Missing operands for STOREVAR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for STOREVAR at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
@@ -1232,19 +1051,15 @@ int main(int argc, char *argv[])
             pc += 4;
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in STOREVAR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in STOREVAR at pc=%zu\n", pc);
                 return 1;
             }
             size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
             size_t abs_idx = frame_base + (size_t)slot;
             if (abs_idx >= vars_cap || abs_idx >= vars_sp)
             {
-                fprintf(stderr, "STOREVAR slot out of bounds: %zu at pc=%zu\n", abs_idx,
+                bbxc::fmt::err_fmt( "STOREVAR slot out of bounds: %zu at pc=%zu\n", abs_idx,
                         pc);
-                free(program);
-                free(stack);
                 return 1;
             }
             vars[abs_idx] = registers[reg];
@@ -1254,37 +1069,29 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for STOREVAR_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for STOREVAR_REG at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             uint8_t idxreg = program[pc++];
             if (reg >= REGISTERS || idxreg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in STOREVAR_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in STOREVAR_REG at pc=%zu\n", pc);
                 return 1;
             }
             int64_t slot64 = registers[idxreg];
             if (slot64 < 0)
             {
-                fprintf(stderr, "STOREVAR_REG negative slot: %lld at pc=%zu\n",
+                bbxc::fmt::err_fmt( "STOREVAR_REG negative slot: %lld at pc=%zu\n",
                         (long long)slot64, pc);
-                free(program);
-                free(stack);
                 return 1;
             }
             size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
             size_t abs_idx = frame_base + (size_t)slot64;
             if (abs_idx >= vars_cap || abs_idx >= vars_sp)
             {
-                fprintf(stderr, "STOREVAR_REG slot out of bounds: %zu at pc=%zu\n",
+                bbxc::fmt::err_fmt( "STOREVAR_REG slot out of bounds: %zu at pc=%zu\n",
                         abs_idx, pc);
-                free(program);
-                free(stack);
                 return 1;
             }
             vars[abs_idx] = registers[reg];
@@ -1295,9 +1102,7 @@ int main(int argc, char *argv[])
             {
                 if (pc + 3 >= size)
                 {
-                    fprintf(stderr, "Missing operand for GROW at pc=%zu\n", pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Missing operand for GROW at pc=%zu\n", pc);
                     return 1;
                 }
 
@@ -1310,38 +1115,22 @@ int main(int argc, char *argv[])
 
                 size_t new_cap = stack_cap + elem;
 
-                int64_t *tmp = static_cast<int64_t *>(realloc(stack, new_cap * sizeof *stack));
-                if (!tmp)
+                size_t old_cap = stack_cap;
+                stack.resize(new_cap);
+                permissions.resize(new_cap);
+                for (size_t i = old_cap; i < new_cap; i++)
                 {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    return 1;
+                    permissions[i].priv_read = 1;
+                    permissions[i].priv_write = 1;
+                    permissions[i].prot_read = 1;
+                    permissions[i].prot_write = 1;
                 }
-                stack = tmp;
-
-                SlotPermission *ptmp = static_cast<SlotPermission *>(realloc(permissions, new_cap * sizeof(SlotPermission)));
-                if (!ptmp)
-                {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    return 1;
-                }
-                for (size_t i = stack_cap; i < new_cap; i++)
-                {
-                    ptmp[i].priv_read = 1;
-                    ptmp[i].priv_write = 1;
-                    ptmp[i].prot_read = 1;
-                    ptmp[i].prot_write = 1;
-                }
-                permissions = ptmp;
                 stack_cap = new_cap;
                 break;
             }
         case OPCODE_PRINT_STACKSIZE:
         {
-            printf("%zu", stack_cap);
+            std::print("{}", stack_cap);
             fflush(stdout);
             break;
         }
@@ -1350,9 +1139,7 @@ int main(int argc, char *argv[])
             {
                 if (pc + 3 >= size)
                 {
-                    fprintf(stderr, "Missing operand for RESIZE at pc=%zu\n", pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Missing operand for RESIZE at pc=%zu\n", pc);
                     return 1;
                 }
 
@@ -1361,33 +1148,15 @@ int main(int argc, char *argv[])
                 pc += 4;
 
                 size_t old_cap = stack_cap;
-
-                int64_t *tmp = static_cast<int64_t *>(realloc(stack, new_size * sizeof *stack));
-                if (!tmp)
-                {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    return 1;
-                }
-                stack = tmp;
-
-                SlotPermission *ptmp = static_cast<SlotPermission *>(realloc(permissions, new_size * sizeof(SlotPermission)));
-                if (!ptmp)
-                {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    return 1;
-                }
+                stack.resize(new_size);
+                permissions.resize(new_size);
                 for (size_t i = old_cap; i < new_size; i++)
                 {
-                    ptmp[i].priv_read = 1;
-                    ptmp[i].priv_write = 1;
-                    ptmp[i].prot_read = 1;
-                    ptmp[i].prot_write = 1;
+                    permissions[i].priv_read = 1;
+                    permissions[i].priv_write = 1;
+                    permissions[i].prot_read = 1;
+                    permissions[i].prot_write = 1;
                 }
-                permissions = ptmp;
                 stack_cap = new_size;
                 if (sp > stack_cap)
                     sp = stack_cap;
@@ -1398,9 +1167,7 @@ int main(int argc, char *argv[])
             {
                 if (pc + 3 >= size)
                 {
-                    fprintf(stderr, "Missing operand for FREE at pc=%zu\n", pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Missing operand for FREE at pc=%zu\n", pc);
                     return 1;
                 }
 
@@ -1413,23 +1180,12 @@ int main(int argc, char *argv[])
 
                 if (num > stack_cap)
                 {
-                    fprintf(stderr, "FREE size out of bounds: %u at pc=%zu\n", num, pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "FREE size out of bounds: %u at pc=%zu\n", num, pc);
                     return 1;
                 }
 
                 size_t new_cap = stack_cap - num;
-
-                int64_t *tmp = static_cast<int64_t *>(realloc(stack, new_cap * sizeof *stack));
-                if (!tmp)
-                {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    return 1;
-                }
-                stack = tmp;
+                stack.resize(new_cap);
                 stack_cap = new_cap;
                 break;
             }
@@ -1438,9 +1194,7 @@ int main(int argc, char *argv[])
             {
                 if (pc + 2 >= size)
                 {
-                    fprintf(stderr, "Missing operands for FOPEN at pc=%zu\n", pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Missing operands for FOPEN at pc=%zu\n", pc);
                     return 1;
                 }
                 uint8_t mode_str = program[pc++];
@@ -1449,81 +1203,69 @@ int main(int argc, char *argv[])
 
                 if (fd >= FILE_DESCRIPTORS)
                 {
-                    fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                     return 1;
                 }
                 if (fname_len == 0 || fname_len >= 255)
                 {
-                    fprintf(stderr, "Invalid filename length %u at pc=%zu\n", fname_len,
+                    bbxc::fmt::err_fmt( "Invalid filename length %u at pc=%zu\n", fname_len,
                             pc);
-                    free(program);
-                    free(stack);
                     return 1;
                 }
                 if (pc + fname_len > size)
                 {
-                    fprintf(stderr, "Filename past end of program at pc=%zu\n", pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Filename past end of program at pc=%zu\n", pc);
                     return 1;
                 }
 
                 char fname[256];
-                memcpy(fname, &program[pc], fname_len);
+                std::copy_n(&program[pc], fname_len, fname);
                 fname[fname_len] = '\0';
                 pc += fname_len;
 
-                const char *mode;
-                if (mode_str == 0)
-                    mode = "r";
-                else if (mode_str == 1)
-                    mode = "w";
-                else if (mode_str == 2)
-                    mode = "a";
-                else
+                close_fd(fd);
+
+                if (mode_str > 2)
                 {
-                    fprintf(stderr, "Invalid mode %u at pc=%zu\n", mode_str, pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Invalid mode %u at pc=%zu\n", mode_str, pc);
                     return 1;
                 }
-                if (fds[fd])
-                {
-                    if (fds_owned[fd])
-                        fclose(fds[fd]);
-                    fds[fd] = NULL;
-                    fds_owned[fd] = 0;
-                }
 
-                if (strcmp(fname, "/dev/stdout") == 0)
+                if (std::string_view(fname) == "/dev/stdout")
                 {
-                    fds[fd] = stdout;
-                    fds_owned[fd] = 0;
+                    fds[fd].out = &std::cout;
                 }
-                else if (strcmp(fname, "/dev/stderr") == 0)
+                else if (std::string_view(fname) == "/dev/stderr")
                 {
-                    fds[fd] = stderr;
-                    fds_owned[fd] = 0;
+                    fds[fd].out = &std::cerr;
                 }
-                else if (strcmp(fname, "/dev/stdin") == 0)
+                else if (std::string_view(fname) == "/dev/stdin")
                 {
-                    fds[fd] = stdin;
-                    fds_owned[fd] = 0;
+                    fds[fd].in = &std::cin;
                 }
                 else
                 {
-                    FILE *file = fopen(fname, mode);
-                    if (!file)
+                    std::ios::openmode open_mode{};
+                    if (mode_str == 0)
+                        open_mode = std::ios::in;
+                    else if (mode_str == 1)
+                        open_mode = std::ios::out | std::ios::trunc;
+                    else
+                        open_mode = std::ios::out | std::ios::app;
+
+                    auto file = std::make_unique<std::fstream>(fname, open_mode);
+                    if (!file->is_open())
                     {
-                        perror("fopen");
-                        free(program);
-                        free(stack);
+                        bbxc::fmt::err_fmt( "fopen failed for '%s' at pc=%zu\n", fname, pc);
                         return 1;
                     }
-                    fds[fd] = file;
-                    fds_owned[fd] = 1;
+
+                    if (mode_str == 0)
+                        fds[fd].in = file.get();
+                    else
+                        fds[fd].out = file.get();
+
+                    fds[fd].owned = std::move(file);
                 }
                 break;
             }
@@ -1532,35 +1274,23 @@ int main(int argc, char *argv[])
             {
                 if (pc >= size)
                 {
-                    fprintf(stderr, "Missing operand for FCLOSE at pc=%zu\n", pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Missing operand for FCLOSE at pc=%zu\n", pc);
                     return 1;
                 }
                 uint8_t fd = program[pc++];
                 if (fd >= FILE_DESCRIPTORS)
                 {
-                    fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                     return 1;
                 }
-                if (fds[fd])
-                {
-                    if (fds_owned[fd])
-                        fclose(fds[fd]);
-                    fds[fd] = NULL;
-                    fds_owned[fd] = 0;
-                }
+                close_fd(fd);
                 break;
             }
         case OPCODE_FREAD:
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for FREAD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for FREAD at pc=%zu\n", pc);
                 return 1;
             }
             size_t operand_pc = pc;
@@ -1568,39 +1298,31 @@ int main(int argc, char *argv[])
             uint8_t reg = program[pc++];
             if (fd >= FILE_DESCRIPTORS)
             {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd,
+                bbxc::fmt::err_fmt( "Invalid file descriptor %u at pc=%zu\n", fd,
                         operand_pc);
-                free(program);
-                free(stack);
                 return 1;
             }
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, operand_pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register %u at pc=%zu\n", reg, operand_pc);
                 return 1;
             }
-            if (!fds[fd])
+            if (!fds[fd].in)
             {
-                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd,
+                bbxc::fmt::err_fmt( "File descriptor %u not opened at pc=%zu\n", fd,
                         operand_pc);
-                free(program);
-                free(stack);
                 return 1;
             }
-            int c = fgetc(fds[fd]);
+            int c = fds[fd].in->get();
             if (c == EOF)
             {
-                if (feof(fds[fd]))
+                if (fds[fd].in->eof())
                 {
                     registers[reg] = -1;
                 }
                 else
                 {
-                    perror("fgetc");
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "fgetc failed at pc=%zu\n", operand_pc);
                     return 1;
                 }
             }
@@ -1614,40 +1336,32 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for FWRITE_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for FWRITE_REG at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t fd = program[pc++];
             uint8_t reg = program[pc++];
             if (fd >= FILE_DESCRIPTORS)
             {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                 return 1;
             }
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register %u at pc=%zu\n", reg, pc);
                 return 1;
             }
-            if (!fds[fd])
+            if (!fds[fd].out)
             {
-                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "File descriptor %u not opened at pc=%zu\n", fd, pc);
                 return 1;
             }
             int val = (int)registers[reg];
-            if (fputc(val, fds[fd]) == EOF)
+            fds[fd].out->put(static_cast<char>(val));
+            fds[fd].out->flush();
+            if (!(*fds[fd].out))
             {
-                perror("fputc");
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "fputc failed at pc=%zu\n", pc);
                 return 1;
             }
             break;
@@ -1656,9 +1370,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 4 >= size)
             {
-                fprintf(stderr, "Missing operands for FWRITE_IMM at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for FWRITE_IMM at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t fd = program[pc++];
@@ -1667,23 +1379,19 @@ int main(int argc, char *argv[])
             pc += 4;
             if (fd >= FILE_DESCRIPTORS)
             {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                 return 1;
             }
-            if (!fds[fd])
+            if (!fds[fd].out)
             {
-                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "File descriptor %u not opened at pc=%zu\n", fd, pc);
                 return 1;
             }
-            if (fputc(value, fds[fd]) == EOF)
+            fds[fd].out->put(static_cast<char>(value));
+            fds[fd].out->flush();
+            if (!(*fds[fd].out))
             {
-                perror("fputc");
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "fputc failed at pc=%zu\n", pc);
                 return 1;
             }
             break;
@@ -1692,40 +1400,46 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for FSEEK_REG at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for FSEEK_REG at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t fd = program[pc++];
             uint8_t reg = program[pc++];
             if (fd >= FILE_DESCRIPTORS)
             {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                 return 1;
             }
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register %u at pc=%zu\n", reg, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register %u at pc=%zu\n", reg, pc);
                 return 1;
             }
-            if (!fds[fd])
+            if (!fds[fd].in && !fds[fd].out)
             {
-                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "File descriptor %u not opened at pc=%zu\n", fd, pc);
                 return 1;
             }
-            if (fseek(fds[fd], registers[reg], SEEK_SET) != 0)
+            std::streamoff pos = static_cast<std::streamoff>(registers[reg]);
+            if (fds[fd].in)
             {
-                perror("fseek");
-                free(program);
-                free(stack);
-                return 1;
+                fds[fd].in->clear();
+                fds[fd].in->seekg(pos, std::ios::beg);
+                if (!(*fds[fd].in))
+                {
+                    bbxc::fmt::err_fmt( "fseek failed at pc=%zu\n", pc);
+                    return 1;
+                }
+            }
+            if (fds[fd].out)
+            {
+                fds[fd].out->clear();
+                fds[fd].out->seekp(pos, std::ios::beg);
+                if (!(*fds[fd].out))
+                {
+                    bbxc::fmt::err_fmt( "fseek failed at pc=%zu\n", pc);
+                    return 1;
+                }
             }
             break;
         }
@@ -1733,9 +1447,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for FSEEK_IMM at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for FSEEK_IMM at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t fd = program[pc++];
@@ -1744,24 +1456,34 @@ int main(int argc, char *argv[])
             pc += 4;
             if (fd >= FILE_DESCRIPTORS)
             {
-                fprintf(stderr, "Invalid file descriptor %u at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid file descriptor %u at pc=%zu\n", fd, pc);
                 return 1;
             }
-            if (!fds[fd])
+            if (!fds[fd].in && !fds[fd].out)
             {
-                fprintf(stderr, "File descriptor %u not opened at pc=%zu\n", fd, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "File descriptor %u not opened at pc=%zu\n", fd, pc);
                 return 1;
             }
-            if (fseek(fds[fd], offset, SEEK_SET) != 0)
+            std::streamoff pos = static_cast<std::streamoff>(offset);
+            if (fds[fd].in)
             {
-                perror("fseek");
-                free(program);
-                free(stack);
-                return 1;
+                fds[fd].in->clear();
+                fds[fd].in->seekg(pos, std::ios::beg);
+                if (!(*fds[fd].in))
+                {
+                    bbxc::fmt::err_fmt( "fseek failed at pc=%zu\n", pc);
+                    return 1;
+                }
+            }
+            if (fds[fd].out)
+            {
+                fds[fd].out->clear();
+                fds[fd].out->seekp(pos, std::ios::beg);
+                if (!(*fds[fd].out))
+                {
+                    bbxc::fmt::err_fmt( "fseek failed at pc=%zu\n", pc);
+                    return 1;
+                }
             }
             break;
         }
@@ -1769,9 +1491,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 4 >= size)
             {
-                fprintf(stderr, "Missing operands for LOADSTR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for LOADSTR at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
@@ -1780,17 +1500,13 @@ int main(int argc, char *argv[])
             pc += 4;
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in LOADSTR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in LOADSTR at pc=%zu\n", pc);
                 return 1;
             }
             if (offset >= data_table_size)
             {
-                fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", offset,
+                bbxc::fmt::err_fmt( "Data offset out of bounds: %u at pc=%zu\n", offset,
                         pc);
-                free(program);
-                free(stack);
                 return 1;
             }
             registers[reg] = offset;
@@ -1800,19 +1516,13 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for PRINTSTR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                free(str_heap);
+                bbxc::fmt::err_fmt( "Missing operand for PRINTSTR at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in PRINTSTR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                free(str_heap);
+                bbxc::fmt::err_fmt( "Invalid register in PRINTSTR at pc=%zu\n", pc);
                 return 1;
             }
 
@@ -1822,10 +1532,7 @@ int main(int argc, char *argv[])
                 size_t offset = (size_t)(val & 0x7FFFFFFF);
                 if (offset >= str_heap_size)
                 {
-                    fprintf(stderr, "String offset out of bounds: %zu at pc=%zu\n", offset, pc);
-                    free(program);
-                    free(stack);
-                    free(str_heap);
+                    bbxc::fmt::err_fmt( "String offset out of bounds: %zu at pc=%zu\n", offset, pc);
                     return 1;
                 }
                 size_t i = offset;
@@ -1842,13 +1549,10 @@ int main(int argc, char *argv[])
             {
                 if (val >= data_table_size)
                 {
-                    fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", val, pc);
-                    free(program);
-                    free(stack);
-                    free(str_heap);
+                    bbxc::fmt::err_fmt( "Data offset out of bounds: %u at pc=%zu\n", val, pc);
                     return 1;
                 }
-                printf("%s", &data_table[val]);
+                bbxc::fmt::out_fmt("%s", &data_table[val]);
             }
             fflush(stdout);
             break;
@@ -1857,19 +1561,13 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for EPRINTSTR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                free(str_heap);
+                bbxc::fmt::err_fmt( "Missing operand for EPRINTSTR at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in EPRINTSTR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                free(str_heap);
+                bbxc::fmt::err_fmt( "Invalid register in EPRINTSTR at pc=%zu\n", pc);
                 return 1;
             }
 
@@ -1879,10 +1577,7 @@ int main(int argc, char *argv[])
                 size_t offset = (size_t)(val & 0x7FFFFFFF);
                 if (offset >= str_heap_size)
                 {
-                    fprintf(stderr, "String offset out of bounds: %zu at pc=%zu\n", offset, pc);
-                    free(program);
-                    free(stack);
-                    free(str_heap);
+                    bbxc::fmt::err_fmt( "String offset out of bounds: %zu at pc=%zu\n", offset, pc);
                     return 1;
                 }
                 size_t i = offset;
@@ -1899,13 +1594,10 @@ int main(int argc, char *argv[])
             {
                 if (val >= data_table_size)
                 {
-                    fprintf(stderr, "Data offset out of bounds: %u at pc=%zu\n", val, pc);
-                    free(program);
-                    free(stack);
-                    free(str_heap);
+                    bbxc::fmt::err_fmt( "Data offset out of bounds: %u at pc=%zu\n", val, pc);
                     return 1;
                 }
-                fprintf(stderr, "%s", &data_table[val]);
+                bbxc::fmt::err_fmt( "%s", &data_table[val]);
             }
             fflush(stderr);
             break;
@@ -1914,17 +1606,13 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for NOT at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for NOT at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in NOT at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in NOT at pc=%zu\n", pc);
                 return 1;
             }
             registers[reg] = ~registers[reg];
@@ -1934,18 +1622,14 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for AND at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for AND at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
             if (dst >= REGISTERS || src >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in AND at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in AND at pc=%zu\n", pc);
                 return 1;
             }
             registers[dst] = registers[dst] & registers[src];
@@ -1955,18 +1639,14 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for OR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for OR at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
             if (dst >= REGISTERS || src >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in OR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in OR at pc=%zu\n", pc);
                 return 1;
             }
             registers[dst] = registers[dst] | registers[src];
@@ -1976,18 +1656,14 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for XOR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for XOR at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
             if (dst >= REGISTERS || src >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in XOR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in XOR at pc=%zu\n", pc);
                 return 1;
             }
             registers[dst] = registers[dst] ^ registers[src];
@@ -1997,28 +1673,19 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for READSTR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                free(str_heap);
+                bbxc::fmt::err_fmt( "Missing operand for READSTR at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in READSTR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                free(str_heap);
+                bbxc::fmt::err_fmt( "Invalid register in READSTR at pc=%zu\n", pc);
                 return 1;
             }
 
             if (str_heap_size > 0x7FFFFFFF)
             {
-                fprintf(stderr, "String heap too large at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                free(str_heap);
+                bbxc::fmt::err_fmt( "String heap too large at pc=%zu\n", pc);
                 return 1;
             }
 
@@ -2027,22 +1694,16 @@ int main(int argc, char *argv[])
             int c;
             while ((c = getchar()) != EOF && c != '\n')
             {
-                if (ensure_u8_capacity(&str_heap, &str_heap_cap, str_heap_size + 1))
+                if (ensure_capacity(str_heap, str_heap_size + 1))
                 {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    free(str_heap);
+                    bbxc::fmt::err_errno("realloc");
                     return 1;
                 }
                 str_heap[str_heap_size++] = (uint8_t)c;
             }
-            if (ensure_u8_capacity(&str_heap, &str_heap_cap, str_heap_size + 1))
+            if (ensure_capacity(str_heap, str_heap_size + 1))
             {
-                perror("realloc");
-                free(program);
-                free(stack);
-                free(str_heap);
+                bbxc::fmt::err_errno("realloc");
                 return 1;
             }
             str_heap[str_heap_size++] = 0;
@@ -2054,9 +1715,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operand for SLEEP at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for SLEEP at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t ms = program[pc] | (program[pc + 1] << 8) |
@@ -2076,17 +1735,13 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing register operand for SLEEP at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing register operand for SLEEP at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register %u for SLEEP at pc=%zu\n", reg, pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register %u for SLEEP at pc=%zu\n", reg, pc);
                 return 1;
             }
             int64_t raw = registers[reg];
@@ -2104,9 +1759,10 @@ int main(int argc, char *argv[])
         case OPCODE_CLRSCR:
         {
 #ifdef _WIN32
-            system("cls");
+            std::print("\x1b[2J\x1b[H");
+            fflush(stdout);
 #else
-            fputs("\x1b[2J\x1b[H", stdout);
+            std::print("\x1b[2J\x1b[H");
             fflush(stdout);
 #endif
             break;
@@ -2115,23 +1771,19 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for RAND at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for RAND at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in RAND at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in RAND at pc=%zu\n", pc);
                 return 1;
             }
             if (pc + 16 <= size)
             {
-                int64_t min = read_i64(program, &pc);
-                int64_t max = read_i64(program, &pc);
+                int64_t min = read_i64(program.data(), &pc);
+                int64_t max = read_i64(program.data(), &pc);
                 uint64_t r = get_true_random();
                 if (min > max)
                 {
@@ -2163,17 +1815,13 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for GETKEY at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for GETKEY at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in GETKEY at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in GETKEY at pc=%zu\n", pc);
                 return 1;
             }
 #ifdef _WIN32
@@ -2220,17 +1868,13 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for READ at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for READ at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in READ at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in READ at pc=%zu\n", pc);
                 return 1;
             }
 
@@ -2250,17 +1894,13 @@ int main(int argc, char *argv[])
         {
             if (pc >= size)
             {
-                fprintf(stderr, "Missing operand for READCHAR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for READCHAR at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in READCHAR at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in READCHAR at pc=%zu\n", pc);
                 return 1;
             }
 
@@ -2285,101 +1925,93 @@ int main(int argc, char *argv[])
         {
             if (breakpoints_enabled)
             {
-                printf("[BREAK] pc=%zu opcode=0x%02X %s\n", pc - 1,
+                std::println("[BREAK] pc={} opcode=0x{:02X} {}", pc - 1,
                        (unsigned int)program[pc - 1], opcode_name(program[pc - 1]));
                 if (!dbg_instructions_shown)
                 {
-                    printf("Debugger commands:\n");
-                    printf("Enter - step one instruction\n");
-                    printf("c - continue (disable debugger)\n");
-                    printf("q - quit interpreter\n");
-                    printf("rN - show first N registers (e.g. r20)\n");
-                    printf("s - show top 8 stack entries\n");
-                    printf("sN - show top N stack entries (e.g. s10)\n");
-                    printf("sM-N - show stack entries from index M to N (inclusive)\n");
+                    std::println("Debugger commands:");
+                    std::println("Enter - step one instruction");
+                    std::println("c - continue (disable debugger)");
+                    std::println("q - quit interpreter");
+                    std::println("rN - show first N registers (e.g. r20)");
+                    std::println("s - show top 8 stack entries");
+                    std::println("sN - show top N stack entries (e.g. s10)");
+                    std::println("sM-N - show stack entries from index M to N (inclusive)");
                     dbg_instructions_shown = true;
                 }
                 for (;;)
                 {
-                    printf("> ");
+                    std::print("> ");
                     fflush(stdout);
                     char cmdb[128];
                     if (!fgets(cmdb, sizeof(cmdb), stdin))
                         break;
-                    char *p = cmdb;
-                    while (*p == ' ' || *p == '\t')
-                        p++;
-                    if (p[0] == 'c')
+                    std::string_view p = trim_left(cmdb);
+                    if (!p.empty() && p[0] == 'c')
                     {
                         break;
                     }
-                    else if (p[0] == 'q')
+                    else if (!p.empty() && p[0] == 'q')
                     {
-                        free(program);
-                        free(stack);
-                        free(call_stack);
-                        free(vars);
-                        free(frame_base_stack);
-                        free(str_heap);
                         return 0;
                     }
-                    else if (p[0] == 'r')
+                    else if (!p.empty() && p[0] == 'r')
                     {
                         int n = 0;
-                        if (p[1] != '\0' && (p[1] >= '0' && p[1] <= '9'))
-                            n = atoi(p + 1);
+                        if (p.size() > 1)
+                            parse_int(p.substr(1), n);
                         if (n <= 0)
                             n = 16;
                         print_regs(registers, n);
                         continue;
                     }
-                    else if (p[0] == 's')
+                    else if (!p.empty() && p[0] == 's')
                     {
-                        char *q = p + 1;
-                        while (*q == ' ' || *q == '\t')
-                            q++;
-                        if (*q == '\0' || *q == '\n')
+                        std::string_view q = trim_left(p.substr(1));
+                        if (q.empty() || q == "\n")
                         {
-                            print_stack(stack, sp);
+                            print_stack(stack.data(), sp);
                         }
                         else
                         {
-                            char *dash = strchr(q, '-');
-                            if (dash)
+                            size_t dash = q.find('-');
+                            if (dash != std::string_view::npos)
                             {
-                                *dash = '\0';
-                                int a = atoi(q);
-                                int b = atoi(dash + 1);
+                                int a = 0;
+                                int b = 0;
+                                parse_int(q.substr(0, dash), a);
+                                parse_int(q.substr(dash + 1), b);
                                 if (a < 0)
                                     a = 0;
                                 if (b < 0)
                                     b = 0;
                                 if ((size_t)a >= sp || (size_t)b >= sp || a > b)
                                 {
-                                    printf("Invalid stack range %d-%d (stack size=%zu)\n", a, b,
+                                    std::println("Invalid stack range {}-{} (stack size={})", a, b,
                                            sp);
                                 }
                                 else
                                 {
-                                    printf("Stack entries %d..%d:\n", a, b);
+                                    std::println("Stack entries {}..{}:", a, b);
                                     for (int i = a; i <= b; i++)
-                                        printf(" [%d]=%lld", i, (long long)stack[i]);
-                                    printf("\n");
+                                        std::print(" [{}]={}", i, (long long)stack[i]);
+                                    std::println("");
                                 }
                             }
-                            else if (q[0] >= '0' && q[0] <= '9')
+                            else if (!q.empty() && q[0] >= '0' && q[0] <= '9')
                             {
-                                int n = atoi(q);
+                                int n = 0;
+                                parse_int(q, n);
                                 if (n <= 0)
                                     n = 8;
                                 size_t show = (size_t)n < sp ? (size_t)n : sp;
-                                printf("Stack size=%zu, top %zu entries:\n", sp, show);
+                                std::println("Stack size={}, top {} entries:", sp, show);
                                 for (size_t i = 0; i < show; i++)
                                 {
                                     size_t idx = (sp == 0) ? 0 : sp - 1 - i;
-                                    printf(" [%zu]=%lld", idx, (long long)stack[idx]);
+                                    std::print(" [{}]={}", idx, (long long)stack[idx]);
                                 }
-                                printf("\n");
+                                std::println("");
                             }
                         }
                         continue;
@@ -2404,9 +2036,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for JL at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for JL at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
@@ -2416,9 +2046,7 @@ int main(int argc, char *argv[])
             {
                 if (pc >= size)
                 {
-                    fprintf(stderr, "JL addr out of bounds: %zu at pc=%u\n", pc, addr);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "JL addr out of bounds: %zu at pc=%u\n", pc, addr);
                     return 1;
                 }
                 pc = addr;
@@ -2429,9 +2057,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for JGE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for JGE at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
@@ -2441,9 +2067,7 @@ int main(int argc, char *argv[])
             {
                 if (pc >= size)
                 {
-                    fprintf(stderr, "JGE addr out of bounds: %zu at pc=%u\n", pc, addr);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "JGE addr out of bounds: %zu at pc=%u\n", pc, addr);
                     return 1;
                 }
                 pc = addr;
@@ -2454,9 +2078,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for JB at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for JB at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
@@ -2466,9 +2088,7 @@ int main(int argc, char *argv[])
             {
                 if (pc >= size)
                 {
-                    fprintf(stderr, "JB addr out of bounds: %zu at pc=%u\n", pc, addr);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "JB addr out of bounds: %zu at pc=%u\n", pc, addr);
                     return 1;
                 }
                 pc = addr;
@@ -2479,9 +2099,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operands for JAE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for JAE at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
@@ -2491,9 +2109,7 @@ int main(int argc, char *argv[])
             {
                 if (pc >= size)
                 {
-                    fprintf(stderr, "JAE addr out of bounds: %zu at pc=%u\n", pc, addr);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "JAE addr out of bounds: %zu at pc=%u\n", pc, addr);
                     return 1;
                 }
                 pc = addr;
@@ -2504,9 +2120,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing operand for CALL at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for CALL at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
@@ -2514,9 +2128,7 @@ int main(int argc, char *argv[])
             pc += 4;
             if (pc + 3 >= size)
             {
-                fprintf(stderr, "Missing frame size for CALL at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing frame size for CALL at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t frame_size = program[pc] | (program[pc + 1] << 8) |
@@ -2524,42 +2136,19 @@ int main(int argc, char *argv[])
             pc += 4;
             if (addr >= size)
             {
-                fprintf(stderr, "CALL addr out of bounds: %zu at pc=%u\n", pc, addr);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "CALL addr out of bounds: %zu at pc=%u\n", pc, addr);
                 return 1;
             }
             if (csp >= call_stack_cap)
             {
                 size_t new_cap = call_stack_cap + call_stack_cap / 2;
-                size_t *tmp = static_cast<size_t *>(realloc(call_stack, new_cap * sizeof *call_stack));
-                if (!tmp)
-                {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    free(call_stack);
-                    return 1;
-                }
-                call_stack = tmp;
+                call_stack.resize(new_cap);
                 call_stack_cap = new_cap;
             }
             if (fsp >= frame_stack_cap)
             {
                 size_t new_cap = frame_stack_cap + frame_stack_cap / 2;
-                size_t *tmp =
-                    static_cast<size_t *>(realloc(frame_base_stack, new_cap * sizeof *frame_base_stack));
-                if (!tmp)
-                {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    free(call_stack);
-                    free(vars);
-                    free(frame_base_stack);
-                    return 1;
-                }
-                frame_base_stack = tmp;
+                frame_base_stack.resize(new_cap);
                 frame_stack_cap = new_cap;
             }
 
@@ -2571,18 +2160,7 @@ int main(int argc, char *argv[])
                 size_t new_cap = vars_cap + vars_cap / 2;
                 if (new_cap <= vars_sp + (size_t)frame_size)
                     new_cap = vars_sp + (size_t)frame_size;
-                int64_t *tmp = static_cast<int64_t *>(realloc(vars, new_cap * sizeof *vars));
-                if (!tmp)
-                {
-                    perror("realloc");
-                    free(program);
-                    free(stack);
-                    free(call_stack);
-                    free(vars);
-                    free(frame_base_stack);
-                    return 1;
-                }
-                vars = tmp;
+                vars.resize(new_cap);
                 vars_cap = new_cap;
             }
 
@@ -2594,12 +2172,7 @@ int main(int argc, char *argv[])
         {
             if (csp == 0 || fsp == 0)
             {
-                fprintf(stderr, "Stack underflow on RET at pc=%zu\n", pc);
-                free(program);
-                free(stack);
-                free(call_stack);
-                free(vars);
-                free(frame_base_stack);
+                bbxc::fmt::err_fmt( "Stack underflow on RET at pc=%zu\n", pc);
                 return 1;
             }
             size_t old_pc = pc;
@@ -2607,13 +2180,8 @@ int main(int argc, char *argv[])
             vars_sp = frame_base_stack[--fsp];
             if (pc >= size)
             {
-                fprintf(stderr, "Return address %zu out of bounds, popped at pc=%zu\n",
+                bbxc::fmt::err_fmt( "Return address %zu out of bounds, popped at pc=%zu\n",
                         pc, old_pc);
-                free(program);
-                free(stack);
-                free(call_stack);
-                free(vars);
-                free(frame_base_stack);
                 return 1;
             }
             break;
@@ -2622,9 +2190,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 4 >= size)
             {
-                fprintf(stderr, "Missing operands for LOADBYTE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for LOADBYTE at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t reg = program[pc++];
@@ -2633,14 +2199,12 @@ int main(int argc, char *argv[])
             pc += 4;
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in LOADBYTE at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in LOADBYTE at pc=%zu\n", pc);
                 return 1;
             }
             if (offset >= data_table_size)
             {
-                fprintf(stderr, "Data offset out of bounds: %u\n", offset);
+                bbxc::fmt::err_fmt( "Data offset out of bounds: %u\n", offset);
                 exit(1);
             }
             registers[reg] = (int64_t)data_table[offset];
@@ -2650,9 +2214,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 4 >= size)
             {
-                fprintf(stderr, "Missing operands for LOADWORD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for LOADWORD at pc=%zu\n", pc);
                 return 1;
             }
 
@@ -2663,15 +2225,13 @@ int main(int argc, char *argv[])
 
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in LOADWORD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in LOADWORD at pc=%zu\n", pc);
                 return 1;
             }
 
             if (offset + 1 >= data_table_size)
             {
-                fprintf(stderr, "Data offset out of bounds: %u\n", offset);
+                bbxc::fmt::err_fmt( "Data offset out of bounds: %u\n", offset);
                 exit(1);
             }
             int16_t val = data_table[offset] | (data_table[offset + 1] << 8);
@@ -2683,9 +2243,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 4 >= size)
             {
-                fprintf(stderr, "Missing operands for LOADDWORD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for LOADDWORD at pc=%zu\n", pc);
                 return 1;
             }
 
@@ -2696,15 +2254,13 @@ int main(int argc, char *argv[])
 
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in LOADDWORD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in LOADDWORD at pc=%zu\n", pc);
                 return 1;
             }
 
             if (offset + 3 >= data_table_size)
             {
-                fprintf(stderr, "Data offset out of bounds: %u\n", offset);
+                bbxc::fmt::err_fmt( "Data offset out of bounds: %u\n", offset);
                 exit(1);
             }
             int32_t val = data_table[offset] | (data_table[offset + 1] << 8) |
@@ -2718,9 +2274,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 4 >= size)
             {
-                fprintf(stderr, "Missing operands for LOADQWORD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for LOADQWORD at pc=%zu\n", pc);
                 return 1;
             }
 
@@ -2731,15 +2285,13 @@ int main(int argc, char *argv[])
 
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in LOADQWORD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in LOADQWORD at pc=%zu\n", pc);
                 return 1;
             }
 
             if (offset + 7 >= data_table_size)
             {
-                fprintf(stderr, "Data offset out of bounds: %u\n", offset);
+                bbxc::fmt::err_fmt( "Data offset out of bounds: %u\n", offset);
                 exit(1);
             }
             int64_t val = 0;
@@ -2753,25 +2305,19 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for MOD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operands for MOD at pc=%zu\n", pc);
                 return 1;
             }
             uint8_t dst = program[pc++];
             uint8_t src = program[pc++];
             if (dst >= REGISTERS || src >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in MOD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Invalid register in MOD at pc=%zu\n", pc);
                 return 1;
             }
             if (registers[src] == 0)
             {
-                fprintf(stderr, "Division by zero in MOD at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Division by zero in MOD at pc=%zu\n", pc);
                 return 1;
             }
             registers[dst] = registers[dst] % registers[src];
@@ -2781,9 +2327,7 @@ int main(int argc, char *argv[])
         {
             if (pc + 4 >= size)
             {
-                fprintf(stderr, "Missing operand for JMPI at pc=%zu\n", pc);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "Missing operand for JMPI at pc=%zu\n", pc);
                 return 1;
             }
             uint32_t addr = program[pc] | (program[pc + 1] << 8) |
@@ -2791,9 +2335,7 @@ int main(int argc, char *argv[])
             pc += 4;
             if (addr >= size)
             {
-                fprintf(stderr, "JMPI addr out of bounds: %zu at pc=%u\n", pc, addr);
-                free(program);
-                free(stack);
+                bbxc::fmt::err_fmt( "JMPI addr out of bounds: %zu at pc=%u\n", pc, addr);
                 return 1;
             }
             pc = addr;
@@ -2804,45 +2346,37 @@ int main(int argc, char *argv[])
             {
                 if (pc >= size)
                 {
-                    fprintf(stderr, "Missing dest register for EXEC at pc=%zu\n", pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Missing dest register for EXEC at pc=%zu\n", pc);
                     return 1;
                 }
                 uint8_t dest = program[pc++];
                 if (dest >= REGISTERS)
                 {
-                    fprintf(stderr, "Invalid dest register %u for EXEC at pc=%zu\n", dest, pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Invalid dest register %u for EXEC at pc=%zu\n", dest, pc);
                     return 1;
                 }
                 if (pc >= size)
                 {
-                    fprintf(stderr, "Missing length for EXEC at pc=%zu\n", pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "Missing length for EXEC at pc=%zu\n", pc);
                     return 1;
                 }
                 unsigned int len = program[pc++];
                 if (pc + len > size)
                 {
-                    fprintf(stderr, "EXEC string past end of program at pc=%zu\n", pc);
-                    free(program);
-                    free(stack);
+                    bbxc::fmt::err_fmt( "EXEC string past end of program at pc=%zu\n", pc);
                     return 1;
                 }
                 char cmd[256];
                 if (len > 255)
                     len = 255;
-                memcpy(cmd, &program[pc], len);
+                std::copy_n(&program[pc], len, cmd);
                 cmd[len] = '\0';
                 pc += len;
 
                 if (debug)
-                    printf("[DEBUG] EXEC: %s -> r%02u\n", cmd, dest);
+                    std::println("[DEBUG] EXEC: {} -> r{:02}", cmd, dest);
 
-                int ret = system(cmd);
+                int ret = std::system(cmd);
                 registers[dest] = (int64_t)ret;
                 break;
             }
@@ -2859,7 +2393,7 @@ int main(int argc, char *argv[])
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in GETMODE at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in GETMODE at pc=%zu\n", pc);
                 goto fault_exit;
             }
             registers[reg] = (cur_mode == MODE_PROTECTED) ? 0 : 1;
@@ -2888,20 +2422,20 @@ int main(int argc, char *argv[])
         {
             if (cur_mode != MODE_PROTECTED)
             {
-                fprintf(stderr, "FAULT: SYSCALL only allowed in protected mode at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "FAULT: SYSCALL only allowed in protected mode at pc=%zu\n", pc);
                 goto fault_exit;
             }
 
             unsigned int id = program[pc++];
             if (id >= MAX_SYSCALLS)
             {
-                fprintf(stderr, "FAULT: Invalid syscall ID %u at pc=%zu\n", id, pc);
+                bbxc::fmt::err_fmt( "FAULT: Invalid syscall ID %u at pc=%zu\n", id, pc);
                 goto fault_exit;
             }
 
             if (!syscall_registered[id])
             {
-                fprintf(stderr, "FAULT: SYSCALL %u not registered at pc=%zu\n", id, pc);
+                bbxc::fmt::err_fmt( "FAULT: SYSCALL %u not registered at pc=%zu\n", id, pc);
                 goto fault_exit;
             }
 
@@ -2958,7 +2492,7 @@ int main(int argc, char *argv[])
 
                 if (fault_id >= FAULT_COUNT)
                 {
-                    fprintf(stderr, "Invalid fault ID %u in REGFAULT at pc=%zu\n", fault_id, pc);
+                    bbxc::fmt::err_fmt( "Invalid fault ID %u in REGFAULT at pc=%zu\n", fault_id, pc);
                     goto fault_exit;
                 }
 
@@ -2972,7 +2506,7 @@ int main(int argc, char *argv[])
             {
                 if (current_fault == FAULT_COUNT)
                 {
-                    fprintf(stderr, "FAULTRET executed but no fault is active at pc=%zu\n", pc);
+                    bbxc::fmt::err_fmt( "FAULTRET executed but no fault is active at pc=%zu\n", pc);
                     goto fault_exit;
                 }
 
@@ -2987,7 +2521,7 @@ int main(int argc, char *argv[])
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in GETFAULT at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in GETFAULT at pc=%zu\n", pc);
                 goto fault_exit;
             }
             registers[reg] = (int64_t)current_fault;
@@ -3005,7 +2539,7 @@ int main(int argc, char *argv[])
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in PRINTCHAR at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in PRINTCHAR at pc=%zu\n", pc);
                 goto fault_exit;
             }
             putchar((char)registers[reg]);
@@ -3017,7 +2551,7 @@ int main(int argc, char *argv[])
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in EPRINTCHAR at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in EPRINTCHAR at pc=%zu\n", pc);
                 goto fault_exit;
             }
             fputc((char)registers[reg], stderr);
@@ -3027,10 +2561,10 @@ int main(int argc, char *argv[])
         case OPCODE_SHLI:
         {
             uint8_t reg = program[pc++];
-            uint64_t shift = read_u64(program, &pc);
+            uint64_t shift = read_u64(program.data(), &pc);
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in SHLI at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in SHLI at pc=%zu\n", pc);
                 goto fault_exit;
             }
             if (shift >= 64)
@@ -3042,10 +2576,10 @@ int main(int argc, char *argv[])
         case OPCODE_SHRI:
         {
             uint8_t reg = program[pc++];
-            uint64_t shift = read_u64(program, &pc);
+            uint64_t shift = read_u64(program.data(), &pc);
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in SHRI at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in SHRI at pc=%zu\n", pc);
                 goto fault_exit;
             }
             if (shift >= 64)
@@ -3067,7 +2601,7 @@ int main(int argc, char *argv[])
             uint8_t src = program[pc++];
             if (dst >= REGISTERS || src >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in SHR at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in SHR at pc=%zu\n", pc);
                 goto fault_exit;
             }
             if (registers[src] >= 64)
@@ -3089,7 +2623,7 @@ int main(int argc, char *argv[])
             uint8_t src = program[pc++];
             if (dst >= REGISTERS || src >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in SHL at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in SHL at pc=%zu\n", pc);
                 goto fault_exit;
             }
             if (registers[src] >= 64)
@@ -3110,7 +2644,7 @@ int main(int argc, char *argv[])
             uint8_t reg = program[pc++];
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in GETARGC at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in GETARGC at pc=%zu\n", pc);
                 goto fault_exit;
             }
             registers[reg] = (int64_t)argc;
@@ -3120,40 +2654,40 @@ int main(int argc, char *argv[])
         {
             if (pc + 4 >= size)
             {
-                fprintf(stderr, "Missing operands for GETARG at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Missing operands for GETARG at pc=%zu\n", pc);
                 goto fault_exit;
             }
             uint8_t reg = program[pc++];
-            uint32_t idx = read_u32(program, &pc);
+            uint32_t idx = read_u32(program.data(), &pc);
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in GETARG at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in GETARG at pc=%zu\n", pc);
                 goto fault_exit;
             }
             if ((size_t)idx >= (size_t)argc)
             {
-                fprintf(stderr, "GETARG index out of bounds: %u at pc=%zu\n", idx, pc);
+                bbxc::fmt::err_fmt( "GETARG index out of bounds: %u at pc=%zu\n", idx, pc);
                 goto fault_exit;
             }
             const char *arg = argv[idx];
             if (!arg)
             {
-                fprintf(stderr, "GETARG null argument at index %u at pc=%zu\n", idx, pc);
+                bbxc::fmt::err_fmt( "GETARG null argument at index %u at pc=%zu\n", idx, pc);
                 goto fault_exit;
             }
-            size_t len = strlen(arg);
+            size_t len = std::string_view(arg).size();
             if (str_heap_size > 0x7FFFFFFF || str_heap_size + len + 1 > 0x7FFFFFFF)
             {
-                fprintf(stderr, "String heap too large at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "String heap too large at pc=%zu\n", pc);
                 goto fault_exit;
             }
-            if (ensure_u8_capacity(&str_heap, &str_heap_cap, str_heap_size + len + 1))
+            if (ensure_capacity(str_heap, str_heap_size + len + 1))
             {
-                perror("realloc");
+                bbxc::fmt::err_errno("realloc");
                 goto fault_exit;
             }
             uint32_t start_addr = 0x80000000u | (uint32_t)str_heap_size;
-            memcpy(&str_heap[str_heap_size], arg, len);
+            std::copy_n(arg, len, &str_heap[str_heap_size]);
             str_heap_size += len;
             str_heap[str_heap_size++] = 0;
             registers[reg] = (int64_t)start_addr;
@@ -3163,49 +2697,49 @@ int main(int argc, char *argv[])
         {
             if (pc + 1 >= size)
             {
-                fprintf(stderr, "Missing operands for GETENV at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Missing operands for GETENV at pc=%zu\n", pc);
                 goto fault_exit;
             }
             uint8_t reg = program[pc++];
             uint8_t envlen = program[pc++];
             if (pc + envlen > size)
             {
-                fprintf(stderr, "Environment variable name past end of program at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Environment variable name past end of program at pc=%zu\n", pc);
                 goto fault_exit;
             }
             char envname[256];
             if (envlen > sizeof(envname) - 1)
                 envlen = sizeof(envname) - 1;
-            memcpy(envname, &program[pc], envlen);
+            std::copy_n(&program[pc], envlen, envname);
             envname[envlen] = '\0';
             pc += envlen;
 
             if (reg >= REGISTERS)
             {
-                fprintf(stderr, "Invalid register in GETENV at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "Invalid register in GETENV at pc=%zu\n", pc);
                 goto fault_exit;
             }
 
-            char *env_value = getenv(envname);
+            const char *env_value = std::getenv(envname);
             if (!env_value)
             {
                 RAISE_FAULT(FAULT_ENV_VAR_NOT_FOUND, "Environment variable %s not found in GETENV at pc=%zu", envname, pc);
                 break;
             }
 
-            size_t value_len = strlen(env_value);
+            size_t value_len = std::string_view(env_value).size();
             if (str_heap_size > 0x7FFFFFFF || str_heap_size + value_len + 1 > 0x7FFFFFFF)
             {
-                fprintf(stderr, "String heap too large at pc=%zu\n", pc);
+                bbxc::fmt::err_fmt( "String heap too large at pc=%zu\n", pc);
                 goto fault_exit;
             }
-            if (ensure_u8_capacity(&str_heap, &str_heap_cap, str_heap_size + value_len + 1))
+            if (ensure_capacity(str_heap, str_heap_size + value_len + 1))
             {
-                perror("realloc");
+                bbxc::fmt::err_errno("realloc");
                 goto fault_exit;
             }
             uint32_t start_addr = 0x80000000u | (uint32_t)str_heap_size;
-            memcpy(&str_heap[str_heap_size], env_value, value_len);
+            std::copy_n(env_value, value_len, &str_heap[str_heap_size]);
             str_heap_size += value_len;
             str_heap[str_heap_size++] = 0;
             registers[reg] = (int64_t)start_addr;
@@ -3213,12 +2747,8 @@ int main(int argc, char *argv[])
         }
         default:
         {
-            fprintf(stderr, "Unknown opcode 0x%02X at position %zu\n", opcode,
+            bbxc::fmt::err_fmt( "Unknown opcode 0x%02X at position %zu\n", opcode,
                     pc - 1);
-            free(program);
-            free(stack);
-            free(call_stack);
-            free(str_heap);
             return 1;
         }
         }
@@ -3227,21 +2757,8 @@ int main(int argc, char *argv[])
     (void)AF;
     (void)PF;
     (void)data_count;
-    free(program);
-    free(stack);
-    free(call_stack);
-    free(vars);
-    free(frame_base_stack);
-    free(str_heap);
     return 0;
 
 fault_exit:
-    free(program);
-    free(stack);
-    free(call_stack);
-    free(vars);
-    free(frame_base_stack);
-    free(str_heap);
-    free(permissions);
     return 1;
 }

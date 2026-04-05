@@ -3,10 +3,11 @@
 #include "../define.h"
 
 #include <cctype>
+#include <cstdarg>
+#include <cstdio>
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
-#include <cstdarg>
 #include <string>
 
 static void copy_cstr(char *dst, size_t dst_size, const char *src)

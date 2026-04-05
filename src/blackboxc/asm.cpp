@@ -5,7 +5,6 @@
 #include "../data.h"
 
 #include <cctype>
-#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>

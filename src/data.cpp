@@ -1,6 +1,5 @@
 ﻿#include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <array>
 #include "data.h"
 

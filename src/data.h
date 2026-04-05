@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstddef>
-#include <cctype>
 #include "define.h"
 
 void write_u32(FILE *out, uint32_t val);

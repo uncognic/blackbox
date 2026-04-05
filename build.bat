@@ -19,14 +19,14 @@ if /I "%~1"=="clean" (
 )
 
 echo Building compiler...
-clang-cl /std:c++latest /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%\blackboxc" "%SRC%\blackboxc\compiler.cpp" "%SRC%\blackboxc\asm.cpp" "%SRC%\blackboxc\asm_util.cpp" "%SRC%\blackboxc\basic.cpp" "%SRC%\blackboxc\tools.cpp" "%SRC%\data.cpp" bcrypt.lib /Fe:"%ROOT%\bbxc.exe"
+clang-cl /std:c++latest /EHsc /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%\blackboxc" "%SRC%\blackboxc\compiler.cpp" "%SRC%\blackboxc\asm.cpp" "%SRC%\blackboxc\asm_util.cpp" "%SRC%\blackboxc\basic.cpp" "%SRC%\blackboxc\tools.cpp" "%SRC%\data.cpp" "" bcrypt.lib /Fe:"%ROOT%\bbxc.exe"
 if errorlevel 1 (
     echo Failed to build compiler
     exit /b 1
 )
 
 echo Building interpreter...
-clang-cl /std:c++latest /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%\blackbox" /I "%SRC%\blackboxc" "%SRC%\blackbox\blackbox.cpp" "%SRC%\blackbox\debug.cpp" "%SRC%\blackboxc\tools.cpp" "%SRC%\data.cpp" bcrypt.lib /Fe:"%ROOT%\bbx.exe"
+clang-cl /std:c++latest /EHsc /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%\blackbox" /I "%SRC%\blackboxc" "%SRC%\blackbox\blackbox.cpp" "%SRC%\blackbox\debug.cpp" "%SRC%\blackboxc\tools.cpp" "%SRC%\data.cpp" "%SRC%\blackbox\fmt.cpp" bcrypt.lib /Fe:"%ROOT%\bbx.exe"
 if errorlevel 1 (
     echo Failed to build interpreter
     exit /b 1

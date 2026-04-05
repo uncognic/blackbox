@@ -1,18 +1,14 @@
 #include <cctype>
-#include <cstdint>
 #include <cerrno>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 #include <print>
 #include <string>
-#include <vector>
 
-#include "../define.h"
 #include "tools.h"
 #include "asm.h"
 #include "basic.h"
-#include "../data.h"
 
 static std::string trim_copy(const std::string &text)
 {

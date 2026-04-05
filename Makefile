@@ -21,7 +21,8 @@ interpreter:
 	$(CXX) $(CXXFLAGS) -Isrc/blackbox -Isrc/blackboxc -c src/blackbox/debug.cpp -o src/blackbox/debug.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/data.cpp -o src/data.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/tools.cpp -o src/blackboxc/tools.o
-	$(CXX) src/blackbox/blackbox.o src/blackbox/debug.o src/blackboxc/tools.o src/data.o -o src/blackbox/bbx
+	$(CXX) $(CXXFLAGS) -Isrc/blackbox -c src/blackbox/fmt.cpp -o src/blackbox/fmt.o
+	$(CXX) src/blackbox/blackbox.o src/blackbox/debug.o src/blackboxc/tools.o src/data.o src/blackbox/fmt.o -o src/blackbox/bbx
 
 disassembler:
 	cargo build --release --manifest-path=src/bbx-disasm/Cargo.toml
