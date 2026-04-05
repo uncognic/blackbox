@@ -1,6 +1,6 @@
 #include "asm.h"
 #include "../define.h"
-#include "tools.h"
+#include "../tools.h"
 #include "asm_util.h"
 #include "../data.h"
 
@@ -20,7 +20,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         using FilePtr = std::unique_ptr<FILE, int (*)(FILE *)>;
         std::vector<std::string> lines;
         std::string preprocessed;
-        if (!preprocess_includes(filename, preprocessed))
+        if (!blackbox::tools::preprocess_includes(filename, preprocessed))
         {
             return 1;
         }
@@ -42,7 +42,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         for (size_t i = 0; i < lines.size(); i++)
         {
             std::string trimmed = bbxc::asm_helpers::trim_copy(lines[i]);
-            if (starts_with_ci(trimmed.c_str(), "%macro") &&
+            if (blackbox::tools::starts_with_ci(trimmed.c_str(), "%macro") &&
                 trimmed.size() > 6 &&
                 (trimmed[6] == ' ' || trimmed[6] == '\t'))
             {
@@ -66,7 +66,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 for (; j < lines.size(); j++)
                 {
                     std::string line_trimmed = bbxc::asm_helpers::trim_copy(lines[j]);
-                    if (equals_ci(line_trimmed.c_str(), "%endmacro"))
+                    if (blackbox::tools::equals_ci(line_trimmed.c_str(), "%endmacro"))
                     {
                         break;
                     }
@@ -90,13 +90,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         for (size_t i = 0; i < lines.size(); i++)
         {
             std::string trimmed = bbxc::asm_helpers::trim_copy(lines[i]);
-            if (starts_with_ci(trimmed.c_str(), "%macro"))
+            if (blackbox::tools::starts_with_ci(trimmed.c_str(), "%macro"))
             {
                 size_t j = i + 1;
                 for (; j < lines.size(); j++)
                 {
                     std::string line_trimmed = bbxc::asm_helpers::trim_copy(lines[j]);
-                    if (equals_ci(line_trimmed.c_str(), "%endmacro"))
+                    if (blackbox::tools::equals_ci(line_trimmed.c_str(), "%endmacro"))
                     {
                         break;
                     }
@@ -106,16 +106,16 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             if (!trimmed.empty() && trimmed[0] == '%')
             {
-                if (equals_ci(trimmed.c_str(), "%asm") ||
-                    equals_ci(trimmed.c_str(), "%data") ||
-                    equals_ci(trimmed.c_str(), "%main") ||
-                    equals_ci(trimmed.c_str(), "%entry") ||
-                    equals_ci(trimmed.c_str(), "%endmacro"))
+                if (blackbox::tools::equals_ci(trimmed.c_str(), "%asm") ||
+                    blackbox::tools::equals_ci(trimmed.c_str(), "%data") ||
+                    blackbox::tools::equals_ci(trimmed.c_str(), "%main") ||
+                    blackbox::tools::equals_ci(trimmed.c_str(), "%entry") ||
+                    blackbox::tools::equals_ci(trimmed.c_str(), "%endmacro"))
                 {
                     fputs(lines[i].c_str(), tmp.get());
                     continue;
                 }
-                if (expand_invocation(trimmed.c_str(), tmp.get(), 0,
+                if (blackbox::tools::expand_invocation(trimmed.c_str(), tmp.get(), 0,
                                       macros.data(), macros.size(),
                                       &expand_id))
                 {
@@ -147,19 +147,19 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     while (fgets(line, sizeof(line), in))
     {
         lineno++;
-        char *s = trim(line);
+        char *s = blackbox::tools::trim(line);
 
         char *comment = strchr(s, ';');
         if (comment)
         {
             *comment = '\0';
 
-            s = trim(s);
+            s = blackbox::tools::trim(s);
         }
         if (*s == '\0')
             continue;
 
-        if (equals_ci(s, "%asm"))
+        if (blackbox::tools::equals_ci(s, "%asm"))
         {
             break;
         }
@@ -185,17 +185,17 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     while (fgets(line, sizeof(line), in))
     {
         lineno++;
-        char *s = trim(line);
+        char *s = blackbox::tools::trim(line);
         char *comment = strchr(s, ';');
         if (comment)
         {
             *comment = '\0';
-            s = trim(s);
+            s = blackbox::tools::trim(s);
         }
         if (*s == '\0' || *s == ';')
             continue;
 
-        if (equals_ci(s, "%data"))
+        if (blackbox::tools::equals_ci(s, "%data"))
         {
             if (found_code_section)
             {
@@ -208,7 +208,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] Entering data section at line %d\n", lineno);
             continue;
         }
-        if (equals_ci(s, "%main") == 1 || equals_ci(s, "%entry") == 1)
+        if (blackbox::tools::equals_ci(s, "%main") == 1 || blackbox::tools::equals_ci(s, "%entry") == 1)
         {
             current_section = 2;
             found_code_section = 1;
@@ -217,7 +217,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "STR "))
+        if (blackbox::tools::starts_with_ci(s, "STR "))
         {
             if (current_section != 1)
             {
@@ -258,7 +258,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                        data.back().offset);
             continue;
         }
-        else if (starts_with_ci(s, "DWORD "))
+        else if (blackbox::tools::starts_with_ci(s, "DWORD "))
         {
             if (current_section != 1)
             {
@@ -288,7 +288,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                        data.back().offset);
             continue;
         }
-        else if (starts_with_ci(s, "QWORD "))
+        else if (blackbox::tools::starts_with_ci(s, "QWORD "))
         {
             if (current_section != 1)
             {
@@ -320,7 +320,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                        data.back().offset);
             continue;
         }
-        else if (starts_with_ci(s, "WORD "))
+        else if (blackbox::tools::starts_with_ci(s, "WORD "))
         {
             if (current_section != 1)
             {
@@ -350,7 +350,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                        data.back().offset);
             continue;
         }
-        else if (starts_with_ci(s, "BYTE "))
+        else if (blackbox::tools::starts_with_ci(s, "BYTE "))
         {
             if (current_section != 1)
             {
@@ -419,7 +419,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "frame"))
+        if (blackbox::tools::starts_with_ci(s, "frame"))
         {
             if (labels.empty())
             {
@@ -439,7 +439,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             continue;
         }
 
-        pc += (uint32_t)instr_size(s);
+        pc += (uint32_t)blackbox::tools::instr_size(s);
     }
 
     if (!found_code_section)
@@ -471,21 +471,21 @@ int assemble_file(const char *filename, const char *output_file, int debug)
     while (fgets(line, sizeof(line), in))
     {
         lineno++;
-        char *s = trim(line);
+        char *s = blackbox::tools::trim(line);
         char *comment = strchr(s, ';');
         if (comment)
         {
             *comment = '\0';
-            s = trim(s);
+            s = blackbox::tools::trim(s);
         }
         if (*s == '\0' || *s == ';')
             continue;
-        if (equals_ci(s, "%data"))
+        if (blackbox::tools::equals_ci(s, "%data"))
         {
             current_section = 1;
             continue;
         }
-        if (equals_ci(s, "%main") == 1 || equals_ci(s, "%entry") == 1)
+        if (blackbox::tools::equals_ci(s, "%main") == 1 || blackbox::tools::equals_ci(s, "%entry") == 1)
         {
             current_section = 2;
             continue;
@@ -497,7 +497,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         if (current_section != 2)
             continue;
 
-        if (starts_with_ci(s, "STR "))
+        if (blackbox::tools::starts_with_ci(s, "STR "))
         {
             fprintf(stderr,
                     "Syntax error on line %d: STR directive not allowed in "
@@ -507,7 +507,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fclose(out);
             return 1;
         }
-        if (starts_with_ci(s, "DWORD "))
+        if (blackbox::tools::starts_with_ci(s, "DWORD "))
         {
             fprintf(stderr,
                     "Syntax error on line %d: DWORD directive not allowed in "
@@ -518,7 +518,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             return 1;
         }
 
-        if (starts_with_ci(s, "QWORD "))
+        if (blackbox::tools::starts_with_ci(s, "QWORD "))
         {
             fprintf(stderr,
                     "Syntax error on line %d: QWORD directive not allowed in "
@@ -528,7 +528,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fclose(out);
             return 1;
         }
-        if (starts_with_ci(s, "WORD "))
+        if (blackbox::tools::starts_with_ci(s, "WORD "))
         {
             fprintf(stderr,
                     "Syntax error on line %d: WORD directive not allowed in "
@@ -538,7 +538,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fclose(out);
             return 1;
         }
-        if (starts_with_ci(s, "BYTE "))
+        if (blackbox::tools::starts_with_ci(s, "BYTE "))
         {
             fprintf(stderr,
                     "Syntax error on line %d: BYTE directive not allowed in "
@@ -548,7 +548,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fclose(out);
             return 1;
         }
-        else if (starts_with_ci(s, "write"))
+        else if (blackbox::tools::starts_with_ci(s, "write"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char fd_str[16];
@@ -565,11 +565,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             uint8_t fd;
-            if (equals_ci(fd_str, "STDOUT"))
+            if (blackbox::tools::equals_ci(fd_str, "STDOUT"))
             {
                 fd = 1;
             }
-            else if (equals_ci(fd_str, "STDERR"))
+            else if (blackbox::tools::equals_ci(fd_str, "STDERR"))
             {
                 fd = 2;
             }
@@ -620,7 +620,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fputc((uint8_t)str_start[i], out);
             }
         }
-        else if (starts_with_ci(s, "loadstr"))
+        else if (blackbox::tools::starts_with_ci(s, "loadstr"))
         {
             char name[32];
             char regname[16];
@@ -634,8 +634,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_data(name, data.data(), data.size());
-            uint8_t reg = parse_register(regname, lineno);
+            uint32_t offset = blackbox::tools::find_data(name, data.data(), data.size());
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_LOADSTR, out);
             fputc(reg, out);
             uint32_t mem_offset = data[offset].offset;
@@ -644,7 +644,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] LOADSTR $%s (offset=%u) -> %s\n", name, offset,
                        regname);
         }
-        else if (starts_with_ci(s, "printstr"))
+        else if (blackbox::tools::starts_with_ci(s, "printstr"))
         {
             if (debug)
                 printf("[DEBUG] Encoding instruction: %s\n", s);
@@ -658,11 +658,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_PRINTSTR, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "eprintstr"))
+        else if (blackbox::tools::starts_with_ci(s, "eprintstr"))
         {
             if (debug)
                 printf("[DEBUG] Encoding instruction: %s\n", s);
@@ -676,11 +676,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_EPRINTSTR, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "loadbyte"))
+        else if (blackbox::tools::starts_with_ci(s, "loadbyte"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
@@ -695,8 +695,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_data(name, data.data(), data.size());
-            uint8_t reg = parse_register(regname, lineno);
+            uint32_t offset = blackbox::tools::find_data(name, data.data(), data.size());
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_LOADBYTE, out);
             fputc(reg, out);
             Data *d = &data[offset];
@@ -710,7 +710,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] LOADBYTE $%s (offset=%u) -> %s\n", name, offset,
                        regname);
         }
-        else if (starts_with_ci(s, "loadword"))
+        else if (blackbox::tools::starts_with_ci(s, "loadword"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
@@ -725,8 +725,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_data(name, data.data(), data.size());
-            uint8_t reg = parse_register(regname, lineno);
+            uint32_t offset = blackbox::tools::find_data(name, data.data(), data.size());
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_LOADWORD, out);
             fputc(reg, out);
             Data *d = &data[offset];
@@ -740,7 +740,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] LOADWORD $%s (offset=%u) -> %s\n", name, offset,
                        regname);
         }
-        else if (starts_with_ci(s, "loaddword"))
+        else if (blackbox::tools::starts_with_ci(s, "loaddword"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
@@ -755,8 +755,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_data(name, data.data(), data.size());
-            uint8_t reg = parse_register(regname, lineno);
+            uint32_t offset = blackbox::tools::find_data(name, data.data(), data.size());
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_LOADDWORD, out);
             fputc(reg, out);
             Data *d = &data[offset];
@@ -770,7 +770,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] LOADDWORD $%s (offset=%u) -> %s\n", name,
                        offset, regname);
         }
-        else if (starts_with_ci(s, "loadqword"))
+        else if (blackbox::tools::starts_with_ci(s, "loadqword"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char name[32];
@@ -785,8 +785,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t offset = find_data(name, data.data(), data.size());
-            uint8_t reg = parse_register(regname, lineno);
+            uint32_t offset = blackbox::tools::find_data(name, data.data(), data.size());
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_LOADQWORD, out);
             fputc(reg, out);
             Data *d = &data[offset];
@@ -800,12 +800,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 printf("[DEBUG] LOADQWORD $%s (offset=%u) -> %s\n", name,
                        offset, regname);
         }
-        else if (starts_with_ci(s, "continue"))
+        else if (blackbox::tools::starts_with_ci(s, "continue"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_CONTINUE, out);
         }
-        else if (equals_ci(s, "newline"))
+        else if (blackbox::tools::equals_ci(s, "newline"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_NEWLINE, out);
@@ -814,7 +814,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
         {
             continue;
         }
-        else if (starts_with_ci(s, "je"))
+        else if (blackbox::tools::starts_with_ci(s, "je"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
@@ -828,12 +828,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels.data(), labels.size());
+            uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JE, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "jne"))
+        else if (blackbox::tools::starts_with_ci(s, "jne"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
@@ -847,13 +847,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels.data(), labels.size());
+            uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JNE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JNE, out);
             write_u32(out, addr);
         }
 
-        else if (starts_with_ci(s, "halt"))
+        else if (blackbox::tools::starts_with_ci(s, "halt"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char token[32];
@@ -868,11 +868,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     }
                 }
                 uint8_t val = 0;
-                if (equals_ci(token, "ok"))
+                if (blackbox::tools::equals_ci(token, "ok"))
                 {
                     val = 0;
                 }
-                else if (equals_ci(token, "bad"))
+                else if (blackbox::tools::equals_ci(token, "bad"))
                 {
                     val = 1;
                 }
@@ -900,7 +900,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fputc(OPCODE_HALT, out);
             }
         }
-        else if (starts_with_ci(s, "inc"))
+        else if (blackbox::tools::starts_with_ci(s, "inc"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -923,11 +923,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     break;
                 }
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_INC, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "dec"))
+        else if (blackbox::tools::starts_with_ci(s, "dec"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -950,11 +950,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     break;
                 }
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_DEC, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "printreg"))
+        else if (blackbox::tools::starts_with_ci(s, "printreg"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -977,12 +977,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     break;
                 }
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
 
             fputc(OPCODE_PRINTREG, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "eprintreg"))
+        else if (blackbox::tools::starts_with_ci(s, "eprintreg"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1005,17 +1005,17 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     break;
                 }
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
 
             fputc(OPCODE_EPRINTREG, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "print_stacksize"))
+        else if (blackbox::tools::starts_with_ci(s, "print_stacksize"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_PRINT_STACKSIZE, out);
         }
-        else if (starts_with_ci(s, "PRINTCHAR"))
+        else if (blackbox::tools::starts_with_ci(s, "PRINTCHAR"))
         {
             char reg[16];
             if (sscanf(s + 9, " %15s", reg) != 1)
@@ -1026,9 +1026,9 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_PRINTCHAR, out);
-            fputc(parse_register(reg, lineno), out);
+            fputc(blackbox::tools::parse_register(reg, lineno), out);
         }
-        else if (starts_with_ci(s, "EPRINTCHAR"))
+        else if (blackbox::tools::starts_with_ci(s, "EPRINTCHAR"))
         {
             char reg[16];
             if (sscanf(s + 10, " %15s", reg) != 1)
@@ -1039,9 +1039,9 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_EPRINTCHAR, out);
-            fputc(parse_register(reg, lineno), out);
+            fputc(blackbox::tools::parse_register(reg, lineno), out);
         }
-        else if (starts_with_ci(s, "print"))
+        else if (blackbox::tools::starts_with_ci(s, "print"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char c;
@@ -1056,7 +1056,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_PRINT, out);
             fputc((uint8_t)c, out);
         }
-        else if (starts_with_ci(s, "jmpi"))
+        else if (blackbox::tools::starts_with_ci(s, "jmpi"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             uint32_t addr;
@@ -1074,7 +1074,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_JMPI, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "jmp"))
+        else if (blackbox::tools::starts_with_ci(s, "jmp"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label_name[32];
@@ -1088,13 +1088,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label_name, labels.data(), labels.size());
+            uint32_t addr = blackbox::tools::find_label(label_name, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JMP to %s (addr=%u)\n", label_name,
                 (unsigned)addr);
             fputc(OPCODE_JMP, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "pop"))
+        else if (blackbox::tools::starts_with_ci(s, "pop"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1108,11 +1108,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_POP, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "add"))
+        else if (blackbox::tools::starts_with_ci(s, "add"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char src_reg[16];
@@ -1127,13 +1127,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t dst = parse_register(dst_reg, lineno);
-            uint8_t src = parse_register(src_reg, lineno);
+            uint8_t dst = blackbox::tools::parse_register(dst_reg, lineno);
+            uint8_t src = blackbox::tools::parse_register(src_reg, lineno);
             fputc(OPCODE_ADD, out);
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "sub"))
+        else if (blackbox::tools::starts_with_ci(s, "sub"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char src_reg[16];
@@ -1148,13 +1148,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t dst = parse_register(dst_reg, lineno);
-            uint8_t src = parse_register(src_reg, lineno);
+            uint8_t dst = blackbox::tools::parse_register(dst_reg, lineno);
+            uint8_t src = blackbox::tools::parse_register(src_reg, lineno);
             fputc(OPCODE_SUB, out);
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "mul"))
+        else if (blackbox::tools::starts_with_ci(s, "mul"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char src_reg[16];
@@ -1169,13 +1169,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t dst = parse_register(dst_reg, lineno);
-            uint8_t src = parse_register(src_reg, lineno);
+            uint8_t dst = blackbox::tools::parse_register(dst_reg, lineno);
+            uint8_t src = blackbox::tools::parse_register(src_reg, lineno);
             fputc(OPCODE_MUL, out);
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "div"))
+        else if (blackbox::tools::starts_with_ci(s, "div"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char src_reg[16];
@@ -1190,13 +1190,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t dst = parse_register(dst_reg, lineno);
-            uint8_t src = parse_register(src_reg, lineno);
+            uint8_t dst = blackbox::tools::parse_register(dst_reg, lineno);
+            uint8_t src = blackbox::tools::parse_register(src_reg, lineno);
             fputc(OPCODE_DIV, out);
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "movi"))
+        else if (blackbox::tools::starts_with_ci(s, "movi"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char dst_reg[16];
@@ -1213,7 +1213,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t dst = parse_register(dst_reg, lineno);
+            uint8_t dst = blackbox::tools::parse_register(dst_reg, lineno);
             if (src[0] == '\'')
             {
                 int32_t imm = (int32_t)(unsigned char)src[1];
@@ -1229,7 +1229,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, imm);
             }
         }
-        else if (starts_with_ci(s, "mov"))
+        else if (blackbox::tools::starts_with_ci(s, "mov"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char dst_reg[16];
@@ -1246,13 +1246,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t dst = parse_register(dst_reg, lineno);
-            uint8_t src = parse_register(src_reg, lineno);
+            uint8_t dst = blackbox::tools::parse_register(dst_reg, lineno);
+            uint8_t src = blackbox::tools::parse_register(src_reg, lineno);
             fputc(OPCODE_MOV_REG, out);
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "push "))
+        else if (blackbox::tools::starts_with_ci(s, "push "))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1266,11 +1266,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_PUSH_REG, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "pushi "))
+        else if (blackbox::tools::starts_with_ci(s, "pushi "))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[16];
@@ -1299,7 +1299,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             write_u32(out, imm);
         }
 
-        else if (starts_with_ci(s, "cmp"))
+        else if (blackbox::tools::starts_with_ci(s, "cmp"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char reg1[16];
@@ -1314,13 +1314,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t r1 = parse_register(reg1, lineno);
-            uint8_t r2 = parse_register(reg2, lineno);
+            uint8_t r1 = blackbox::tools::parse_register(reg1, lineno);
+            uint8_t r2 = blackbox::tools::parse_register(reg2, lineno);
             fputc(OPCODE_CMP, out);
             fputc(r1, out);
             fputc(r2, out);
         }
-        else if (starts_with_ci(s, "alloc"))
+        else if (blackbox::tools::starts_with_ci(s, "alloc"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[32];
@@ -1338,11 +1338,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_ALLOC, out);
             write_u32(out, num);
         }
-        else if (starts_with_ci(s, "frame"))
+        else if (blackbox::tools::starts_with_ci(s, "frame"))
         {
             continue;
         }
-        else if (starts_with_ci(s, "loadvar"))
+        else if (blackbox::tools::starts_with_ci(s, "loadvar"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1357,10 +1357,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             if (toupper((unsigned char)addrname[0]) == 'R')
             {
-                uint8_t idx = parse_register(addrname, lineno);
+                uint8_t idx = blackbox::tools::parse_register(addrname, lineno);
                 fputc(OPCODE_LOADVAR_REG, out);
                 fputc(reg, out);
                 fputc(idx, out);
@@ -1373,7 +1373,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, slot);
             }
         }
-        else if (starts_with_ci(s, "load"))
+        else if (blackbox::tools::starts_with_ci(s, "load"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1388,10 +1388,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             if (toupper((unsigned char)addrname[0]) == 'R')
             {
-                uint8_t idx = parse_register(addrname, lineno);
+                uint8_t idx = blackbox::tools::parse_register(addrname, lineno);
                 fputc(OPCODE_LOAD_REG, out);
                 fputc(reg, out);
                 fputc(idx, out);
@@ -1404,7 +1404,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, addr);
             }
         }
-        else if (starts_with_ci(s, "storevar"))
+        else if (blackbox::tools::starts_with_ci(s, "storevar"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1419,10 +1419,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             if (toupper((unsigned char)addrname[0]) == 'R')
             {
-                uint8_t idx = parse_register(addrname, lineno);
+                uint8_t idx = blackbox::tools::parse_register(addrname, lineno);
                 fputc(OPCODE_STOREVAR_REG, out);
                 fputc(reg, out);
                 fputc(idx, out);
@@ -1435,7 +1435,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, slot);
             }
         }
-        else if (starts_with_ci(s, "store"))
+        else if (blackbox::tools::starts_with_ci(s, "store"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1450,10 +1450,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             if (toupper((unsigned char)addrname[0]) == 'R')
             {
-                uint8_t idx = parse_register(addrname, lineno);
+                uint8_t idx = blackbox::tools::parse_register(addrname, lineno);
                 fputc(OPCODE_STORE_REG, out);
                 fputc(reg, out);
                 fputc(idx, out);
@@ -1466,7 +1466,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, addr);
             }
         }
-        else if (starts_with_ci(s, "grow"))
+        else if (blackbox::tools::starts_with_ci(s, "grow"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[32];
@@ -1484,7 +1484,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_GROW, out);
             write_u32(out, num);
         }
-        else if (starts_with_ci(s, "resize"))
+        else if (blackbox::tools::starts_with_ci(s, "resize"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[32];
@@ -1502,7 +1502,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_RESIZE, out);
             write_u32(out, num);
         }
-        else if (starts_with_ci(s, "free"))
+        else if (blackbox::tools::starts_with_ci(s, "free"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[32];
@@ -1520,7 +1520,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_FREE, out);
             write_u32(out, num);
         }
-        else if (starts_with_ci(s, "fopen"))
+        else if (blackbox::tools::starts_with_ci(s, "fopen"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char filename[128];
@@ -1537,18 +1537,18 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            char *mode = trim(mode_raw);
-            char *fid = trim(fid_raw);
+            char *mode = blackbox::tools::trim(mode_raw);
+            char *fid = blackbox::tools::trim(fid_raw);
             uint8_t mode_flag;
-            if (equals_ci(mode, "r") == 1)
+            if (blackbox::tools::equals_ci(mode, "r") == 1)
             {
                 mode_flag = 0;
             }
-            else if (equals_ci(mode, "w") == 1)
+            else if (blackbox::tools::equals_ci(mode, "w") == 1)
             {
                 mode_flag = 1;
             }
-            else if (equals_ci(mode, "a") == 1)
+            else if (blackbox::tools::equals_ci(mode, "a") == 1)
             {
                 mode_flag = 2;
             }
@@ -1563,7 +1563,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             fputc(OPCODE_FOPEN, out);
             fputc(mode_flag, out);
-            uint8_t fd = parse_file(fid, lineno);
+            uint8_t fd = blackbox::tools::parse_file(fid, lineno);
             fputc(fd, out);
             uint8_t fname_len = (uint8_t)strlen(filename);
             fputc(fname_len, out);
@@ -1572,7 +1572,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fputc((uint8_t)filename[i], out);
             }
         }
-        else if (starts_with_ci(s, "fclose"))
+        else if (blackbox::tools::starts_with_ci(s, "fclose"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char fid[4];
@@ -1586,11 +1586,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t fd = parse_file(fid, lineno);
+            uint8_t fd = blackbox::tools::parse_file(fid, lineno);
             fputc(OPCODE_FCLOSE, out);
             fputc(fd, out);
         }
-        else if (starts_with_ci(s, "fread"))
+        else if (blackbox::tools::starts_with_ci(s, "fread"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char fid_raw[8];
@@ -1605,15 +1605,15 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            char *fid = trim(fid_raw);
-            char *reg_tok = trim(reg_raw);
-            uint8_t fd = parse_file(fid, lineno);
-            uint8_t reg = parse_register(reg_tok, lineno);
+            char *fid = blackbox::tools::trim(fid_raw);
+            char *reg_tok = blackbox::tools::trim(reg_raw);
+            uint8_t fd = blackbox::tools::parse_file(fid, lineno);
+            uint8_t reg = blackbox::tools::parse_register(reg_tok, lineno);
             fputc(OPCODE_FREAD, out);
             fputc(fd, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "fseek"))
+        else if (blackbox::tools::starts_with_ci(s, "fseek"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char fid_raw[8];
@@ -1629,12 +1629,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            char *fid = trim(fid_raw);
-            char *offset_tok = trim(offset_raw);
-            uint8_t fd = parse_file(fid, lineno);
+            char *fid = blackbox::tools::trim(fid_raw);
+            char *offset_tok = blackbox::tools::trim(offset_raw);
+            uint8_t fd = blackbox::tools::parse_file(fid, lineno);
             if (offset_tok[0] == 'R')
             {
-                uint8_t offset_reg = parse_register(offset_tok, lineno);
+                uint8_t offset_reg = blackbox::tools::parse_register(offset_tok, lineno);
                 fputc(OPCODE_FSEEK_REG, out);
                 fputc(fd, out);
                 fputc(offset_reg, out);
@@ -1665,7 +1665,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, offset_imm);
             }
         }
-        else if (starts_with_ci(s, "FWRITE"))
+        else if (blackbox::tools::starts_with_ci(s, "FWRITE"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char fid_raw[8];
@@ -1681,12 +1681,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            char *fid = trim(fid_raw);
-            char *size_tok = trim(size_raw);
-            uint8_t fd = parse_file(fid, lineno);
+            char *fid = blackbox::tools::trim(fid_raw);
+            char *size_tok = blackbox::tools::trim(size_raw);
+            uint8_t fd = blackbox::tools::parse_file(fid, lineno);
             if (size_tok[0] == 'R')
             {
-                uint8_t size_reg = parse_register(size_tok, lineno);
+                uint8_t size_reg = blackbox::tools::parse_register(size_tok, lineno);
                 fputc(OPCODE_FWRITE_REG, out);
                 fputc(fd, out);
                 fputc(size_reg, out);
@@ -1717,7 +1717,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, size_imm);
             }
         }
-        else if (starts_with_ci(s, "NOT"))
+        else if (blackbox::tools::starts_with_ci(s, "NOT"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1731,11 +1731,11 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
             fputc(OPCODE_NOT, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "AND"))
+        else if (blackbox::tools::starts_with_ci(s, "AND"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char reg1[16];
@@ -1750,13 +1750,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t r1 = parse_register(reg1, lineno);
-            uint8_t r2 = parse_register(reg2, lineno);
+            uint8_t r1 = blackbox::tools::parse_register(reg1, lineno);
+            uint8_t r2 = blackbox::tools::parse_register(reg2, lineno);
             fputc(OPCODE_AND, out);
             fputc(r1, out);
             fputc(r2, out);
         }
-        else if (starts_with_ci(s, "OR"))
+        else if (blackbox::tools::starts_with_ci(s, "OR"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char reg1[16];
@@ -1771,13 +1771,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t r1 = parse_register(reg1, lineno);
-            uint8_t r2 = parse_register(reg2, lineno);
+            uint8_t r1 = blackbox::tools::parse_register(reg1, lineno);
+            uint8_t r2 = blackbox::tools::parse_register(reg2, lineno);
             fputc(OPCODE_OR, out);
             fputc(r1, out);
             fputc(r2, out);
         }
-        else if (starts_with_ci(s, "XOR"))
+        else if (blackbox::tools::starts_with_ci(s, "XOR"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char reg1[16];
@@ -1792,13 +1792,13 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t r1 = parse_register(reg1, lineno);
-            uint8_t r2 = parse_register(reg2, lineno);
+            uint8_t r1 = blackbox::tools::parse_register(reg1, lineno);
+            uint8_t r2 = blackbox::tools::parse_register(reg2, lineno);
             fputc(OPCODE_XOR, out);
             fputc(r1, out);
             fputc(r2, out);
         }
-        else if (starts_with_ci(s, "READCHAR"))
+        else if (blackbox::tools::starts_with_ci(s, "READCHAR"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1821,12 +1821,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     break;
                 }
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
 
             fputc(OPCODE_READCHAR, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "READSTR"))
+        else if (blackbox::tools::starts_with_ci(s, "READSTR"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1849,12 +1849,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     break;
                 }
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
 
             fputc(OPCODE_READSTR, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "SLEEP"))
+        else if (blackbox::tools::starts_with_ci(s, "SLEEP"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char operand[64];
@@ -1871,7 +1871,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
 
             if (toupper((unsigned char)operand[0]) == 'R')
             {
-                uint8_t reg = parse_register(operand, lineno);
+                uint8_t reg = blackbox::tools::parse_register(operand, lineno);
                 fputc(OPCODE_SLEEP_REG, out);
                 fputc(reg, out);
             }
@@ -1882,12 +1882,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u32(out, ms);
             }
         }
-        else if (starts_with_ci(s, "clrscr"))
+        else if (blackbox::tools::starts_with_ci(s, "clrscr"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_CLRSCR, out);
         }
-        else if (starts_with_ci(s, "rand"))
+        else if (blackbox::tools::starts_with_ci(s, "rand"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1906,7 +1906,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
 
             fputc(OPCODE_RAND, out);
             fputc(reg, out);
@@ -1917,8 +1917,8 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 int cnt = sscanf(rest, " %31[^,] , %31s", a, b);
                 if (cnt == 2)
                 {
-                    int32_t min = (int32_t)strtol(trim(a), NULL, 0);
-                    int32_t max = (int32_t)strtol(trim(b), NULL, 0);
+                    int32_t min = (int32_t)strtol(blackbox::tools::trim(a), NULL, 0);
+                    int32_t max = (int32_t)strtol(blackbox::tools::trim(b), NULL, 0);
                     write_u64(out, (uint64_t)min);
                     write_u64(out, (uint64_t)max);
                 }
@@ -1934,7 +1934,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 write_u64(out, (uint64_t)INT64_MAX);
             }
         }
-        else if (starts_with_ci(s, "getkey"))
+        else if (blackbox::tools::starts_with_ci(s, "getkey"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1949,12 +1949,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
 
             fputc(OPCODE_GETKEY, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "read"))
+        else if (blackbox::tools::starts_with_ci(s, "read"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -1969,12 +1969,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t reg = parse_register(regname, lineno);
+            uint8_t reg = blackbox::tools::parse_register(regname, lineno);
 
             fputc(OPCODE_READ, out);
             fputc(reg, out);
         }
-        else if (starts_with_ci(s, "JL"))
+        else if (blackbox::tools::starts_with_ci(s, "JL"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
@@ -1988,12 +1988,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels.data(), labels.size());
+            uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JL to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JL, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "JGE"))
+        else if (blackbox::tools::starts_with_ci(s, "JGE"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
@@ -2007,12 +2007,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels.data(), labels.size());
+            uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JGE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JGE, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "JB"))
+        else if (blackbox::tools::starts_with_ci(s, "JB"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
@@ -2026,12 +2026,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels.data(), labels.size());
+            uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JB to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JB, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "JAE"))
+        else if (blackbox::tools::starts_with_ci(s, "JAE"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
@@ -2045,12 +2045,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels.data(), labels.size());
+            uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             bbxc::asm_helpers::dbg(debug, "[DEBUG] JAE to %s (addr=%u)\n", label, (unsigned)addr);
             fputc(OPCODE_JAE, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "CALL"))
+        else if (blackbox::tools::starts_with_ci(s, "CALL"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char label[32];
@@ -2070,7 +2070,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             {
                 frame_size = (uint32_t)strtoul(comma + 1, NULL, 0);
             }
-            uint32_t addr = find_label(label, labels.data(), labels.size());
+            uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             if (!comma)
             {
                 for (size_t i = 0; i < labels.size(); i++)
@@ -2088,12 +2088,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             write_u32(out, addr);
             write_u32(out, frame_size);
         }
-        else if (starts_with_ci(s, "RET"))
+        else if (blackbox::tools::starts_with_ci(s, "RET"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_RET, out);
         }
-        else if (starts_with_ci(s, "MOD"))
+        else if (blackbox::tools::starts_with_ci(s, "MOD"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char src_reg[16];
@@ -2108,18 +2108,18 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint8_t dst = parse_register(dst_reg, lineno);
-            uint8_t src = parse_register(src_reg, lineno);
+            uint8_t dst = blackbox::tools::parse_register(dst_reg, lineno);
+            uint8_t src = blackbox::tools::parse_register(src_reg, lineno);
             fputc(OPCODE_MOD, out);
             fputc(dst, out);
             fputc(src, out);
         }
-        else if (starts_with_ci(s, "BREAK"))
+        else if (blackbox::tools::starts_with_ci(s, "BREAK"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_BREAK, out);
         }
-        else if (starts_with_ci(s, "EXEC"))
+        else if (blackbox::tools::starts_with_ci(s, "EXEC"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char *str_start = strchr(s, '"');
@@ -2170,7 +2170,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                     break;
                 }
             }
-            uint8_t dest_reg = parse_register(regname, lineno);
+            uint8_t dest_reg = blackbox::tools::parse_register(regname, lineno);
 
             fputc(OPCODE_EXEC, out);
             fputc(dest_reg, out);
@@ -2181,7 +2181,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
             bbxc::asm_helpers::dbg(debug, "[DEBUG] EXEC -> %.*s (dest=%s)\n", (int)len, str_start, regname);
         }
-        else if (starts_with_ci(s, "REGSYSCALL"))
+        else if (blackbox::tools::starts_with_ci(s, "REGSYSCALL"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             uint8_t id;
@@ -2195,12 +2195,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels.data(), labels.size());
+            uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             fputc(OPCODE_REGSYSCALL, out);
             fputc(id, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "SYSCALL"))
+        else if (blackbox::tools::starts_with_ci(s, "SYSCALL"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             uint8_t id;
@@ -2216,17 +2216,17 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(OPCODE_SYSCALL, out);
             fputc(id, out);
         }
-        else if (starts_with_ci(s, "SYSRET"))
+        else if (blackbox::tools::starts_with_ci(s, "SYSRET"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_SYSRET, out);
         }
-        else if (starts_with_ci(s, "DROPPRIV"))
+        else if (blackbox::tools::starts_with_ci(s, "DROPPRIV"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_DROPPRIV, out);
         }
-        else if (starts_with_ci(s, "GETMODE"))
+        else if (blackbox::tools::starts_with_ci(s, "GETMODE"))
         {
             char reg[16];
             if (sscanf(s + 7, " %15s", reg) != 1)
@@ -2239,9 +2239,9 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_GETMODE, out);
-            fputc(parse_register(reg, lineno), out);
+            fputc(blackbox::tools::parse_register(reg, lineno), out);
         }
-        else if (starts_with_ci(s, "SETPERM"))
+        else if (blackbox::tools::starts_with_ci(s, "SETPERM"))
         {
             uint32_t start, count;
             char perm_str[16];
@@ -2279,12 +2279,12 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             fputc(prot_read, out);
             fputc(prot_write, out);
         }
-        else if (starts_with_ci(s, "DUMPREGS"))
+        else if (blackbox::tools::starts_with_ci(s, "DUMPREGS"))
         {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             fputc(OPCODE_DUMPREGS, out);
         }
-        else if (starts_with_ci(s, "REGFAULT"))
+        else if (blackbox::tools::starts_with_ci(s, "REGFAULT"))
         {
             uint8_t id;
             char label[32];
@@ -2297,16 +2297,16 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 fclose(out);
                 return 1;
             }
-            uint32_t addr = find_label(label, labels.data(), labels.size());
+            uint32_t addr = blackbox::tools::find_label(label, labels.data(), labels.size());
             fputc(OPCODE_REGFAULT, out);
             fputc(id, out);
             write_u32(out, addr);
         }
-        else if (starts_with_ci(s, "FAULTRET"))
+        else if (blackbox::tools::starts_with_ci(s, "FAULTRET"))
         {
             fputc(OPCODE_FAULTRET, out);
         }
-        else if (starts_with_ci(s, "GETFAULT"))
+        else if (blackbox::tools::starts_with_ci(s, "GETFAULT"))
         {
             char reg[16];
             if (sscanf(s + 8, " %15s", reg) != 1)
@@ -2317,9 +2317,9 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_GETFAULT, out);
-            fputc(parse_register(reg, lineno), out);
+            fputc(blackbox::tools::parse_register(reg, lineno), out);
         }
-        else if (starts_with_ci(s, "SHLI"))
+        else if (blackbox::tools::starts_with_ci(s, "SHLI"))
         {
             char reg[16];
             char amount[32];
@@ -2349,10 +2349,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_SHLI, out);
-            fputc(parse_register(reg, lineno), out);
+            fputc(blackbox::tools::parse_register(reg, lineno), out);
             write_u64(out, (uint64_t)shift);
         }
-        else if (starts_with_ci(s, "SHRI"))
+        else if (blackbox::tools::starts_with_ci(s, "SHRI"))
         {
             char reg[16];
             char amount[32];
@@ -2382,10 +2382,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_SHRI, out);
-            fputc(parse_register(reg, lineno), out);
+            fputc(blackbox::tools::parse_register(reg, lineno), out);
             write_u64(out, (uint64_t)shift);
         }
-        else if (starts_with_ci(s, "SHL"))
+        else if (blackbox::tools::starts_with_ci(s, "SHL"))
         {
             char reg1[16];
             char reg2[16];
@@ -2397,10 +2397,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_SHL, out);
-            fputc(parse_register(reg1, lineno), out);
-            fputc(parse_register(reg2, lineno), out);
+            fputc(blackbox::tools::parse_register(reg1, lineno), out);
+            fputc(blackbox::tools::parse_register(reg2, lineno), out);
         }
-        else if (starts_with_ci(s, "SHR"))
+        else if (blackbox::tools::starts_with_ci(s, "SHR"))
         {
             char reg1[16];
             char reg2[16];
@@ -2412,10 +2412,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_SHR, out);
-            fputc(parse_register(reg1, lineno), out);
-            fputc(parse_register(reg2, lineno), out);
+            fputc(blackbox::tools::parse_register(reg1, lineno), out);
+            fputc(blackbox::tools::parse_register(reg2, lineno), out);
         }
-        else if (starts_with_ci(s, "GETARGC"))
+        else if (blackbox::tools::starts_with_ci(s, "GETARGC"))
         {
             char reg[16];
             if (sscanf(s + 7, " %15s", reg) != 1)
@@ -2428,9 +2428,9 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_GETARGC, out);
-            fputc(parse_register(reg, lineno), out);
+            fputc(blackbox::tools::parse_register(reg, lineno), out);
         }
-        else if (starts_with_ci(s, "GETARG"))
+        else if (blackbox::tools::starts_with_ci(s, "GETARG"))
         {
             char reg[16];
             char index[32];
@@ -2457,10 +2457,10 @@ int assemble_file(const char *filename, const char *output_file, int debug)
                 return 1;
             }
             fputc(OPCODE_GETARG, out);
-            fputc(parse_register(reg, lineno), out);
+            fputc(blackbox::tools::parse_register(reg, lineno), out);
             write_u32(out, idx);
         }
-        else if (starts_with_ci(s, "GETENV"))
+        else if (blackbox::tools::starts_with_ci(s, "GETENV"))
         {
             char reg[16];
             char varname[256];
@@ -2517,7 +2517,7 @@ int assemble_file(const char *filename, const char *output_file, int debug)
             }
 
             fputc(OPCODE_GETENV, out);
-            fputc(parse_register(reg, lineno), out);
+            fputc(blackbox::tools::parse_register(reg, lineno), out);
             uint8_t len = (uint8_t)strlen(varname);
             fputc(len, out);
             for (size_t i = 0; i < len; i++)

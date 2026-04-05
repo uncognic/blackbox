@@ -12,17 +12,17 @@ compiler:
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/asm.cpp -o src/blackboxc/asm.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/basic.cpp -o src/blackboxc/basic.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/data.cpp -o src/data.o
-	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/tools.cpp -o src/blackboxc/tools.o
+	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/tools.cpp -o src/tools.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/asm_util.cpp -o src/blackboxc/asm_util.o
-	$(CXX) src/blackboxc/compiler.o src/blackboxc/asm.o src/blackboxc/basic.o src/blackboxc/tools.o src/data.o src/blackboxc/asm_util.o -o src/blackboxc/bbxc
+	$(CXX) src/blackboxc/compiler.o src/blackboxc/asm.o src/blackboxc/basic.o src/tools.o src/data.o src/blackboxc/asm_util.o -o src/blackboxc/bbxc
 
 interpreter:
 	$(CXX) $(CXXFLAGS) -Isrc/blackbox -Isrc/blackboxc -c src/blackbox/blackbox.cpp -o src/blackbox/blackbox.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackbox -Isrc/blackboxc -c src/blackbox/debug.cpp -o src/blackbox/debug.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/data.cpp -o src/data.o
-	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/tools.cpp -o src/blackboxc/tools.o
-	$(CXX) $(CXXFLAGS) -Isrc/blackbox -c src/blackbox/fmt.cpp -o src/blackbox/fmt.o
-	$(CXX) src/blackbox/blackbox.o src/blackbox/debug.o src/blackboxc/tools.o src/data.o src/blackbox/fmt.o -o src/blackbox/bbx
+	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/tools.cpp -o src/tools.o
+	$(CXX) $(CXXFLAGS) -Isrc/blackbox -c src/fmt.cpp -o src/fmt.o
+	$(CXX) src/blackbox/blackbox.o src/blackbox/debug.o src/tools.o src/data.o src/fmt.o -o src/blackbox/bbx
 
 disassembler:
 	cargo build --release --manifest-path=src/bbx-disasm/Cargo.toml

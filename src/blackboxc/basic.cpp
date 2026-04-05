@@ -1,5 +1,5 @@
 #include "basic.h"
-#include "tools.h"
+#include "../tools.h"
 #include "../define.h"
 
 #include <cctype>
@@ -301,7 +301,7 @@ static const char *find_keyword_token(const char *s, const char *kw)
     size_t n = strlen(kw);
     for (const char *p = s; *p; p++)
     {
-        if (!starts_with_ci(p, kw))
+        if (!blackbox::tools::starts_with_ci(p, kw))
             continue;
 
         int left_ok = (p == s) || !(isalnum((unsigned char)p[-1]) || p[-1] == '_');
@@ -596,7 +596,7 @@ static int emit_condition(const char *s, SymbolTable *st, RegAlloc *ra,
 
     for (const char *q = p; *q; q++)
     {
-        if (starts_with_ci(q, "OR") &&
+        if (blackbox::tools::starts_with_ci(q, "OR") &&
             (q == p || !(isalnum((unsigned char)q[-1]) || q[-1] == '_')) &&
             !(isalnum((unsigned char)q[2]) || q[2] == '_'))
         {
@@ -690,7 +690,7 @@ static int emit_condition(const char *s, SymbolTable *st, RegAlloc *ra,
         reg_name(rreg, rn);
 
         const char *next = skip_ws(p);
-        int is_and = starts_with_ci(next, "AND") &&
+        int is_and = blackbox::tools::starts_with_ci(next, "AND") &&
                      !(isalnum((unsigned char)next[3]) || next[3] == '_');
 
         EMIT_CODE(ob, "    CMP %s, %s", strcmp(op, ">") == 0 || strcmp(op, "<=") == 0 ? rn : ln,
@@ -927,13 +927,13 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
         set_emit_context(lineno, s, &bs);
 
-        if (equals_ci(s, "ASM:"))
+        if (blackbox::tools::equals_ci(s, "ASM:"))
         {
             in_asm_block = true;
             continue;
         }
 
-        if (equals_ci(s, "ENDASM"))
+        if (blackbox::tools::equals_ci(s, "ENDASM"))
         {
             in_asm_block = false;
             continue;
@@ -946,7 +946,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // CONST name = value/"string"
-        if (starts_with_ci(s, "CONST "))
+        if (blackbox::tools::starts_with_ci(s, "CONST "))
         {
             const char *eq = strchr(s + 6, '=');
 
@@ -1045,7 +1045,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // VAR name = value
-        if (starts_with_ci(s, "VAR "))
+        if (blackbox::tools::starts_with_ci(s, "VAR "))
         {
             const char *eq = strchr(s + 4, '=');
             if (!eq)
@@ -1243,7 +1243,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // IF condition: ... ENDIF
-        if (starts_with_ci(s, "IF "))
+        if (blackbox::tools::starts_with_ci(s, "IF "))
         {
             size_t slen = strlen(s);
             if (s[slen - 1] == ':')
@@ -1279,12 +1279,12 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // ELSE IF condition (treated as ELSE { IF ... })
-        if (starts_with_ci(s, "ELSE "))
+        if (blackbox::tools::starts_with_ci(s, "ELSE "))
         {
             const char *p = s + 5;
             p = skip_ws(p);
 
-            if (starts_with_ci(p, "IF "))
+            if (blackbox::tools::starts_with_ci(p, "IF "))
             {
                 Block b = bstack_pop(&bs);
                 if (b.kind != BLOCK_IF)
@@ -1328,7 +1328,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // ELSE:
-        if (equals_ci(s, "ELSE:"))
+        if (blackbox::tools::equals_ci(s, "ELSE:"))
         {
             Block *b = bstack_peek(&bs);
             if (!b || b->kind != BLOCK_IF)
@@ -1347,7 +1347,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // ENDIF
-        if (equals_ci(s, "ENDIF"))
+        if (blackbox::tools::equals_ci(s, "ENDIF"))
         {
             Block b = bstack_pop(&bs);
             if (b.kind != BLOCK_IF)
@@ -1366,7 +1366,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
         // WHILE condition: ... ENDWHILE
-        if (starts_with_ci(s, "WHILE "))
+        if (blackbox::tools::starts_with_ci(s, "WHILE "))
         {
             size_t slen = strlen(s);
             if (s[slen - 1] == ':')
@@ -1399,7 +1399,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // ENDWHILE
-        if (equals_ci(s, "ENDWHILE"))
+        if (blackbox::tools::equals_ci(s, "ENDWHILE"))
         {
             Block b = bstack_pop(&bs);
             if (b.kind != BLOCK_WHILE)
@@ -1416,7 +1416,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // WRITE (same operands as PRINT, but no trailing newline)
-        if (starts_with_ci(s, "WRITE"))
+        if (blackbox::tools::starts_with_ci(s, "WRITE"))
         {
             const char *arg = s + 5;
 
@@ -1439,7 +1439,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // EWRITE (WRITE to stderr, no trailing newline)
-        if (starts_with_ci(s, "EWRITE"))
+        if (blackbox::tools::starts_with_ci(s, "EWRITE"))
         {
             const char *arg = s + 6;
 
@@ -1462,7 +1462,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // PRINT (WRITE but with a trailing newline)
-        if (starts_with_ci(s, "PRINT"))
+        if (blackbox::tools::starts_with_ci(s, "PRINT"))
         {
             const char *arg = s + 5;
 
@@ -1502,7 +1502,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
         }
 
         // EPRINT (EWRITE but with a trailing newline)
-        if (starts_with_ci(s, "EPRINT"))
+        if (blackbox::tools::starts_with_ci(s, "EPRINT"))
         {
             const char *arg = s + 6;
 
@@ -1541,7 +1541,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "SLEEP"))
+        if (blackbox::tools::starts_with_ci(s, "SLEEP"))
         {
             const char *arg = s + 5;
 
@@ -1586,7 +1586,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "HALT"))
+        if (blackbox::tools::starts_with_ci(s, "HALT"))
         {
             const char *halt_suffix = s + 4;
             if (*halt_suffix != '\0' && !std::isspace((unsigned char)*halt_suffix))
@@ -1627,11 +1627,11 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 break;
             }
 
-            if (equals_ci(token.data(), "OK"))
+            if (blackbox::tools::equals_ci(token.data(), "OK"))
             {
                 EMIT_CODE(&ob, "    HALT OK");
             }
-            else if (equals_ci(token.data(), "BAD"))
+            else if (blackbox::tools::equals_ci(token.data(), "BAD"))
             {
                 EMIT_CODE(&ob, "    HALT BAD");
             }
@@ -1655,7 +1655,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "LABEL "))
+        if (blackbox::tools::starts_with_ci(s, "LABEL "))
         {
             std::string name = trim_copy(s + 6);
             EMIT_CODE(&ob, ".%s:", name.data());
@@ -1664,7 +1664,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "GOTO "))
+        if (blackbox::tools::starts_with_ci(s, "GOTO "))
         {
             std::string name = trim_copy(s + 5);
             EMIT_CODE(&ob, "    JMP %s", name.data());
@@ -1673,7 +1673,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "CALL "))
+        if (blackbox::tools::starts_with_ci(s, "CALL "))
         {
             std::string name = trim_copy(s + 5);
             EMIT_CODE(&ob, "    CALL %s", name.data());
@@ -1682,7 +1682,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (equals_ci(s, "RETURN"))
+        if (blackbox::tools::equals_ci(s, "RETURN"))
         {
             EMIT_CODE(&ob, "    RET");
             if (debug)
@@ -1690,7 +1690,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "EXEC"))
+        if (blackbox::tools::starts_with_ci(s, "EXEC"))
         {
             const char *arg = s + 4;
 
@@ -1807,7 +1807,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "FOPEN"))
+        if (blackbox::tools::starts_with_ci(s, "FOPEN"))
         {
             std::string arg = trim_copy(s + 5);
             size_t pos = 0;
@@ -1905,7 +1905,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "FCLOSE"))
+        if (blackbox::tools::starts_with_ci(s, "FCLOSE"))
         {
             std::string arg = trim_copy(s + 6);
             size_t pos = 0;
@@ -1936,7 +1936,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "FREAD"))
+        if (blackbox::tools::starts_with_ci(s, "FREAD"))
         {
             std::string arg = trim_copy(s + 5);
             size_t pos = 0;
@@ -2015,7 +2015,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "FWRITE"))
+        if (blackbox::tools::starts_with_ci(s, "FWRITE"))
         {
             std::string arg = trim_copy(s + 6);
             size_t pos = 0;
@@ -2067,7 +2067,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "FSEEK"))
+        if (blackbox::tools::starts_with_ci(s, "FSEEK"))
         {
             std::string arg = trim_copy(s + 5);
             size_t pos = 0;
@@ -2119,7 +2119,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "FPRINT"))
+        if (blackbox::tools::starts_with_ci(s, "FPRINT"))
         {
             std::string arg = trim_copy(s + 6);
             size_t pos = 0;
@@ -2211,7 +2211,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "INPUT "))
+        if (blackbox::tools::starts_with_ci(s, "INPUT "))
         {
             const char *name = skip_ws(s + 6);
 
@@ -2270,7 +2270,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] INPUT %s\n", name);
             continue;
         }
-        if (starts_with_ci(s, "GETKEY"))
+        if (blackbox::tools::starts_with_ci(s, "GETKEY"))
         {
             const char *p = skip_ws(s + 6);
 
@@ -2326,7 +2326,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] GETKEY %s\n", name.data());
             continue;
         }
-        if (starts_with_ci(s, "GETARGC"))
+        if (blackbox::tools::starts_with_ci(s, "GETARGC"))
         {
             const char *p = skip_ws(s + 7);
 
@@ -2382,7 +2382,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] GETARGC %s\n", name.data());
             continue;
         }
-        if (starts_with_ci(s, "GETARG"))
+        if (blackbox::tools::starts_with_ci(s, "GETARG"))
         {
             const char *p = skip_ws(s + 6);
 
@@ -2470,7 +2470,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] GETARG %s, %lu\n", name.data(), idx);
             continue;
         }
-        if (starts_with_ci(s, "GETENV"))
+        if (blackbox::tools::starts_with_ci(s, "GETENV"))
         {
             const char *p = skip_ws(s + 6);
 
@@ -2565,7 +2565,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] GETENV %s, %s\n", name.data(), envname.data());
             continue;
         }
-        if (starts_with_ci(s, "RANDOM"))
+        if (blackbox::tools::starts_with_ci(s, "RANDOM"))
         {
             const char *p = skip_ws(s + 6);
 
@@ -2654,7 +2654,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] RANDOM %s\n", name.data());
             continue;
         }
-        if (starts_with_ci(s, "FOR "))
+        if (blackbox::tools::starts_with_ci(s, "FOR "))
         {
             size_t slen = strlen(s);
             if (slen > 0 && s[slen - 1] == ':')
@@ -2662,7 +2662,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
 
             const char *p = skip_ws(s + 4);
             int inline_decl = 0;
-            if (starts_with_ci(p, "VAR") &&
+            if (blackbox::tools::starts_with_ci(p, "VAR") &&
                 !(isalnum((unsigned char)p[3]) || p[3] == '_'))
             {
                 inline_decl = 1;
@@ -2866,7 +2866,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "NEXT"))
+        if (blackbox::tools::starts_with_ci(s, "NEXT"))
         {
             const char *arg = skip_ws(s + 4);
 
@@ -2897,7 +2897,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                     break;
                 }
 
-                if (!equals_ci(next_var.data(), top->for_var_name))
+                if (!blackbox::tools::equals_ci(next_var.data(), top->for_var_name))
                 {
                     fprintf(stderr, "Error line %d: NEXT variable '%s' does not match FOR variable '%s'\n",
                             lineno, next_var.data(), top->for_var_name);
@@ -2939,7 +2939,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] NEXT %s\n", b.for_var_name);
             continue;
         }
-        if (starts_with_ci(s, "INC"))
+        if (blackbox::tools::starts_with_ci(s, "INC"))
         {
             const char *name = skip_ws(s + 4);
             Variable *v = sym_find(&st, name);
@@ -2977,7 +2977,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (starts_with_ci(s, "DEC"))
+        if (blackbox::tools::starts_with_ci(s, "DEC"))
         {
             const char *name = skip_ws(s + 4);
             Variable *v = sym_find(&st, name);
@@ -3015,7 +3015,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             continue;
         }
 
-        if (equals_ci(s, "BREAK"))
+        if (blackbox::tools::equals_ci(s, "BREAK"))
         {
             Block *target = NULL;
             for (int i = (int)bs.items.size() - 1; i >= 0; i--)
@@ -3039,7 +3039,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                 printf("[BASIC] BREAK\n");
             continue;
         }
-        if (equals_ci(s, "CONTINUE"))
+        if (blackbox::tools::equals_ci(s, "CONTINUE"))
         {
             Block *target = NULL;
             for (int i = (int)bs.items.size() - 1; i >= 0; i--)
@@ -3097,7 +3097,7 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
             }
             continue;
         }
-        if (equals_ci(s, "CLRSCR"))
+        if (blackbox::tools::equals_ci(s, "CLRSCR"))
         {
             EMIT_CODE(&ob, "    CLRSCR");
             if (debug)

@@ -7,7 +7,9 @@
 #include <string>
 
 
-#include "../define.h"
+#include "define.h"
+namespace blackbox {
+namespace tools {
 
 bool preprocess_includes(const std::string &input, std::string &out);
 
@@ -27,3 +29,4 @@ int starts_with_ci(const char *s, const char *prefix);
 
 std::string replace_all(const std::string &src, const std::string &find, const std::string &repl);
 
+}}

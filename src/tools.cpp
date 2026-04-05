@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 #include "tools.h"
-#include "../define.h"
+#include "define.h"
 #ifdef _WIN32
 #include <windows.h>
 #include <bcrypt.h>
@@ -14,7 +14,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #endif
-
+namespace blackbox {
+namespace tools {
 static inline unsigned char ascii_upper(unsigned char c)
 {
     return (unsigned char)toupper(c);
@@ -688,4 +689,6 @@ int starts_with_ci(const char *s, const char *prefix)
     if (!s || !prefix)
         return 0;
     return starts_with_ci_str(std::string(s), std::string(prefix)) ? 1 : 0;
+}
+}
 }

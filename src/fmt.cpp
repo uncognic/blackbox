@@ -3,7 +3,7 @@
 #include <cstdarg>
 #include <print>
 
-namespace bbxc {
+namespace blackbox {
 namespace fmt {
 std::string fmt_to_string(const char *fmt, va_list args)
 {

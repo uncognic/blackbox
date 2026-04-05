@@ -6,7 +6,7 @@
 #include <print>
 #include <string>
 
-#include "tools.h"
+#include "../tools.h"
 #include "asm.h"
 #include "basic.h"
 
@@ -108,7 +108,7 @@ int main(int argc, char *argv[])
         trimmed = trim_copy(trimmed);
         if (trimmed.empty())
             continue;
-        is_asm = equals_ci(trimmed.c_str(), "%asm") != 0;
+        is_asm = blackbox::tools::equals_ci(trimmed.c_str(), "%asm") != 0;
         break;
     }
 
