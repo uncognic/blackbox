@@ -57,93 +57,104 @@ typedef struct {
     uint32_t frame_size;
 } Label;
 
-#define OPCODE_WRITE 0x01
-#define OPCODE_NEWLINE 0x02
-#define OPCODE_PRINT 0x03
-#define OPCODE_PUSHI 0x04
-#define OPCODE_POP 0x05
-#define OPCODE_ADD 0x06
-#define OPCODE_SUB 0x07
-#define OPCODE_MUL 0x08
-#define OPCODE_DIV 0x09
-#define OPCODE_PRINTREG 0x0A
-#define OPCODE_MOVI 0x0B
-#define OPCODE_MOV_REG 0x0C
-#define OPCODE_JMP 0x0D
-#define OPCODE_JE 0x0E
-#define OPCODE_JNE 0x0F
-#define OPCODE_INC 0x10
-#define OPCODE_DEC 0x11
-#define OPCODE_PUSH_REG 0x12
-#define OPCODE_CMP 0x13
-#define OPCODE_ALLOC 0x14
-#define OPCODE_LOAD 0x15
-#define OPCODE_STORE 0x16
-#define OPCODE_LOAD_REG 0x41
-#define OPCODE_STORE_REG 0x42
-#define OPCODE_LOADVAR 0x43
-#define OPCODE_STOREVAR 0x44
-#define OPCODE_LOADVAR_REG 0x45
-#define OPCODE_STOREVAR_REG 0x46
-#define OPCODE_GROW 0x17
-#define OPCODE_PRINT_STACKSIZE 0x18
-#define OPCODE_RESIZE 0x19
-#define OPCODE_FREE 0x20
-#define OPCODE_FOPEN 0x21
-#define OPCODE_FCLOSE 0x22
-#define OPCODE_FREAD 0x23
-#define OPCODE_FWRITE_REG 0x24
-#define OPCODE_FWRITE_IMM 0x27
-#define OPCODE_FSEEK_REG 0x25
-#define OPCODE_FSEEK_IMM 0x26
-#define OPCODE_LOADSTR 0x28
-#define OPCODE_PRINTSTR 0x29
-#define OPCODE_XOR 0x2A
-#define OPCODE_AND 0x2B
-#define OPCODE_OR 0x2C
-#define OPCODE_NOT 0x2D
-#define OPCODE_READSTR 0x2E
-#define OPCODE_READ 0x33
-#define OPCODE_SLEEP 0x2F
-#define OPCODE_SLEEP_REG 0x60
-#define OPCODE_CLRSCR 0x30
-#define OPCODE_RAND 0x31
-#define OPCODE_GETKEY 0x32
-#define OPCODE_CONTINUE 0x34
-#define OPCODE_READCHAR 0x35
-#define OPCODE_JL 0x36
-#define OPCODE_JGE 0x37
-#define OPCODE_JB 0x38
-#define OPCODE_JAE 0x39
-#define OPCODE_CALL 0x3A
-#define OPCODE_RET 0x3B
-#define OPCODE_LOADBYTE 0x3C
-#define OPCODE_LOADWORD 0x3D
-#define OPCODE_LOADDWORD 0x3E
-#define OPCODE_LOADQWORD 0x3F
-#define OPCODE_MOD 0x40
-#define OPCODE_JMPI 0x47
-#define OPCODE_EXEC 0x48
-#define OPCODE_SYSCALL 0x50
-#define OPCODE_SYSRET 0x51
-#define OPCODE_DROPPRIV 0x52
-#define OPCODE_REGSYSCALL 0x53
-#define OPCODE_SETPERM 0x54
-#define OPCODE_GETMODE 0x55
-#define OPCODE_REGFAULT 0x56
-#define OPCODE_FAULTRET 0x57
-#define OPCODE_GETFAULT 0x58
-#define OPCODE_DUMPREGS 0x59
-#define OPCODE_PRINTCHAR 0x5A
-#define OPCODE_EPRINTREG 0x5B
-#define OPCODE_EPRINTSTR 0x5C
-#define OPCODE_EPRINTCHAR 0x5D
-#define OPCODE_SHLI 0x5E
-#define OPCODE_SHRI 0x5F
-#define OPCODE_SHL 0x62
-#define OPCODE_SHR 0x61
-#define OPCODE_GETARG 0x63
-#define OPCODE_GETARGC 0x64
-#define OPCODE_GETENV 0x65
-#define OPCODE_HALT 0xFF
-#define OPCODE_BREAK 0xFE
+enum class Opcode : uint8_t {
+    WRITE = 0x01,
+    NEWLINE = 0x02,
+    PRINT = 0x03,
+    PUSHI = 0x04,
+    POP = 0x05,
+    ADD = 0x06,
+    SUB = 0x07,
+    MUL = 0x08,
+    DIV = 0x09,
+    PRINTREG = 0x0A,
+    MOVI = 0x0B,
+    MOV_REG = 0x0C,
+    JMP = 0x0D,
+    JE = 0x0E,
+    JNE = 0x0F,
+    INC = 0x10,
+    DEC = 0x11,
+    PUSH_REG = 0x12,
+    CMP = 0x13,
+    ALLOC = 0x14,
+    LOAD = 0x15,
+    STORE = 0x16,
+    LOAD_REG = 0x41,
+    STORE_REG = 0x42,
+    LOADVAR = 0x43,
+    STOREVAR = 0x44,
+    LOADVAR_REG = 0x45,
+    STOREVAR_REG = 0x46,
+    GROW = 0x17,
+    PRINT_STACKSIZE = 0x18,
+    RESIZE = 0x19,
+    FREE = 0x20,
+    FOPEN = 0x21,
+    FCLOSE = 0x22,
+    FREAD = 0x23,
+    FWRITE_REG = 0x24,
+    FSEEK_REG = 0x25,
+    FSEEK_IMM = 0x26,
+    FWRITE_IMM = 0x27,
+    LOADSTR = 0x28,
+    PRINTSTR = 0x29,
+    XOR = 0x2A,
+    AND = 0x2B,
+    OR = 0x2C,
+    NOT = 0x2D,
+    READSTR = 0x2E,
+    READ = 0x33,
+    SLEEP = 0x2F,
+    SLEEP_REG = 0x60,
+    CLRSCR = 0x30,
+    RAND = 0x31,
+    GETKEY = 0x32,
+    CONTINUE = 0x34,
+    READCHAR = 0x35,
+    JL = 0x36,
+    JGE = 0x37,
+    JB = 0x38,
+    JAE = 0x39,
+    CALL = 0x3A,
+    RET = 0x3B,
+    LOADBYTE = 0x3C,
+    LOADWORD = 0x3D,
+    LOADDWORD = 0x3E,
+    LOADQWORD = 0x3F,
+    MOD = 0x40,
+    JMPI = 0x47,
+    EXEC = 0x48,
+    SYSCALL = 0x50,
+    SYSRET = 0x51,
+    DROPPRIV = 0x52,
+    REGSYSCALL = 0x53,
+    SETPERM = 0x54,
+    GETMODE = 0x55,
+    REGFAULT = 0x56,
+    FAULTRET = 0x57,
+    GETFAULT = 0x58,
+    DUMPREGS = 0x59,
+    PRINTCHAR = 0x5A,
+    EPRINTREG = 0x5B,
+    EPRINTSTR = 0x5C,
+    EPRINTCHAR = 0x5D,
+    SHLI = 0x5E,
+    SHRI = 0x5F,
+    SHR = 0x61,
+    SHL = 0x62,
+    GETARG = 0x63,
+    GETARGC = 0x64,
+    GETENV = 0x65,
+    HALT = 0xFF,
+    BREAK = 0xFE,
+};
+
+inline constexpr uint8_t opcode_to_byte(Opcode op) {
+    return static_cast<uint8_t>(op);
+}
+
+inline constexpr Opcode opcode_from_byte(uint8_t op) {
+    return static_cast<Opcode>(op);
+}
+

@@ -121,7 +121,7 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
         return std::nullopt;
     }
 
-    const uint8_t opcode = code[i];
+    const Opcode opcode = opcode_from_byte(code[i]);
     size_t j = i + 1;
 
     auto read_len_prefixed = [&]() -> bool {
@@ -134,7 +134,7 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
     };
 
     switch (opcode) {
-        case OPCODE_WRITE: {
+        case Opcode::WRITE: {
             if (j + 2 > code.size()) {
                 return std::nullopt;
             }
@@ -142,7 +142,7 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             j += 2 + static_cast<size_t>(slen);
             break;
         }
-        case OPCODE_EXEC: {
+        case Opcode::EXEC: {
             if (j + 2 > code.size()) {
                 return std::nullopt;
             }
@@ -150,58 +150,58 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             j += 2 + static_cast<size_t>(slen);
             break;
         }
-        case OPCODE_NEWLINE: // the reason all of the following opcodes are grouped together is that
-                             // they have the same operand format
-        case OPCODE_CLRSCR:
-        case OPCODE_CONTINUE:
-        case OPCODE_BREAK:
-        case OPCODE_PRINT_STACKSIZE:
-        case OPCODE_RET:
-        case OPCODE_SYSRET:
-        case OPCODE_DROPPRIV:
-        case OPCODE_FAULTRET:
-        case OPCODE_DUMPREGS:
+        case Opcode::NEWLINE: // the reason all of the following opcodes are grouped together is
+                              // that they have the same operand format
+        case Opcode::CLRSCR:
+        case Opcode::CONTINUE:
+        case Opcode::BREAK:
+        case Opcode::PRINT_STACKSIZE:
+        case Opcode::RET:
+        case Opcode::SYSRET:
+        case Opcode::DROPPRIV:
+        case Opcode::FAULTRET:
+        case Opcode::DUMPREGS:
             break;
-        case OPCODE_PRINT:
-        case OPCODE_PUSH_REG:
-        case OPCODE_POP:
-        case OPCODE_PRINTREG:
-        case OPCODE_EPRINTREG:
-        case OPCODE_INC:
-        case OPCODE_DEC:
-        case OPCODE_PRINTSTR:
-        case OPCODE_EPRINTSTR:
-        case OPCODE_PRINTCHAR:
-        case OPCODE_EPRINTCHAR:
-        case OPCODE_READ:
-        case OPCODE_READSTR:
-        case OPCODE_READCHAR:
-        case OPCODE_GETKEY:
-        case OPCODE_NOT:
-        case OPCODE_SYSCALL:
-        case OPCODE_GETMODE:
-        case OPCODE_GETFAULT:
-        case OPCODE_GETARGC:
-        case OPCODE_SLEEP_REG:
+        case Opcode::PRINT:
+        case Opcode::PUSH_REG:
+        case Opcode::POP:
+        case Opcode::PRINTREG:
+        case Opcode::EPRINTREG:
+        case Opcode::INC:
+        case Opcode::DEC:
+        case Opcode::PRINTSTR:
+        case Opcode::EPRINTSTR:
+        case Opcode::PRINTCHAR:
+        case Opcode::EPRINTCHAR:
+        case Opcode::READ:
+        case Opcode::READSTR:
+        case Opcode::READCHAR:
+        case Opcode::GETKEY:
+        case Opcode::NOT:
+        case Opcode::SYSCALL:
+        case Opcode::GETMODE:
+        case Opcode::GETFAULT:
+        case Opcode::GETARGC:
+        case Opcode::SLEEP_REG:
             j += 1;
             break;
-        case OPCODE_PUSHI:
-        case OPCODE_ALLOC:
-        case OPCODE_GROW:
-        case OPCODE_RESIZE:
-        case OPCODE_FREE:
-        case OPCODE_SLEEP:
-        case OPCODE_JMP:
-        case OPCODE_JMPI:
-        case OPCODE_JE:
-        case OPCODE_JNE:
-        case OPCODE_JL:
-        case OPCODE_JGE:
-        case OPCODE_JB:
-        case OPCODE_JAE:
-            if (opcode == OPCODE_JMP || opcode == OPCODE_JMPI || opcode == OPCODE_JE ||
-                opcode == OPCODE_JNE || opcode == OPCODE_JL || opcode == OPCODE_JGE ||
-                opcode == OPCODE_JB || opcode == OPCODE_JAE) {
+        case Opcode::PUSHI:
+        case Opcode::ALLOC:
+        case Opcode::GROW:
+        case Opcode::RESIZE:
+        case Opcode::FREE:
+        case Opcode::SLEEP:
+        case Opcode::JMP:
+        case Opcode::JMPI:
+        case Opcode::JE:
+        case Opcode::JNE:
+        case Opcode::JL:
+        case Opcode::JGE:
+        case Opcode::JB:
+        case Opcode::JAE:
+            if (opcode == Opcode::JMP || opcode == Opcode::JMPI || opcode == Opcode::JE ||
+                opcode == Opcode::JNE || opcode == Opcode::JL || opcode == Opcode::JGE ||
+                opcode == Opcode::JB || opcode == Opcode::JAE) {
                 uint32_t addr = 0;
                 if (blackbox::data::read_u32_le(code, j, addr)) {
                     ctx.jump_targets.insert(addr);
@@ -209,55 +209,55 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             }
             j += 4;
             break;
-        case OPCODE_MOVI:
+        case Opcode::MOVI:
             j += 1 + 4;
             break;
-        case OPCODE_MOV_REG:
-        case OPCODE_ADD:
-        case OPCODE_SUB:
-        case OPCODE_MUL:
-        case OPCODE_DIV:
-        case OPCODE_MOD:
-        case OPCODE_XOR:
-        case OPCODE_AND:
-        case OPCODE_OR:
-        case OPCODE_CMP:
-        case OPCODE_LOAD_REG:
-        case OPCODE_STORE_REG:
-        case OPCODE_LOADVAR_REG:
-        case OPCODE_STOREVAR_REG:
-        case OPCODE_FREAD:
-        case OPCODE_FWRITE_REG:
-        case OPCODE_FSEEK_REG:
-        case OPCODE_SHL:
-        case OPCODE_SHR:
+        case Opcode::MOV_REG:
+        case Opcode::ADD:
+        case Opcode::SUB:
+        case Opcode::MUL:
+        case Opcode::DIV:
+        case Opcode::MOD:
+        case Opcode::XOR:
+        case Opcode::AND:
+        case Opcode::OR:
+        case Opcode::CMP:
+        case Opcode::LOAD_REG:
+        case Opcode::STORE_REG:
+        case Opcode::LOADVAR_REG:
+        case Opcode::STOREVAR_REG:
+        case Opcode::FREAD:
+        case Opcode::FWRITE_REG:
+        case Opcode::FSEEK_REG:
+        case Opcode::SHL:
+        case Opcode::SHR:
             j += 2;
             break;
-        case OPCODE_LOAD:
-        case OPCODE_STORE:
-        case OPCODE_LOADVAR:
-        case OPCODE_STOREVAR:
-        case OPCODE_FWRITE_IMM:
-        case OPCODE_FSEEK_IMM:
-        case OPCODE_GETARG:
+        case Opcode::LOAD:
+        case Opcode::STORE:
+        case Opcode::LOADVAR:
+        case Opcode::STOREVAR:
+        case Opcode::FWRITE_IMM:
+        case Opcode::FSEEK_IMM:
+        case Opcode::GETARG:
             j += 1 + 4;
             break;
-        case OPCODE_LOADSTR:
-        case OPCODE_LOADBYTE:
-        case OPCODE_LOADWORD:
-        case OPCODE_LOADDWORD:
-        case OPCODE_LOADQWORD: {
+        case Opcode::LOADSTR:
+        case Opcode::LOADBYTE:
+        case Opcode::LOADWORD:
+        case Opcode::LOADDWORD:
+        case Opcode::LOADQWORD: {
             if (j + 5 <= code.size()) {
                 uint32_t off = 0;
                 if (blackbox::data::read_u32_le(code, j + 1, off)) {
                     DataRefKind kind = DataRefKind::Str;
-                    if (opcode == OPCODE_LOADBYTE) {
+                    if (opcode == Opcode::LOADBYTE) {
                         kind = DataRefKind::Byte;
-                    } else if (opcode == OPCODE_LOADWORD) {
+                    } else if (opcode == Opcode::LOADWORD) {
                         kind = DataRefKind::Word;
-                    } else if (opcode == OPCODE_LOADDWORD) {
+                    } else if (opcode == Opcode::LOADDWORD) {
                         kind = DataRefKind::Dword;
-                    } else if (opcode == OPCODE_LOADQWORD) {
+                    } else if (opcode == Opcode::LOADQWORD) {
                         kind = DataRefKind::Qword;
                     }
                     ctx.data_refs.emplace(off, kind);
@@ -266,7 +266,7 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             j += 1 + 4;
             break;
         }
-        case OPCODE_FOPEN: {
+        case Opcode::FOPEN: {
             if (j + 3 > code.size()) {
                 return std::nullopt;
             }
@@ -274,10 +274,10 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             j += 3 + static_cast<size_t>(name_len);
             break;
         }
-        case OPCODE_RAND:
+        case Opcode::RAND:
             j += 1 + 8 + 8;
             break;
-        case OPCODE_CALL: {
+        case Opcode::CALL: {
             uint32_t addr = 0;
             uint32_t frame = 0;
             if (blackbox::data::read_u32_le(code, j, addr)) {
@@ -289,13 +289,13 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             j += 8;
             break;
         }
-        case OPCODE_HALT:
+        case Opcode::HALT:
             if (j < code.size()) {
                 j += 1;
             }
             break;
-        case OPCODE_REGSYSCALL:
-        case OPCODE_REGFAULT: {
+        case Opcode::REGSYSCALL:
+        case Opcode::REGFAULT: {
             uint32_t addr = 0;
             if (blackbox::data::read_u32_le(code, j + 1, addr)) {
                 ctx.jump_targets.insert(addr);
@@ -303,14 +303,14 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             j += 1 + 4;
             break;
         }
-        case OPCODE_SETPERM:
+        case Opcode::SETPERM:
             j += 4 + 4 + 1 + 1 + 1 + 1;
             break;
-        case OPCODE_SHLI:
-        case OPCODE_SHRI:
+        case Opcode::SHLI:
+        case Opcode::SHRI:
             j += 1 + 8;
             break;
-        case OPCODE_GETENV: {
+        case Opcode::GETENV: {
             if (j + 2 > code.size()) {
                 return std::nullopt;
             }
@@ -421,7 +421,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
         }
     }
 
-    const uint8_t opcode = code[i];
+    const Opcode opcode = opcode_from_byte(code[i]);
     size_t j = i + 1;
 
     auto fail_if_over = [&]() -> std::optional<size_t> {
@@ -432,7 +432,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
     };
 
     switch (opcode) {
-        case OPCODE_WRITE: {
+        case Opcode::WRITE: {
             if (j + 2 > code.size()) {
                 return std::nullopt;
             }
@@ -448,7 +448,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    write " << fd_name << " \"" << s << "\"\n";
             break;
         }
-        case OPCODE_EXEC: {
+        case Opcode::EXEC: {
             if (j + 2 > code.size()) {
                 return std::nullopt;
             }
@@ -460,10 +460,10 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    exec \"" << s << "\", " << reg_name(dest) << "\n";
             break;
         }
-        case OPCODE_NEWLINE:
+        case Opcode::NEWLINE:
             os << "    newline\n";
             break;
-        case OPCODE_PRINT: {
+        case Opcode::PRINT: {
             uint8_t ch = 0;
             if (!blackbox::data::read_u8(code, j, ch)) {
                 return std::nullopt;
@@ -472,7 +472,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    print '" << static_cast<char>(ch) << "'\n";
             break;
         }
-        case OPCODE_PUSHI: {
+        case Opcode::PUSHI: {
             int32_t v = 0;
             if (!blackbox::data::read_i32_le(code, j, v)) {
                 return std::nullopt;
@@ -481,7 +481,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    pushi " << v << "\n";
             break;
         }
-        case OPCODE_PUSH_REG: {
+        case Opcode::PUSH_REG: {
             uint8_t r = 0;
             if (!blackbox::data::read_u8(code, j, r)) {
                 return std::nullopt;
@@ -490,7 +490,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    push " << reg_name(r) << "\n";
             break;
         }
-        case OPCODE_POP: {
+        case Opcode::POP: {
             uint8_t r = 0;
             if (!blackbox::data::read_u8(code, j, r)) {
                 return std::nullopt;
@@ -499,7 +499,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    pop " << reg_name(r) << "\n";
             break;
         }
-        case OPCODE_MOVI: {
+        case Opcode::MOVI: {
             if (j + 5 > code.size()) {
                 return std::nullopt;
             }
@@ -512,25 +512,25 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    movi " << reg_name(dst) << ", " << imm << "\n";
             break;
         }
-        case OPCODE_MOV_REG:
-        case OPCODE_ADD:
-        case OPCODE_SUB:
-        case OPCODE_MUL:
-        case OPCODE_DIV:
-        case OPCODE_MOD:
-        case OPCODE_XOR:
-        case OPCODE_AND:
-        case OPCODE_OR:
-        case OPCODE_CMP:
-        case OPCODE_LOAD_REG:
-        case OPCODE_STORE_REG:
-        case OPCODE_LOADVAR_REG:
-        case OPCODE_STOREVAR_REG:
-        case OPCODE_FREAD:
-        case OPCODE_FWRITE_REG:
-        case OPCODE_FSEEK_REG:
-        case OPCODE_SHL:
-        case OPCODE_SHR: {
+        case Opcode::MOV_REG:
+        case Opcode::ADD:
+        case Opcode::SUB:
+        case Opcode::MUL:
+        case Opcode::DIV:
+        case Opcode::MOD:
+        case Opcode::XOR:
+        case Opcode::AND:
+        case Opcode::OR:
+        case Opcode::CMP:
+        case Opcode::LOAD_REG:
+        case Opcode::STORE_REG:
+        case Opcode::LOADVAR_REG:
+        case Opcode::STOREVAR_REG:
+        case Opcode::FREAD:
+        case Opcode::FWRITE_REG:
+        case Opcode::FSEEK_REG:
+        case Opcode::SHL:
+        case Opcode::SHR: {
             if (j + 2 > code.size()) {
                 return std::nullopt;
             }
@@ -539,61 +539,61 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             j += 2;
 
             switch (opcode) {
-                case OPCODE_MOV_REG:
+                case Opcode::MOV_REG:
                     os << "    mov " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_ADD:
+                case Opcode::ADD:
                     os << "    add " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_SUB:
+                case Opcode::SUB:
                     os << "    sub " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_MUL:
+                case Opcode::MUL:
                     os << "    mul " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_DIV:
+                case Opcode::DIV:
                     os << "    div " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_MOD:
+                case Opcode::MOD:
                     os << "    mod " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_XOR:
+                case Opcode::XOR:
                     os << "    xor " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_AND:
+                case Opcode::AND:
                     os << "    and " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_OR:
+                case Opcode::OR:
                     os << "    or " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_CMP:
+                case Opcode::CMP:
                     os << "    cmp " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_LOAD_REG:
+                case Opcode::LOAD_REG:
                     os << "    load " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_STORE_REG:
+                case Opcode::STORE_REG:
                     os << "    store " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_LOADVAR_REG:
+                case Opcode::LOADVAR_REG:
                     os << "    loadvar " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_STOREVAR_REG:
+                case Opcode::STOREVAR_REG:
                     os << "    storevar " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_FREAD:
+                case Opcode::FREAD:
                     os << "    fread " << file_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_FWRITE_REG:
+                case Opcode::FWRITE_REG:
                     os << "    fwrite " << file_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_FSEEK_REG:
+                case Opcode::FSEEK_REG:
                     os << "    fseek " << file_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_SHL:
+                case Opcode::SHL:
                     os << "    shl " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
-                case OPCODE_SHR:
+                case Opcode::SHR:
                     os << "    shr " << reg_name(a) << ", " << reg_name(b) << "\n";
                     break;
                 default:
@@ -601,23 +601,23 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             }
             break;
         }
-        case OPCODE_NOT:
-        case OPCODE_PRINTREG:
-        case OPCODE_EPRINTREG:
-        case OPCODE_INC:
-        case OPCODE_DEC:
-        case OPCODE_PRINTSTR:
-        case OPCODE_EPRINTSTR:
-        case OPCODE_READ:
-        case OPCODE_READSTR:
-        case OPCODE_READCHAR:
-        case OPCODE_GETKEY:
-        case OPCODE_PRINTCHAR:
-        case OPCODE_EPRINTCHAR:
-        case OPCODE_SLEEP_REG:
-        case OPCODE_GETMODE:
-        case OPCODE_GETFAULT:
-        case OPCODE_GETARGC: {
+        case Opcode::NOT:
+        case Opcode::PRINTREG:
+        case Opcode::EPRINTREG:
+        case Opcode::INC:
+        case Opcode::DEC:
+        case Opcode::PRINTSTR:
+        case Opcode::EPRINTSTR:
+        case Opcode::READ:
+        case Opcode::READSTR:
+        case Opcode::READCHAR:
+        case Opcode::GETKEY:
+        case Opcode::PRINTCHAR:
+        case Opcode::EPRINTCHAR:
+        case Opcode::SLEEP_REG:
+        case Opcode::GETMODE:
+        case Opcode::GETFAULT:
+        case Opcode::GETARGC: {
             uint8_t r = 0;
             if (!blackbox::data::read_u8(code, j, r)) {
                 return std::nullopt;
@@ -625,55 +625,55 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             j += 1;
 
             switch (opcode) {
-                case OPCODE_NOT:
+                case Opcode::NOT:
                     os << "    not " << reg_name(r) << "\n";
                     break;
-                case OPCODE_PRINTREG:
+                case Opcode::PRINTREG:
                     os << "    printreg " << reg_name(r) << "\n";
                     break;
-                case OPCODE_EPRINTREG:
+                case Opcode::EPRINTREG:
                     os << "    eprintreg " << reg_name(r) << "\n";
                     break;
-                case OPCODE_INC:
+                case Opcode::INC:
                     os << "    inc " << reg_name(r) << "\n";
                     break;
-                case OPCODE_DEC:
+                case Opcode::DEC:
                     os << "    dec " << reg_name(r) << "\n";
                     break;
-                case OPCODE_PRINTSTR:
+                case Opcode::PRINTSTR:
                     os << "    printstr " << reg_name(r) << "\n";
                     break;
-                case OPCODE_EPRINTSTR:
+                case Opcode::EPRINTSTR:
                     os << "    eprintstr " << reg_name(r) << "\n";
                     break;
-                case OPCODE_READ:
+                case Opcode::READ:
                     os << "    read " << reg_name(r) << "\n";
                     break;
-                case OPCODE_READSTR:
+                case Opcode::READSTR:
                     os << "    readstr " << reg_name(r) << "\n";
                     break;
-                case OPCODE_READCHAR:
+                case Opcode::READCHAR:
                     os << "    readchar " << reg_name(r) << "\n";
                     break;
-                case OPCODE_GETKEY:
+                case Opcode::GETKEY:
                     os << "    getkey " << reg_name(r) << "\n";
                     break;
-                case OPCODE_PRINTCHAR:
+                case Opcode::PRINTCHAR:
                     os << "    printchar " << reg_name(r) << "\n";
                     break;
-                case OPCODE_EPRINTCHAR:
+                case Opcode::EPRINTCHAR:
                     os << "    eprintchar " << reg_name(r) << "\n";
                     break;
-                case OPCODE_SLEEP_REG:
+                case Opcode::SLEEP_REG:
                     os << "    sleep " << reg_name(r) << "\n";
                     break;
-                case OPCODE_GETMODE:
+                case Opcode::GETMODE:
                     os << "    getmode " << reg_name(r) << "\n";
                     break;
-                case OPCODE_GETFAULT:
+                case Opcode::GETFAULT:
                     os << "    getfault " << reg_name(r) << "\n";
                     break;
-                case OPCODE_GETARGC:
+                case Opcode::GETARGC:
                     os << "    getargc " << reg_name(r) << "\n";
                     break;
                 default:
@@ -681,14 +681,14 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             }
             break;
         }
-        case OPCODE_JMP:
-        case OPCODE_JE:
-        case OPCODE_JNE:
-        case OPCODE_JL:
-        case OPCODE_JGE:
-        case OPCODE_JB:
-        case OPCODE_JAE:
-        case OPCODE_JMPI: {
+        case Opcode::JMP:
+        case Opcode::JE:
+        case Opcode::JNE:
+        case Opcode::JL:
+        case Opcode::JGE:
+        case Opcode::JB:
+        case Opcode::JAE:
+        case Opcode::JMPI: {
             uint32_t addr = 0;
             if (!blackbox::data::read_u32_le(code, j, addr)) {
                 return std::nullopt;
@@ -696,28 +696,28 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             j += 4;
 
             switch (opcode) {
-                case OPCODE_JMP:
+                case Opcode::JMP:
                     os << "    jmp " << label_name(addr) << "\n";
                     break;
-                case OPCODE_JE:
+                case Opcode::JE:
                     os << "    je " << label_name(addr) << "\n";
                     break;
-                case OPCODE_JNE:
+                case Opcode::JNE:
                     os << "    jne " << label_name(addr) << "\n";
                     break;
-                case OPCODE_JL:
+                case Opcode::JL:
                     os << "    jl " << label_name(addr) << "\n";
                     break;
-                case OPCODE_JGE:
+                case Opcode::JGE:
                     os << "    jge " << label_name(addr) << "\n";
                     break;
-                case OPCODE_JB:
+                case Opcode::JB:
                     os << "    jb " << label_name(addr) << "\n";
                     break;
-                case OPCODE_JAE:
+                case Opcode::JAE:
                     os << "    jae " << label_name(addr) << "\n";
                     break;
-                case OPCODE_JMPI:
+                case Opcode::JMPI:
                     os << "    jmpi " << addr << "\n";
                     break;
                 default:
@@ -725,11 +725,11 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             }
             break;
         }
-        case OPCODE_ALLOC:
-        case OPCODE_GROW:
-        case OPCODE_RESIZE:
-        case OPCODE_FREE:
-        case OPCODE_SLEEP: {
+        case Opcode::ALLOC:
+        case Opcode::GROW:
+        case Opcode::RESIZE:
+        case Opcode::FREE:
+        case Opcode::SLEEP: {
             uint32_t value = 0;
             if (!blackbox::data::read_u32_le(code, j, value)) {
                 return std::nullopt;
@@ -737,19 +737,19 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             j += 4;
 
             switch (opcode) {
-                case OPCODE_ALLOC:
+                case Opcode::ALLOC:
                     os << "    alloc " << value << "\n";
                     break;
-                case OPCODE_GROW:
+                case Opcode::GROW:
                     os << "    grow " << value << "\n";
                     break;
-                case OPCODE_RESIZE:
+                case Opcode::RESIZE:
                     os << "    resize " << value << "\n";
                     break;
-                case OPCODE_FREE:
+                case Opcode::FREE:
                     os << "    free " << value << "\n";
                     break;
-                case OPCODE_SLEEP:
+                case Opcode::SLEEP:
                     os << "    sleep " << value << "\n";
                     break;
                 default:
@@ -757,18 +757,18 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             }
             break;
         }
-        case OPCODE_LOAD:
-        case OPCODE_STORE:
-        case OPCODE_LOADVAR:
-        case OPCODE_STOREVAR:
-        case OPCODE_LOADSTR:
-        case OPCODE_LOADBYTE:
-        case OPCODE_LOADWORD:
-        case OPCODE_LOADDWORD:
-        case OPCODE_LOADQWORD:
-        case OPCODE_FWRITE_IMM:
-        case OPCODE_FSEEK_IMM:
-        case OPCODE_GETARG: {
+        case Opcode::LOAD:
+        case Opcode::STORE:
+        case Opcode::LOADVAR:
+        case Opcode::STOREVAR:
+        case Opcode::LOADSTR:
+        case Opcode::LOADBYTE:
+        case Opcode::LOADWORD:
+        case Opcode::LOADDWORD:
+        case Opcode::LOADQWORD:
+        case Opcode::FWRITE_IMM:
+        case Opcode::FSEEK_IMM:
+        case Opcode::GETARG: {
             if (j + 5 > code.size()) {
                 return std::nullopt;
             }
@@ -780,45 +780,45 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             j += 5;
 
             switch (opcode) {
-                case OPCODE_LOAD:
+                case Opcode::LOAD:
                     os << "    load " << reg_name(a) << ", " << b << "\n";
                     break;
-                case OPCODE_STORE:
+                case Opcode::STORE:
                     os << "    store " << reg_name(a) << ", " << b << "\n";
                     break;
-                case OPCODE_LOADVAR:
+                case Opcode::LOADVAR:
                     os << "    loadvar " << reg_name(a) << ", " << b << "\n";
                     break;
-                case OPCODE_STOREVAR:
+                case Opcode::STOREVAR:
                     os << "    storevar " << reg_name(a) << ", " << b << "\n";
                     break;
-                case OPCODE_LOADSTR:
+                case Opcode::LOADSTR:
                     os << "    loadstr " << data_name_for_offset(data_entries, b) << ", "
                        << reg_name(a) << "\n";
                     break;
-                case OPCODE_LOADBYTE:
+                case Opcode::LOADBYTE:
                     os << "    loadbyte " << data_name_for_offset(data_entries, b) << ", "
                        << reg_name(a) << "\n";
                     break;
-                case OPCODE_LOADWORD:
+                case Opcode::LOADWORD:
                     os << "    loadword " << data_name_for_offset(data_entries, b) << ", "
                        << reg_name(a) << "\n";
                     break;
-                case OPCODE_LOADDWORD:
+                case Opcode::LOADDWORD:
                     os << "    loaddword " << data_name_for_offset(data_entries, b) << ", "
                        << reg_name(a) << "\n";
                     break;
-                case OPCODE_LOADQWORD:
+                case Opcode::LOADQWORD:
                     os << "    loadqword " << data_name_for_offset(data_entries, b) << ", "
                        << reg_name(a) << "\n";
                     break;
-                case OPCODE_FWRITE_IMM:
+                case Opcode::FWRITE_IMM:
                     os << "    fwrite " << file_name(a) << ", " << static_cast<int32_t>(b) << "\n";
                     break;
-                case OPCODE_FSEEK_IMM:
+                case Opcode::FSEEK_IMM:
                     os << "    fseek " << file_name(a) << ", " << static_cast<int32_t>(b) << "\n";
                     break;
-                case OPCODE_GETARG:
+                case Opcode::GETARG:
                     os << "    getarg " << reg_name(a) << ", " << b << "\n";
                     break;
                 default:
@@ -826,7 +826,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             }
             break;
         }
-        case OPCODE_FOPEN: {
+        case Opcode::FOPEN: {
             if (j + 3 > code.size()) {
                 return std::nullopt;
             }
@@ -847,7 +847,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    fopen " << mode_str << ", " << file_name(fd) << ", \"" << filename << "\"\n";
             break;
         }
-        case OPCODE_FCLOSE: {
+        case Opcode::FCLOSE: {
             uint8_t fd = 0;
             if (!blackbox::data::read_u8(code, j, fd)) {
                 return std::nullopt;
@@ -856,7 +856,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    fclose " << file_name(fd) << "\n";
             break;
         }
-        case OPCODE_RAND: {
+        case Opcode::RAND: {
             if (j + 17 > code.size()) {
                 return std::nullopt;
             }
@@ -878,7 +878,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             }
             break;
         }
-        case OPCODE_CALL: {
+        case Opcode::CALL: {
             uint32_t addr = 0;
             uint32_t frame = 0;
             if (!blackbox::data::read_u32_le(code, j, addr) ||
@@ -890,13 +890,13 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    call " << label_name(addr) << "\n";
             break;
         }
-        case OPCODE_RET:
+        case Opcode::RET:
             os << "    ret\n";
             break;
-        case OPCODE_PRINT_STACKSIZE:
+        case Opcode::PRINT_STACKSIZE:
             os << "    print_stacksize\n";
             break;
-        case OPCODE_HALT:
+        case Opcode::HALT:
             if (j < code.size()) {
                 const uint8_t code_byte = code[j];
                 j += 1;
@@ -911,16 +911,16 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
                 os << "    halt\n";
             }
             break;
-        case OPCODE_BREAK:
+        case Opcode::BREAK:
             os << "    break\n";
             break;
-        case OPCODE_CONTINUE:
+        case Opcode::CONTINUE:
             os << "    continue\n";
             break;
-        case OPCODE_CLRSCR:
+        case Opcode::CLRSCR:
             os << "    clrscr\n";
             break;
-        case OPCODE_SYSCALL: {
+        case Opcode::SYSCALL: {
             uint8_t id = 0;
             if (!blackbox::data::read_u8(code, j, id)) {
                 return std::nullopt;
@@ -929,8 +929,8 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    syscall " << static_cast<unsigned>(id) << "\n";
             break;
         }
-        case OPCODE_REGSYSCALL:
-        case OPCODE_REGFAULT: {
+        case Opcode::REGSYSCALL:
+        case Opcode::REGFAULT: {
             if (j + 5 > code.size()) {
                 return std::nullopt;
             }
@@ -940,7 +940,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
                 return std::nullopt;
             }
             j += 5;
-            if (opcode == OPCODE_REGSYSCALL) {
+            if (opcode == Opcode::REGSYSCALL) {
                 os << "    regsyscall " << static_cast<unsigned>(id) << ", " << label_name(addr)
                    << "\n";
             } else {
@@ -949,13 +949,13 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             }
             break;
         }
-        case OPCODE_SYSRET:
+        case Opcode::SYSRET:
             os << "    sysret\n";
             break;
-        case OPCODE_DROPPRIV:
+        case Opcode::DROPPRIV:
             os << "    droppriv\n";
             break;
-        case OPCODE_SETPERM: {
+        case Opcode::SETPERM: {
             if (j + 12 > code.size()) {
                 return std::nullopt;
             }
@@ -996,14 +996,14 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             os << "    setperm " << start << ", " << count << ", " << priv << "/" << prot << "\n";
             break;
         }
-        case OPCODE_DUMPREGS:
+        case Opcode::DUMPREGS:
             os << "    dumpregs\n";
             break;
-        case OPCODE_FAULTRET:
+        case Opcode::FAULTRET:
             os << "    faultret\n";
             break;
-        case OPCODE_SHLI:
-        case OPCODE_SHRI: {
+        case Opcode::SHLI:
+        case Opcode::SHRI: {
             if (j + 9 > code.size()) {
                 return std::nullopt;
             }
@@ -1013,14 +1013,14 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
                 return std::nullopt;
             }
             j += 9;
-            if (opcode == OPCODE_SHLI) {
+            if (opcode == Opcode::SHLI) {
                 os << "    shli " << reg_name(reg) << ", " << amount << "\n";
             } else {
                 os << "    shri " << reg_name(reg) << ", " << amount << "\n";
             }
             break;
         }
-        case OPCODE_GETENV: {
+        case Opcode::GETENV: {
             if (j + 2 > code.size()) {
                 return std::nullopt;
             }
@@ -1034,7 +1034,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
         }
         default:
             os << "    ; unknown opcode 0x" << std::hex << std::setw(2) << std::setfill('0')
-               << static_cast<unsigned>(opcode) << std::dec << "\n";
+               << static_cast<unsigned>(opcode_to_byte(opcode)) << std::dec << "\n";
             break;
     }
 
@@ -1048,7 +1048,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
     }
 
     const size_t offset = i;
-    const uint8_t opcode = bytes[i];
+    const Opcode opcode = opcode_from_byte(bytes[i]);
     size_t j = i + 1;
 
     auto print_offset = [&](const std::string& text) {
@@ -1064,7 +1064,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
     };
 
     switch (opcode) {
-        case OPCODE_WRITE: {
+        case Opcode::WRITE: {
             if (j + 2 > bytes.size()) {
                 return invalid();
             }
@@ -1078,7 +1078,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(msg.str());
             break;
         }
-        case OPCODE_EXEC: {
+        case Opcode::EXEC: {
             if (j + 2 > bytes.size()) {
                 return invalid();
             }
@@ -1092,10 +1092,10 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(msg.str());
             break;
         }
-        case OPCODE_NEWLINE:
+        case Opcode::NEWLINE:
             print_offset("newline");
             break;
-        case OPCODE_PRINT: {
+        case Opcode::PRINT: {
             uint8_t ch = 0;
             if (!blackbox::data::read_u8(bytes, j, ch)) {
                 return invalid();
@@ -1106,7 +1106,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(msg.str());
             break;
         }
-        case OPCODE_PUSHI: {
+        case Opcode::PUSHI: {
             int32_t v = 0;
             if (!blackbox::data::read_i32_le(bytes, j, v)) {
                 return invalid();
@@ -1115,26 +1115,26 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset("pushi " + std::to_string(v));
             break;
         }
-        case OPCODE_PUSH_REG:
-        case OPCODE_POP:
-        case OPCODE_PRINTREG:
-        case OPCODE_EPRINTREG:
-        case OPCODE_INC:
-        case OPCODE_DEC:
-        case OPCODE_PRINTSTR:
-        case OPCODE_EPRINTSTR:
-        case OPCODE_PRINTCHAR:
-        case OPCODE_EPRINTCHAR:
-        case OPCODE_READ:
-        case OPCODE_READSTR:
-        case OPCODE_READCHAR:
-        case OPCODE_GETKEY:
-        case OPCODE_NOT:
-        case OPCODE_GETMODE:
-        case OPCODE_GETFAULT:
-        case OPCODE_GETARGC:
-        case OPCODE_SLEEP_REG:
-        case OPCODE_SYSCALL: {
+        case Opcode::PUSH_REG:
+        case Opcode::POP:
+        case Opcode::PRINTREG:
+        case Opcode::EPRINTREG:
+        case Opcode::INC:
+        case Opcode::DEC:
+        case Opcode::PRINTSTR:
+        case Opcode::EPRINTSTR:
+        case Opcode::PRINTCHAR:
+        case Opcode::EPRINTCHAR:
+        case Opcode::READ:
+        case Opcode::READSTR:
+        case Opcode::READCHAR:
+        case Opcode::GETKEY:
+        case Opcode::NOT:
+        case Opcode::GETMODE:
+        case Opcode::GETFAULT:
+        case Opcode::GETARGC:
+        case Opcode::SLEEP_REG:
+        case Opcode::SYSCALL: {
             uint8_t r = 0;
             if (!blackbox::data::read_u8(bytes, j, r)) {
                 return invalid();
@@ -1143,64 +1143,64 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
 
             std::string name;
             switch (opcode) {
-                case OPCODE_PUSH_REG:
+                case Opcode::PUSH_REG:
                     name = "push";
                     break;
-                case OPCODE_POP:
+                case Opcode::POP:
                     name = "pop";
                     break;
-                case OPCODE_PRINTREG:
+                case Opcode::PRINTREG:
                     name = "printreg";
                     break;
-                case OPCODE_EPRINTREG:
+                case Opcode::EPRINTREG:
                     name = "eprintreg";
                     break;
-                case OPCODE_INC:
+                case Opcode::INC:
                     name = "inc";
                     break;
-                case OPCODE_DEC:
+                case Opcode::DEC:
                     name = "dec";
                     break;
-                case OPCODE_PRINTSTR:
+                case Opcode::PRINTSTR:
                     name = "printstr";
                     break;
-                case OPCODE_EPRINTSTR:
+                case Opcode::EPRINTSTR:
                     name = "eprintstr";
                     break;
-                case OPCODE_PRINTCHAR:
+                case Opcode::PRINTCHAR:
                     name = "printchar";
                     break;
-                case OPCODE_EPRINTCHAR:
+                case Opcode::EPRINTCHAR:
                     name = "eprintchar";
                     break;
-                case OPCODE_READ:
+                case Opcode::READ:
                     name = "read";
                     break;
-                case OPCODE_READSTR:
+                case Opcode::READSTR:
                     name = "readstr";
                     break;
-                case OPCODE_READCHAR:
+                case Opcode::READCHAR:
                     name = "readchar";
                     break;
-                case OPCODE_GETKEY:
+                case Opcode::GETKEY:
                     name = "getkey";
                     break;
-                case OPCODE_NOT:
+                case Opcode::NOT:
                     name = "not";
                     break;
-                case OPCODE_GETMODE:
+                case Opcode::GETMODE:
                     name = "getmode";
                     break;
-                case OPCODE_GETFAULT:
+                case Opcode::GETFAULT:
                     name = "getfault";
                     break;
-                case OPCODE_GETARGC:
+                case Opcode::GETARGC:
                     name = "getargc";
                     break;
-                case OPCODE_SLEEP_REG:
+                case Opcode::SLEEP_REG:
                     name = "sleep";
                     break;
-                case OPCODE_SYSCALL:
+                case Opcode::SYSCALL:
                     name = "syscall";
                     break;
                 default:
@@ -1208,14 +1208,14 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
                     break;
             }
 
-            if (opcode == OPCODE_SYSCALL) {
+            if (opcode == Opcode::SYSCALL) {
                 print_offset(name + " " + std::to_string(static_cast<unsigned>(r)));
             } else {
                 print_offset(name + " " + reg_name(r));
             }
             break;
         }
-        case OPCODE_MOVI: {
+        case Opcode::MOVI: {
             if (j + 5 > bytes.size()) {
                 return invalid();
             }
@@ -1228,25 +1228,25 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset("movi " + reg_name(dst) + ", " + std::to_string(imm));
             break;
         }
-        case OPCODE_MOV_REG:
-        case OPCODE_ADD:
-        case OPCODE_SUB:
-        case OPCODE_MUL:
-        case OPCODE_DIV:
-        case OPCODE_MOD:
-        case OPCODE_XOR:
-        case OPCODE_AND:
-        case OPCODE_OR:
-        case OPCODE_CMP:
-        case OPCODE_LOAD_REG:
-        case OPCODE_STORE_REG:
-        case OPCODE_LOADVAR_REG:
-        case OPCODE_STOREVAR_REG:
-        case OPCODE_FREAD:
-        case OPCODE_FWRITE_REG:
-        case OPCODE_FSEEK_REG:
-        case OPCODE_SHL:
-        case OPCODE_SHR: {
+        case Opcode::MOV_REG:
+        case Opcode::ADD:
+        case Opcode::SUB:
+        case Opcode::MUL:
+        case Opcode::DIV:
+        case Opcode::MOD:
+        case Opcode::XOR:
+        case Opcode::AND:
+        case Opcode::OR:
+        case Opcode::CMP:
+        case Opcode::LOAD_REG:
+        case Opcode::STORE_REG:
+        case Opcode::LOADVAR_REG:
+        case Opcode::STOREVAR_REG:
+        case Opcode::FREAD:
+        case Opcode::FWRITE_REG:
+        case Opcode::FSEEK_REG:
+        case Opcode::SHL:
+        case Opcode::SHR: {
             if (j + 2 > bytes.size()) {
                 return invalid();
             }
@@ -1256,61 +1256,61 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
 
             std::string op;
             switch (opcode) {
-                case OPCODE_MOV_REG:
+                case Opcode::MOV_REG:
                     op = "mov";
                     break;
-                case OPCODE_ADD:
+                case Opcode::ADD:
                     op = "add";
                     break;
-                case OPCODE_SUB:
+                case Opcode::SUB:
                     op = "sub";
                     break;
-                case OPCODE_MUL:
+                case Opcode::MUL:
                     op = "mul";
                     break;
-                case OPCODE_DIV:
+                case Opcode::DIV:
                     op = "div";
                     break;
-                case OPCODE_MOD:
+                case Opcode::MOD:
                     op = "mod";
                     break;
-                case OPCODE_XOR:
+                case Opcode::XOR:
                     op = "xor";
                     break;
-                case OPCODE_AND:
+                case Opcode::AND:
                     op = "and";
                     break;
-                case OPCODE_OR:
+                case Opcode::OR:
                     op = "or";
                     break;
-                case OPCODE_CMP:
+                case Opcode::CMP:
                     op = "cmp";
                     break;
-                case OPCODE_LOAD_REG:
+                case Opcode::LOAD_REG:
                     op = "load";
                     break;
-                case OPCODE_STORE_REG:
+                case Opcode::STORE_REG:
                     op = "store";
                     break;
-                case OPCODE_LOADVAR_REG:
+                case Opcode::LOADVAR_REG:
                     op = "loadvar";
                     break;
-                case OPCODE_STOREVAR_REG:
+                case Opcode::STOREVAR_REG:
                     op = "storevar";
                     break;
-                case OPCODE_FREAD:
+                case Opcode::FREAD:
                     op = "fread";
                     break;
-                case OPCODE_FWRITE_REG:
+                case Opcode::FWRITE_REG:
                     op = "fwrite";
                     break;
-                case OPCODE_FSEEK_REG:
+                case Opcode::FSEEK_REG:
                     op = "fseek";
                     break;
-                case OPCODE_SHL:
+                case Opcode::SHL:
                     op = "shl";
                     break;
-                case OPCODE_SHR:
+                case Opcode::SHR:
                     op = "shr";
                     break;
                 default:
@@ -1319,8 +1319,8 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             }
 
             std::ostringstream msg;
-            if (opcode == OPCODE_FREAD || opcode == OPCODE_FWRITE_REG ||
-                opcode == OPCODE_FSEEK_REG) {
+            if (opcode == Opcode::FREAD || opcode == Opcode::FWRITE_REG ||
+                opcode == Opcode::FSEEK_REG) {
                 msg << op << " " << file_name(a) << ", " << reg_name(b);
             } else {
                 msg << op << " " << reg_name(a) << ", " << reg_name(b);
@@ -1328,14 +1328,14 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(msg.str());
             break;
         }
-        case OPCODE_JMP:
-        case OPCODE_JMPI:
-        case OPCODE_JE:
-        case OPCODE_JNE:
-        case OPCODE_JL:
-        case OPCODE_JGE:
-        case OPCODE_JB:
-        case OPCODE_JAE: {
+        case Opcode::JMP:
+        case Opcode::JMPI:
+        case Opcode::JE:
+        case Opcode::JNE:
+        case Opcode::JL:
+        case Opcode::JGE:
+        case Opcode::JB:
+        case Opcode::JAE: {
             uint32_t addr = 0;
             if (!blackbox::data::read_u32_le(bytes, j, addr)) {
                 return invalid();
@@ -1344,28 +1344,28 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
 
             std::string op;
             switch (opcode) {
-                case OPCODE_JMP:
+                case Opcode::JMP:
                     op = "jmp";
                     break;
-                case OPCODE_JMPI:
+                case Opcode::JMPI:
                     op = "jmpi";
                     break;
-                case OPCODE_JE:
+                case Opcode::JE:
                     op = "je";
                     break;
-                case OPCODE_JNE:
+                case Opcode::JNE:
                     op = "jne";
                     break;
-                case OPCODE_JL:
+                case Opcode::JL:
                     op = "jl";
                     break;
-                case OPCODE_JGE:
+                case Opcode::JGE:
                     op = "jge";
                     break;
-                case OPCODE_JB:
+                case Opcode::JB:
                     op = "jb";
                     break;
-                case OPCODE_JAE:
+                case Opcode::JAE:
                     op = "jae";
                     break;
                 default:
@@ -1380,11 +1380,11 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             }());
             break;
         }
-        case OPCODE_ALLOC:
-        case OPCODE_GROW:
-        case OPCODE_RESIZE:
-        case OPCODE_FREE:
-        case OPCODE_SLEEP: {
+        case Opcode::ALLOC:
+        case Opcode::GROW:
+        case Opcode::RESIZE:
+        case Opcode::FREE:
+        case Opcode::SLEEP: {
             uint32_t value = 0;
             if (!blackbox::data::read_u32_le(bytes, j, value)) {
                 return invalid();
@@ -1393,19 +1393,19 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
 
             std::string op;
             switch (opcode) {
-                case OPCODE_ALLOC:
+                case Opcode::ALLOC:
                     op = "alloc";
                     break;
-                case OPCODE_GROW:
+                case Opcode::GROW:
                     op = "grow";
                     break;
-                case OPCODE_RESIZE:
+                case Opcode::RESIZE:
                     op = "resize";
                     break;
-                case OPCODE_FREE:
+                case Opcode::FREE:
                     op = "free";
                     break;
-                case OPCODE_SLEEP:
+                case Opcode::SLEEP:
                     op = "sleep";
                     break;
                 default:
@@ -1416,18 +1416,18 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(op + " " + std::to_string(value));
             break;
         }
-        case OPCODE_LOAD:
-        case OPCODE_STORE:
-        case OPCODE_LOADVAR:
-        case OPCODE_STOREVAR:
-        case OPCODE_LOADSTR:
-        case OPCODE_LOADBYTE:
-        case OPCODE_LOADWORD:
-        case OPCODE_LOADDWORD:
-        case OPCODE_LOADQWORD:
-        case OPCODE_FWRITE_IMM:
-        case OPCODE_FSEEK_IMM:
-        case OPCODE_GETARG: {
+        case Opcode::LOAD:
+        case Opcode::STORE:
+        case Opcode::LOADVAR:
+        case Opcode::STOREVAR:
+        case Opcode::LOADSTR:
+        case Opcode::LOADBYTE:
+        case Opcode::LOADWORD:
+        case Opcode::LOADDWORD:
+        case Opcode::LOADQWORD:
+        case Opcode::FWRITE_IMM:
+        case Opcode::FSEEK_IMM:
+        case Opcode::GETARG: {
             if (j + 5 > bytes.size()) {
                 return invalid();
             }
@@ -1440,40 +1440,40 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
 
             std::string op;
             switch (opcode) {
-                case OPCODE_LOAD:
+                case Opcode::LOAD:
                     op = "load";
                     break;
-                case OPCODE_STORE:
+                case Opcode::STORE:
                     op = "store";
                     break;
-                case OPCODE_LOADVAR:
+                case Opcode::LOADVAR:
                     op = "loadvar";
                     break;
-                case OPCODE_STOREVAR:
+                case Opcode::STOREVAR:
                     op = "storevar";
                     break;
-                case OPCODE_LOADSTR:
+                case Opcode::LOADSTR:
                     op = "loadstr";
                     break;
-                case OPCODE_LOADBYTE:
+                case Opcode::LOADBYTE:
                     op = "loadbyte";
                     break;
-                case OPCODE_LOADWORD:
+                case Opcode::LOADWORD:
                     op = "loadword";
                     break;
-                case OPCODE_LOADDWORD:
+                case Opcode::LOADDWORD:
                     op = "loaddword";
                     break;
-                case OPCODE_LOADQWORD:
+                case Opcode::LOADQWORD:
                     op = "loadqword";
                     break;
-                case OPCODE_FWRITE_IMM:
+                case Opcode::FWRITE_IMM:
                     op = "fwrite";
                     break;
-                case OPCODE_FSEEK_IMM:
+                case Opcode::FSEEK_IMM:
                     op = "fseek";
                     break;
-                case OPCODE_GETARG:
+                case Opcode::GETARG:
                     op = "getarg";
                     break;
                 default:
@@ -1482,7 +1482,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             }
 
             std::ostringstream msg;
-            if (opcode == OPCODE_FWRITE_IMM || opcode == OPCODE_FSEEK_IMM) {
+            if (opcode == Opcode::FWRITE_IMM || opcode == Opcode::FSEEK_IMM) {
                 msg << op << " " << file_name(a) << ", " << static_cast<int32_t>(b);
             } else {
                 msg << op << " " << reg_name(a) << ", " << b;
@@ -1490,7 +1490,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(msg.str());
             break;
         }
-        case OPCODE_FOPEN: {
+        case Opcode::FOPEN: {
             if (j + 3 > bytes.size()) {
                 return invalid();
             }
@@ -1508,7 +1508,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(msg.str());
             break;
         }
-        case OPCODE_FCLOSE: {
+        case Opcode::FCLOSE: {
             uint8_t fd = 0;
             if (!blackbox::data::read_u8(bytes, j, fd)) {
                 return invalid();
@@ -1517,7 +1517,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset("fclose " + file_name(fd));
             break;
         }
-        case OPCODE_RAND: {
+        case Opcode::RAND: {
             if (j + 17 > bytes.size()) {
                 return invalid();
             }
@@ -1536,7 +1536,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(msg.str());
             break;
         }
-        case OPCODE_CALL: {
+        case Opcode::CALL: {
             uint32_t addr = 0;
             uint32_t frame = 0;
             if (!blackbox::data::read_u32_le(bytes, j, addr) ||
@@ -1550,13 +1550,13 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(msg.str());
             break;
         }
-        case OPCODE_RET:
+        case Opcode::RET:
             print_offset("ret");
             break;
-        case OPCODE_PRINT_STACKSIZE:
+        case Opcode::PRINT_STACKSIZE:
             print_offset("print_stacksize");
             break;
-        case OPCODE_HALT:
+        case Opcode::HALT:
             if (j < bytes.size()) {
                 const uint8_t code_byte = bytes[j++];
                 print_offset("halt " + std::to_string(static_cast<unsigned>(code_byte)));
@@ -1564,17 +1564,17 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
                 print_offset("halt");
             }
             break;
-        case OPCODE_BREAK:
+        case Opcode::BREAK:
             print_offset("break");
             break;
-        case OPCODE_CONTINUE:
+        case Opcode::CONTINUE:
             print_offset("continue");
             break;
-        case OPCODE_CLRSCR:
+        case Opcode::CLRSCR:
             print_offset("clrscr");
             break;
-        case OPCODE_REGSYSCALL:
-        case OPCODE_REGFAULT: {
+        case Opcode::REGSYSCALL:
+        case Opcode::REGFAULT: {
             if (j + 5 > bytes.size()) {
                 return invalid();
             }
@@ -1585,20 +1585,20 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             }
             j += 5;
 
-            std::string op = opcode == OPCODE_REGSYSCALL ? "regsyscall" : "regfault";
+            std::string op = opcode == Opcode::REGSYSCALL ? "regsyscall" : "regfault";
             std::ostringstream msg;
             msg << op << " " << static_cast<unsigned>(id) << ", 0x" << std::hex << std::setw(8)
                 << std::setfill('0') << addr;
             print_offset(msg.str());
             break;
         }
-        case OPCODE_SYSRET:
+        case Opcode::SYSRET:
             print_offset("sysret");
             break;
-        case OPCODE_DROPPRIV:
+        case Opcode::DROPPRIV:
             print_offset("droppriv");
             break;
-        case OPCODE_SETPERM: {
+        case Opcode::SETPERM: {
             if (j + 12 > bytes.size()) {
                 return invalid();
             }
@@ -1621,14 +1621,14 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(msg.str());
             break;
         }
-        case OPCODE_DUMPREGS:
+        case Opcode::DUMPREGS:
             print_offset("dumpregs");
             break;
-        case OPCODE_FAULTRET:
+        case Opcode::FAULTRET:
             print_offset("faultret");
             break;
-        case OPCODE_SHLI:
-        case OPCODE_SHRI: {
+        case Opcode::SHLI:
+        case Opcode::SHRI: {
             if (j + 9 > bytes.size()) {
                 return invalid();
             }
@@ -1639,11 +1639,11 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             }
             j += 9;
 
-            std::string op = opcode == OPCODE_SHLI ? "shli" : "shri";
+            std::string op = opcode == Opcode::SHLI ? "shli" : "shri";
             print_offset(op + " " + reg_name(reg) + ", " + std::to_string(amount));
             break;
         }
-        case OPCODE_GETENV: {
+        case Opcode::GETENV: {
             if (j + 2 > bytes.size()) {
                 return invalid();
             }
@@ -1659,7 +1659,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
         default: {
             std::ostringstream msg;
             msg << "unknown opcode 0x" << std::hex << std::setw(2) << std::setfill('0')
-                << static_cast<unsigned>(opcode) << std::dec;
+                << static_cast<unsigned>(opcode_to_byte(opcode)) << std::dec;
             print_offset(msg.str());
             break;
         }

@@ -5,13 +5,11 @@
 #include <algorithm>
 #include <array>
 
-
 #include <charconv>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
-
 
 #include <iostream>
 #include <memory>
@@ -307,9 +305,9 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        uint8_t opcode = program[pc++];
+        Opcode opcode = opcode_from_byte(program[pc++]);
         switch (opcode) {
-            case OPCODE_WRITE: {
+            case Opcode::WRITE: {
                 uint8_t fd = program[pc++];
                 uint8_t len = program[pc++];
                 if (fd != 1 && fd != 2) {
@@ -330,7 +328,7 @@ int main(int argc, char* argv[]) {
                 pc += len;
                 break;
             }
-            case OPCODE_INC: {
+            case Opcode::INC: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for INC at pc=%zu\n", pc);
                     return 1;
@@ -343,7 +341,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] += 1;
                 break;
             }
-            case OPCODE_DEC: {
+            case Opcode::DEC: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for DEC at pc=%zu\n", pc);
                     return 1;
@@ -356,7 +354,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] -= 1;
                 break;
             }
-            case OPCODE_PUSHI: {
+            case Opcode::PUSHI: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operand for PUSH at pc=%zu\n", pc);
                     return 1;
@@ -374,7 +372,7 @@ int main(int argc, char* argv[]) {
                 stack[sp++] = value;
                 break;
             }
-            case OPCODE_PUSH_REG: {
+            case Opcode::PUSH_REG: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operands for PUSH_REG at pc=%zu\n", pc);
                     return 1;
@@ -393,7 +391,7 @@ int main(int argc, char* argv[]) {
                 stack[sp++] = registers[src];
                 break;
             }
-            case OPCODE_CMP: {
+            case Opcode::CMP: {
                 if (pc + 2 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for CMP at pc=%zu\n", pc);
                     return 1;
@@ -448,7 +446,7 @@ int main(int argc, char* argv[]) {
 
                 break;
             }
-            case OPCODE_POP: {
+            case Opcode::POP: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for POP at pc=%zu\n", pc);
                     return 1;
@@ -465,7 +463,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = stack[--sp];
                 break;
             }
-            case OPCODE_JE: {
+            case Opcode::JE: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for JE at pc=%zu\n", pc);
                     return 1;
@@ -483,7 +481,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_JNE: {
+            case Opcode::JNE: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for JNE at pc=%zu\n", pc);
                     return 1;
@@ -501,7 +499,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_ADD: {
+            case Opcode::ADD: {
                 if (pc + 2 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for ADD at pc=%zu at pc=%zu\n", pc,
                                            pc);
@@ -516,7 +514,7 @@ int main(int argc, char* argv[]) {
                 registers[dst] += registers[src];
                 break;
             }
-            case OPCODE_SUB: {
+            case Opcode::SUB: {
                 if (pc + 2 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for SUB at pc=%zu\n", pc);
                     return 1;
@@ -530,7 +528,7 @@ int main(int argc, char* argv[]) {
                 registers[dst] -= registers[src];
                 break;
             }
-            case OPCODE_MUL: {
+            case Opcode::MUL: {
                 if (pc + 2 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for MUL at pc=%zu\n", pc);
                     return 1;
@@ -544,7 +542,7 @@ int main(int argc, char* argv[]) {
                 registers[dst] *= registers[src];
                 break;
             }
-            case OPCODE_DIV: {
+            case Opcode::DIV: {
                 if (pc + 2 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for DIV at pc=%zu\n", pc);
                     return 1;
@@ -563,7 +561,7 @@ int main(int argc, char* argv[]) {
                 break;
             }
 
-            case OPCODE_PRINTREG: {
+            case Opcode::PRINTREG: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for PRINTREG at pc=%zu\n", pc);
                     return 1;
@@ -578,7 +576,7 @@ int main(int argc, char* argv[]) {
                 fflush(stdout);
                 break;
             }
-            case OPCODE_EPRINTREG: {
+            case Opcode::EPRINTREG: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for EPRINTREG at pc=%zu\n", pc);
                     return 1;
@@ -593,7 +591,7 @@ int main(int argc, char* argv[]) {
                 fflush(stderr);
                 break;
             }
-            case OPCODE_MOV_REG: {
+            case Opcode::MOV_REG: {
                 if (pc + 2 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for MOV_REG at pc=%zu\n", pc);
                     return 1;
@@ -607,7 +605,7 @@ int main(int argc, char* argv[]) {
                 registers[dst] = registers[src];
                 break;
             }
-            case OPCODE_MOVI: {
+            case Opcode::MOVI: {
                 if (pc + 4 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for MOVI at pc=%zu\n", pc);
                     return 1;
@@ -623,7 +621,7 @@ int main(int argc, char* argv[]) {
                 registers[dst] = value;
                 break;
             }
-            case OPCODE_JMP: {
+            case Opcode::JMP: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operand for JMP at pc=%zu\n", pc);
                     return 1;
@@ -637,18 +635,18 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_NEWLINE: {
+            case Opcode::NEWLINE: {
                 putchar('\n');
                 break;
             }
-            case OPCODE_HALT: {
+            case Opcode::HALT: {
                 uint8_t code = 0;
                 if (pc < size) {
                     code = program[pc++];
                 }
                 return (int) code;
             }
-            case OPCODE_PRINT: {
+            case Opcode::PRINT: {
                 if (pc >= size) {
                     std::println(stderr, "Error: missing operand for PRINT at pc={}", pc);
                     return 1;
@@ -657,7 +655,7 @@ int main(int argc, char* argv[]) {
                 putchar(value);
                 break;
             }
-            case OPCODE_ALLOC:
+            case Opcode::ALLOC:
                 REQUIRE_PRIVILEGED("ALLOC");
                 {
                     if (pc + 3 >= size) {
@@ -683,7 +681,7 @@ int main(int argc, char* argv[]) {
                     }
                     break;
                 }
-            case OPCODE_LOAD: {
+            case Opcode::LOAD: {
                 if (pc + 5 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for LOAD at pc=%zu\n", pc);
                     return 1;
@@ -715,7 +713,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = stack[addr];
                 break;
             }
-            case OPCODE_LOAD_REG: {
+            case Opcode::LOAD_REG: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for LOAD_REG at pc=%zu\n", pc);
                     return 1;
@@ -749,7 +747,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = stack[(size_t) idx64];
                 break;
             }
-            case OPCODE_STORE: {
+            case Opcode::STORE: {
                 if (pc + 5 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for STORE at pc=%zu\n", pc);
                     return 1;
@@ -783,7 +781,7 @@ int main(int argc, char* argv[]) {
                 stack[addr] = registers[reg];
                 break;
             }
-            case OPCODE_STORE_REG: {
+            case Opcode::STORE_REG: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for STORE_REG at pc=%zu\n", pc);
                     return 1;
@@ -819,7 +817,7 @@ int main(int argc, char* argv[]) {
                 stack[(size_t) idx64] = registers[reg];
                 break;
             }
-            case OPCODE_LOADVAR: {
+            case Opcode::LOADVAR: {
                 if (pc + 5 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for LOADVAR at pc=%zu\n", pc);
                     return 1;
@@ -842,7 +840,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = vars[abs_idx];
                 break;
             }
-            case OPCODE_LOADVAR_REG: {
+            case Opcode::LOADVAR_REG: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for LOADVAR_REG at pc=%zu\n", pc);
                     return 1;
@@ -869,7 +867,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = vars[abs_idx];
                 break;
             }
-            case OPCODE_STOREVAR: {
+            case Opcode::STOREVAR: {
                 if (pc + 5 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for STOREVAR at pc=%zu\n", pc);
                     return 1;
@@ -892,7 +890,7 @@ int main(int argc, char* argv[]) {
                 vars[abs_idx] = registers[reg];
                 break;
             }
-            case OPCODE_STOREVAR_REG: {
+            case Opcode::STOREVAR_REG: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for STOREVAR_REG at pc=%zu\n", pc);
                     return 1;
@@ -919,7 +917,7 @@ int main(int argc, char* argv[]) {
                 vars[abs_idx] = registers[reg];
                 break;
             }
-            case OPCODE_GROW:
+            case Opcode::GROW:
                 REQUIRE_PRIVILEGED("GROW");
                 {
                     if (pc + 3 >= size) {
@@ -947,12 +945,12 @@ int main(int argc, char* argv[]) {
                     stack_cap = new_cap;
                     break;
                 }
-            case OPCODE_PRINT_STACKSIZE: {
+            case Opcode::PRINT_STACKSIZE: {
                 std::print("{}", stack_cap);
                 fflush(stdout);
                 break;
             }
-            case OPCODE_RESIZE:
+            case Opcode::RESIZE:
                 REQUIRE_PRIVILEGED("RESIZE");
                 {
                     if (pc + 3 >= size) {
@@ -977,7 +975,7 @@ int main(int argc, char* argv[]) {
                     if (sp > stack_cap) sp = stack_cap;
                     break;
                 }
-            case OPCODE_FREE:
+            case Opcode::FREE:
                 REQUIRE_PRIVILEGED("FREE");
                 {
                     if (pc + 3 >= size) {
@@ -1001,7 +999,7 @@ int main(int argc, char* argv[]) {
                     stack_cap = new_cap;
                     break;
                 }
-            case OPCODE_FOPEN:
+            case Opcode::FOPEN:
                 REQUIRE_PRIVILEGED("FOPEN");
                 {
                     if (pc + 2 >= size) {
@@ -1068,7 +1066,7 @@ int main(int argc, char* argv[]) {
                     }
                     break;
                 }
-            case OPCODE_FCLOSE:
+            case Opcode::FCLOSE:
                 REQUIRE_PRIVILEGED("FCLOSE");
                 {
                     if (pc >= size) {
@@ -1083,7 +1081,7 @@ int main(int argc, char* argv[]) {
                     close_fd(fd);
                     break;
                 }
-            case OPCODE_FREAD: {
+            case Opcode::FREAD: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for FREAD at pc=%zu\n", pc);
                     return 1;
@@ -1118,7 +1116,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_FWRITE_REG: {
+            case Opcode::FWRITE_REG: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for FWRITE_REG at pc=%zu\n", pc);
                     return 1;
@@ -1146,7 +1144,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_FWRITE_IMM: {
+            case Opcode::FWRITE_IMM: {
                 if (pc + 4 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for FWRITE_IMM at pc=%zu\n", pc);
                     return 1;
@@ -1171,7 +1169,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_FSEEK_REG: {
+            case Opcode::FSEEK_REG: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for FSEEK_REG at pc=%zu\n", pc);
                     return 1;
@@ -1209,7 +1207,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_FSEEK_IMM: {
+            case Opcode::FSEEK_IMM: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for FSEEK_IMM at pc=%zu\n", pc);
                     return 1;
@@ -1245,7 +1243,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_LOADSTR: {
+            case Opcode::LOADSTR: {
                 if (pc + 4 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for LOADSTR at pc=%zu\n", pc);
                     return 1;
@@ -1265,7 +1263,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = offset;
                 break;
             }
-            case OPCODE_PRINTSTR: {
+            case Opcode::PRINTSTR: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for PRINTSTR at pc=%zu\n", pc);
                     return 1;
@@ -1302,7 +1300,7 @@ int main(int argc, char* argv[]) {
                 fflush(stdout);
                 break;
             }
-            case OPCODE_EPRINTSTR: {
+            case Opcode::EPRINTSTR: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for EPRINTSTR at pc=%zu\n", pc);
                     return 1;
@@ -1339,7 +1337,7 @@ int main(int argc, char* argv[]) {
                 fflush(stderr);
                 break;
             }
-            case OPCODE_NOT: {
+            case Opcode::NOT: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for NOT at pc=%zu\n", pc);
                     return 1;
@@ -1352,7 +1350,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = ~registers[reg];
                 break;
             }
-            case OPCODE_AND: {
+            case Opcode::AND: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for AND at pc=%zu\n", pc);
                     return 1;
@@ -1366,7 +1364,7 @@ int main(int argc, char* argv[]) {
                 registers[dst] = registers[dst] & registers[src];
                 break;
             }
-            case OPCODE_OR: {
+            case Opcode::OR: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for OR at pc=%zu\n", pc);
                     return 1;
@@ -1380,7 +1378,7 @@ int main(int argc, char* argv[]) {
                 registers[dst] = registers[dst] | registers[src];
                 break;
             }
-            case OPCODE_XOR: {
+            case Opcode::XOR: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for XOR at pc=%zu\n", pc);
                     return 1;
@@ -1394,7 +1392,7 @@ int main(int argc, char* argv[]) {
                 registers[dst] = registers[dst] ^ registers[src];
                 break;
             }
-            case OPCODE_READSTR: {
+            case Opcode::READSTR: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for READSTR at pc=%zu\n", pc);
                     return 1;
@@ -1429,7 +1427,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = start_addr;
                 break;
             }
-            case OPCODE_SLEEP: {
+            case Opcode::SLEEP: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operand for SLEEP at pc=%zu\n", pc);
                     return 1;
@@ -1447,7 +1445,7 @@ int main(int argc, char* argv[]) {
 #endif
                 break;
             }
-            case OPCODE_SLEEP_REG: {
+            case Opcode::SLEEP_REG: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing register operand for SLEEP at pc=%zu\n", pc);
                     return 1;
@@ -1469,7 +1467,7 @@ int main(int argc, char* argv[]) {
 #endif
                 break;
             }
-            case OPCODE_CLRSCR: {
+            case Opcode::CLRSCR: {
 #ifdef _WIN32
                 std::print("\x1b[2J\x1b[H");
                 fflush(stdout);
@@ -1479,7 +1477,7 @@ int main(int argc, char* argv[]) {
 #endif
                 break;
             }
-            case OPCODE_RAND: {
+            case Opcode::RAND: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for RAND at pc=%zu\n", pc);
                     return 1;
@@ -1513,7 +1511,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_GETKEY: {
+            case Opcode::GETKEY: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for GETKEY at pc=%zu\n", pc);
                     return 1;
@@ -1557,7 +1555,7 @@ int main(int argc, char* argv[]) {
 #endif
                 break;
             }
-            case OPCODE_READ: {
+            case Opcode::READ: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for READ at pc=%zu\n", pc);
                     return 1;
@@ -1579,7 +1577,7 @@ int main(int argc, char* argv[]) {
                 while ((c = getchar()) != EOF && c != '\n');
                 break;
             }
-            case OPCODE_READCHAR: {
+            case Opcode::READCHAR: {
                 if (pc >= size) {
                     blackbox::fmt::err_fmt("Missing operand for READCHAR at pc=%zu\n", pc);
                     return 1;
@@ -1601,7 +1599,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_BREAK: {
+            case Opcode::BREAK: {
                 if (breakpoints_enabled) {
                     std::println("[BREAK] pc={} opcode=0x{:02X} {}", pc - 1,
                                  (unsigned int) program[pc - 1], opcode_name(program[pc - 1]));
@@ -1677,10 +1675,10 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_CONTINUE: {
+            case Opcode::CONTINUE: {
                 break;
             }
-            case OPCODE_JL: {
+            case Opcode::JL: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for JL at pc=%zu\n", pc);
                     return 1;
@@ -1697,7 +1695,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_JGE: {
+            case Opcode::JGE: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for JGE at pc=%zu\n", pc);
                     return 1;
@@ -1714,7 +1712,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_JB: {
+            case Opcode::JB: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for JB at pc=%zu\n", pc);
                     return 1;
@@ -1731,7 +1729,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_JAE: {
+            case Opcode::JAE: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for JAE at pc=%zu\n", pc);
                     return 1;
@@ -1748,7 +1746,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_CALL: {
+            case Opcode::CALL: {
                 if (pc + 3 >= size) {
                     blackbox::fmt::err_fmt("Missing operand for CALL at pc=%zu\n", pc);
                     return 1;
@@ -1793,7 +1791,7 @@ int main(int argc, char* argv[]) {
                 pc = addr;
                 break;
             }
-            case OPCODE_RET: {
+            case Opcode::RET: {
                 if (csp == 0 || fsp == 0) {
                     blackbox::fmt::err_fmt("Stack underflow on RET at pc=%zu\n", pc);
                     return 1;
@@ -1808,7 +1806,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_LOADBYTE: {
+            case Opcode::LOADBYTE: {
                 if (pc + 4 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for LOADBYTE at pc=%zu\n", pc);
                     return 1;
@@ -1828,7 +1826,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = (int64_t) data_table[offset];
                 break;
             }
-            case OPCODE_LOADWORD: {
+            case Opcode::LOADWORD: {
                 if (pc + 4 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for LOADWORD at pc=%zu\n", pc);
                     return 1;
@@ -1853,7 +1851,7 @@ int main(int argc, char* argv[]) {
 
                 break;
             }
-            case OPCODE_LOADDWORD: {
+            case Opcode::LOADDWORD: {
                 if (pc + 4 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for LOADDWORD at pc=%zu\n", pc);
                     return 1;
@@ -1879,7 +1877,7 @@ int main(int argc, char* argv[]) {
 
                 break;
             }
-            case OPCODE_LOADQWORD: {
+            case Opcode::LOADQWORD: {
                 if (pc + 4 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for LOADQWORD at pc=%zu\n", pc);
                     return 1;
@@ -1905,7 +1903,7 @@ int main(int argc, char* argv[]) {
 
                 break;
             }
-            case OPCODE_MOD: {
+            case Opcode::MOD: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for MOD at pc=%zu\n", pc);
                     return 1;
@@ -1923,7 +1921,7 @@ int main(int argc, char* argv[]) {
                 registers[dst] = registers[dst] % registers[src];
                 break;
             }
-            case OPCODE_JMPI: {
+            case Opcode::JMPI: {
                 if (pc + 4 >= size) {
                     blackbox::fmt::err_fmt("Missing operand for JMPI at pc=%zu\n", pc);
                     return 1;
@@ -1938,7 +1936,7 @@ int main(int argc, char* argv[]) {
                 pc = addr;
                 break;
             }
-            case OPCODE_EXEC:
+            case Opcode::EXEC:
                 REQUIRE_PRIVILEGED("EXEC") {
                     if (pc >= size) {
                         blackbox::fmt::err_fmt("Missing dest register for EXEC at pc=%zu\n", pc);
@@ -1972,13 +1970,13 @@ int main(int argc, char* argv[]) {
                     break;
                 }
 
-            case OPCODE_DROPPRIV:
+            case Opcode::DROPPRIV:
                 REQUIRE_PRIVILEGED("DROPPPRIV") {
                     cur_mode = MODE_PROTECTED;
                     break;
                 }
 
-            case OPCODE_GETMODE: {
+            case Opcode::GETMODE: {
                 uint8_t reg = program[pc++];
                 if (reg >= REGISTERS) {
                     blackbox::fmt::err_fmt("Invalid register in GETMODE at pc=%zu\n", pc);
@@ -1988,7 +1986,7 @@ int main(int argc, char* argv[]) {
                 break;
             }
 
-            case OPCODE_REGSYSCALL:
+            case Opcode::REGSYSCALL:
                 REQUIRE_PRIVILEGED("REGSYSCALL") {
                     unsigned int id = program[pc++];
                     uint32_t addr = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) |
@@ -2005,7 +2003,7 @@ int main(int argc, char* argv[]) {
                     break;
                 }
 
-            case OPCODE_SYSCALL: {
+            case Opcode::SYSCALL: {
                 if (cur_mode != MODE_PROTECTED) {
                     blackbox::fmt::err_fmt(
                         "FAULT: SYSCALL only allowed in protected mode at pc=%zu\n", pc);
@@ -2029,14 +2027,14 @@ int main(int argc, char* argv[]) {
                 break;
             }
 
-            case OPCODE_SYSRET:
+            case Opcode::SYSRET:
                 REQUIRE_PRIVILEGED("SYSRET") {
                     cur_mode = MODE_PROTECTED;
                     pc = syscall_return_pc;
                     break;
                 }
 
-            case OPCODE_SETPERM:
+            case Opcode::SETPERM:
                 REQUIRE_PRIVILEGED("SETPERM") {
                     uint32_t start = program[pc] | (program[pc + 1] << 8) |
                                      (program[pc + 2] << 16) | (program[pc + 3] << 24);
@@ -2062,7 +2060,7 @@ int main(int argc, char* argv[]) {
                     break;
                 }
 
-            case OPCODE_REGFAULT:
+            case Opcode::REGFAULT:
                 REQUIRE_PRIVILEGED("REGFAULT") {
                     uint8_t fault_id = program[pc++];
                     uint32_t addr = program[pc] | (program[pc + 1] << 8) | (program[pc + 2] << 16) |
@@ -2080,7 +2078,7 @@ int main(int argc, char* argv[]) {
                     break;
                 }
 
-            case OPCODE_FAULTRET:
+            case Opcode::FAULTRET:
                 REQUIRE_PRIVILEGED("FAULTRET") {
                     if (current_fault == FAULT_COUNT) {
                         blackbox::fmt::err_fmt(
@@ -2094,7 +2092,7 @@ int main(int argc, char* argv[]) {
                     break;
                 }
 
-            case OPCODE_GETFAULT: {
+            case Opcode::GETFAULT: {
                 uint8_t reg = program[pc++];
                 if (reg >= REGISTERS) {
                     blackbox::fmt::err_fmt("Invalid register in GETFAULT at pc=%zu\n", pc);
@@ -2104,12 +2102,12 @@ int main(int argc, char* argv[]) {
                 break;
             }
 
-            case OPCODE_DUMPREGS: {
+            case Opcode::DUMPREGS: {
                 print_regs(registers, REGISTERS);
                 break;
             }
 
-            case OPCODE_PRINTCHAR: {
+            case Opcode::PRINTCHAR: {
                 uint8_t reg = program[pc++];
                 if (reg >= REGISTERS) {
                     blackbox::fmt::err_fmt("Invalid register in PRINTCHAR at pc=%zu\n", pc);
@@ -2119,7 +2117,7 @@ int main(int argc, char* argv[]) {
                 fflush(stdout);
                 break;
             }
-            case OPCODE_EPRINTCHAR: {
+            case Opcode::EPRINTCHAR: {
                 uint8_t reg = program[pc++];
                 if (reg >= REGISTERS) {
                     blackbox::fmt::err_fmt("Invalid register in EPRINTCHAR at pc=%zu\n", pc);
@@ -2129,7 +2127,7 @@ int main(int argc, char* argv[]) {
                 fflush(stderr);
                 break;
             }
-            case OPCODE_SHLI: {
+            case Opcode::SHLI: {
                 uint8_t reg = program[pc++];
                 uint64_t shift = blackbox::data::read_u64(program.data(), &pc);
                 if (reg >= REGISTERS) {
@@ -2142,7 +2140,7 @@ int main(int argc, char* argv[]) {
                     registers[reg] = registers[reg] << shift;
                 break;
             }
-            case OPCODE_SHRI: {
+            case Opcode::SHRI: {
                 uint8_t reg = program[pc++];
                 uint64_t shift = blackbox::data::read_u64(program.data(), &pc);
                 if (reg >= REGISTERS) {
@@ -2159,7 +2157,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_SHR: {
+            case Opcode::SHR: {
                 uint8_t dst = program[pc++];
                 uint8_t src = program[pc++];
                 if (dst >= REGISTERS || src >= REGISTERS) {
@@ -2176,7 +2174,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_SHL: {
+            case Opcode::SHL: {
                 uint8_t dst = program[pc++];
                 uint8_t src = program[pc++];
                 if (dst >= REGISTERS || src >= REGISTERS) {
@@ -2193,7 +2191,7 @@ int main(int argc, char* argv[]) {
                 }
                 break;
             }
-            case OPCODE_GETARGC: {
+            case Opcode::GETARGC: {
                 uint8_t reg = program[pc++];
                 if (reg >= REGISTERS) {
                     blackbox::fmt::err_fmt("Invalid register in GETARGC at pc=%zu\n", pc);
@@ -2202,7 +2200,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = (int64_t) argc;
                 break;
             }
-            case OPCODE_GETARG: {
+            case Opcode::GETARG: {
                 if (pc + 4 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for GETARG at pc=%zu\n", pc);
                     goto fault_exit;
@@ -2238,7 +2236,7 @@ int main(int argc, char* argv[]) {
                 registers[reg] = (int64_t) start_addr;
                 break;
             }
-            case OPCODE_GETENV: {
+            case Opcode::GETENV: {
                 if (pc + 1 >= size) {
                     blackbox::fmt::err_fmt("Missing operands for GETENV at pc=%zu\n", pc);
                     goto fault_exit;

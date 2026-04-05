@@ -5,186 +5,186 @@
 #include <print>
 
 const char* opcode_name(uint8_t op) {
-    switch (op) {
-        case OPCODE_WRITE:
+    switch (opcode_from_byte(op)) {
+        case Opcode::WRITE:
             return "WRITE";
-        case OPCODE_NEWLINE:
+        case Opcode::NEWLINE:
             return "NEWLINE";
-        case OPCODE_PRINT:
+        case Opcode::PRINT:
             return "PRINT";
-        case OPCODE_PUSHI:
+        case Opcode::PUSHI:
             return "PUSH_IMM";
-        case OPCODE_POP:
+        case Opcode::POP:
             return "POP";
-        case OPCODE_ADD:
+        case Opcode::ADD:
             return "ADD";
-        case OPCODE_SUB:
+        case Opcode::SUB:
             return "SUB";
-        case OPCODE_MUL:
+        case Opcode::MUL:
             return "MUL";
-        case OPCODE_DIV:
+        case Opcode::DIV:
             return "DIV";
-        case OPCODE_PRINTREG:
+        case Opcode::PRINTREG:
             return "PRINTREG";
-        case OPCODE_MOVI:
+        case Opcode::MOVI:
             return "MOVI";
-        case OPCODE_MOV_REG:
+        case Opcode::MOV_REG:
             return "MOV_REG";
-        case OPCODE_JMP:
+        case Opcode::JMP:
             return "JMP";
-        case OPCODE_JE:
+        case Opcode::JE:
             return "JE";
-        case OPCODE_JNE:
+        case Opcode::JNE:
             return "JNE";
-        case OPCODE_INC:
+        case Opcode::INC:
             return "INC";
-        case OPCODE_DEC:
+        case Opcode::DEC:
             return "DEC";
-        case OPCODE_PUSH_REG:
+        case Opcode::PUSH_REG:
             return "PUSH_REG";
-        case OPCODE_CMP:
+        case Opcode::CMP:
             return "CMP";
-        case OPCODE_ALLOC:
+        case Opcode::ALLOC:
             return "ALLOC";
-        case OPCODE_LOAD:
+        case Opcode::LOAD:
             return "LOAD";
-        case OPCODE_STORE:
+        case Opcode::STORE:
             return "STORE";
-        case OPCODE_LOAD_REG:
+        case Opcode::LOAD_REG:
             return "LOAD_REG";
-        case OPCODE_STORE_REG:
+        case Opcode::STORE_REG:
             return "STORE_REG";
-        case OPCODE_LOADVAR:
+        case Opcode::LOADVAR:
             return "LOADVAR";
-        case OPCODE_STOREVAR:
+        case Opcode::STOREVAR:
             return "STOREVAR";
-        case OPCODE_LOADVAR_REG:
+        case Opcode::LOADVAR_REG:
             return "LOADVAR_REG";
-        case OPCODE_STOREVAR_REG:
+        case Opcode::STOREVAR_REG:
             return "STOREVAR_REG";
-        case OPCODE_GROW:
+        case Opcode::GROW:
             return "GROW";
-        case OPCODE_PRINT_STACKSIZE:
+        case Opcode::PRINT_STACKSIZE:
             return "PRINT_STACKSIZE";
-        case OPCODE_RESIZE:
+        case Opcode::RESIZE:
             return "RESIZE";
-        case OPCODE_FREE:
+        case Opcode::FREE:
             return "FREE";
-        case OPCODE_FOPEN:
+        case Opcode::FOPEN:
             return "FOPEN";
-        case OPCODE_FCLOSE:
+        case Opcode::FCLOSE:
             return "FCLOSE";
-        case OPCODE_FREAD:
+        case Opcode::FREAD:
             return "FREAD";
-        case OPCODE_FWRITE_REG:
+        case Opcode::FWRITE_REG:
             return "FWRITE_REG";
-        case OPCODE_FWRITE_IMM:
+        case Opcode::FWRITE_IMM:
             return "FWRITE_IMM";
-        case OPCODE_FSEEK_REG:
+        case Opcode::FSEEK_REG:
             return "FSEEK_REG";
-        case OPCODE_FSEEK_IMM:
+        case Opcode::FSEEK_IMM:
             return "FSEEK_IMM";
-        case OPCODE_LOADSTR:
+        case Opcode::LOADSTR:
             return "LOADSTR";
-        case OPCODE_PRINTSTR:
+        case Opcode::PRINTSTR:
             return "PRINTSTR";
-        case OPCODE_XOR:
+        case Opcode::XOR:
             return "XOR";
-        case OPCODE_AND:
+        case Opcode::AND:
             return "AND";
-        case OPCODE_OR:
+        case Opcode::OR:
             return "OR";
-        case OPCODE_NOT:
+        case Opcode::NOT:
             return "NOT";
-        case OPCODE_READSTR:
+        case Opcode::READSTR:
             return "READSTR";
-        case OPCODE_READ:
+        case Opcode::READ:
             return "READ";
-        case OPCODE_SLEEP:
+        case Opcode::SLEEP:
             return "SLEEP";
-        case OPCODE_SLEEP_REG:
+        case Opcode::SLEEP_REG:
             return "SLEEP_REG";
-        case OPCODE_CLRSCR:
+        case Opcode::CLRSCR:
             return "CLRSCR";
-        case OPCODE_RAND:
+        case Opcode::RAND:
             return "RAND";
-        case OPCODE_GETKEY:
+        case Opcode::GETKEY:
             return "GETKEY";
-        case OPCODE_CONTINUE:
+        case Opcode::CONTINUE:
             return "CONTINUE";
-        case OPCODE_READCHAR:
+        case Opcode::READCHAR:
             return "READCHAR";
-        case OPCODE_JL:
+        case Opcode::JL:
             return "JL";
-        case OPCODE_JGE:
+        case Opcode::JGE:
             return "JGE";
-        case OPCODE_JB:
+        case Opcode::JB:
             return "JB";
-        case OPCODE_JAE:
+        case Opcode::JAE:
             return "JAE";
-        case OPCODE_CALL:
+        case Opcode::CALL:
             return "CALL";
-        case OPCODE_RET:
+        case Opcode::RET:
             return "RET";
-        case OPCODE_LOADBYTE:
+        case Opcode::LOADBYTE:
             return "LOADBYTE";
-        case OPCODE_LOADWORD:
+        case Opcode::LOADWORD:
             return "LOADWORD";
-        case OPCODE_LOADDWORD:
+        case Opcode::LOADDWORD:
             return "LOADDWORD";
-        case OPCODE_LOADQWORD:
+        case Opcode::LOADQWORD:
             return "LOADQWORD";
-        case OPCODE_MOD:
+        case Opcode::MOD:
             return "MOD";
-        case OPCODE_JMPI:
+        case Opcode::JMPI:
             return "JMPI";
-        case OPCODE_EXEC:
+        case Opcode::EXEC:
             return "EXEC";
-        case OPCODE_SYSCALL:
+        case Opcode::SYSCALL:
             return "SYSCALL";
-        case OPCODE_SYSRET:
+        case Opcode::SYSRET:
             return "SYSRET";
-        case OPCODE_DROPPRIV:
+        case Opcode::DROPPRIV:
             return "DROPPRIV";
-        case OPCODE_REGSYSCALL:
+        case Opcode::REGSYSCALL:
             return "REGSYSCALL";
-        case OPCODE_SETPERM:
+        case Opcode::SETPERM:
             return "SETPERM";
-        case OPCODE_GETMODE:
+        case Opcode::GETMODE:
             return "GETMODE";
-        case OPCODE_REGFAULT:
+        case Opcode::REGFAULT:
             return "REGFAULT";
-        case OPCODE_FAULTRET:
+        case Opcode::FAULTRET:
             return "FAULTRET";
-        case OPCODE_GETFAULT:
+        case Opcode::GETFAULT:
             return "GETFAULT";
-        case OPCODE_DUMPREGS:
+        case Opcode::DUMPREGS:
             return "DUMPREGS";
-        case OPCODE_PRINTCHAR:
+        case Opcode::PRINTCHAR:
             return "PRINTCHAR";
-        case OPCODE_EPRINTREG:
+        case Opcode::EPRINTREG:
             return "EPRINTREG";
-        case OPCODE_EPRINTSTR:
+        case Opcode::EPRINTSTR:
             return "EPRINTSTR";
-        case OPCODE_EPRINTCHAR:
+        case Opcode::EPRINTCHAR:
             return "EPRINTCHAR";
-        case OPCODE_SHLI:
+        case Opcode::SHLI:
             return "SHLI";
-        case OPCODE_SHRI:
+        case Opcode::SHRI:
             return "SHRI";
-        case OPCODE_SHR:
+        case Opcode::SHR:
             return "SHR";
-        case OPCODE_SHL:
+        case Opcode::SHL:
             return "SHL";
-        case OPCODE_GETARG:
+        case Opcode::GETARG:
             return "GETARG";
-        case OPCODE_GETARGC:
+        case Opcode::GETARGC:
             return "GETARGC";
-        case OPCODE_GETENV:
+        case Opcode::GETENV:
             return "GETENV";
-        case OPCODE_BREAK:
+        case Opcode::BREAK:
             return "BREAK";
-        case OPCODE_HALT:
+        case Opcode::HALT:
             return "HALT";
         default:
             return "UNKNOWN";

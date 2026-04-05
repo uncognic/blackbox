@@ -5,9 +5,12 @@ TabWidth: 4
 UseTab: Never
 
 BreakBeforeBraces: Attach
+
+AlwaysBreakAfterDefinitionReturnType: None
 AllowShortFunctionsOnASingleLine: InlineOnly
-AllowShortIfStatementsOnASingleLine: true
-AllowShortLoopsOnASingleLine: true
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
 
 ColumnLimit: 100
 
