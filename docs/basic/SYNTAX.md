@@ -91,6 +91,50 @@ EPRINT "fatal: invalid value"
 EPRINT "x=", X
 ```
 
+## File I/O
+### FOPEN / FCLOSE
+Open and close a file using an integer handle variable.
+
+```basic
+VAR fh = 0
+FOPEN r, fh, "input.txt"
+FWRITE fh, 65
+FCLOSE fh
+```
+
+### FREAD
+Read a single byte from a file.
+
+```basic
+VAR fh = 0
+VAR value = 0
+FOPEN r, fh, "input.txt"
+FREAD fh, value
+FCLOSE fh
+```
+
+### FWRITE
+Write a single byte value to a file.
+
+```basic
+FWRITE fh, 65
+```
+
+### FSEEK
+Seek to a file offset.
+
+```basic
+FSEEK fh, 0
+```
+
+### FPRINT
+Write a value or string to a file and append a newline.
+
+```basic
+FPRINT fh, "hello"
+FPRINT fh, 10
+```
+
 ## Conditions and loops
 ### IF / ELSE / ENDIF
 ```basic

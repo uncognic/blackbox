@@ -3,7 +3,7 @@
 #include "../define.h"
 
 #include <cctype>
-#include <cstdio>
+#include <iostream>
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
@@ -203,6 +203,126 @@ static bool parse_identifier(const char *p, const char **next, std::string &out)
     out.assign(p, n);
     if (next)
         *next = p + n;
+    return true;
+}
+
+static int get_file_handle_index(const std::vector<FileHandle> &handles, const char *name)
+{
+    for (size_t i = 0; i < handles.size(); i++)
+    {
+        if (handles[i].name == name)
+            return (int)i;
+    }
+    return -1;
+}
+
+static int get_file_handle_fd(const std::vector<FileHandle> &handles, const char *name, uint8_t *out_fd, int lineno)
+{
+    int index = get_file_handle_index(handles, name);
+    if (index < 0)
+    {
+        fprintf(stderr, "Undefined file handle '%s' on line %d\n", name, lineno);
+        return 1;
+    }
+    *out_fd = handles[index].fd;
+    return 0;
+}
+
+static int allocate_file_handle_fd(std::vector<FileHandle> &handles, const char *name, uint8_t *next_fd, uint8_t *out_fd)
+{
+    int index = get_file_handle_index(handles, name);
+    if (index >= 0)
+    {
+        *out_fd = handles[index].fd;
+        return 0;
+    }
+    if (*next_fd >= FILE_DESCRIPTORS)
+    {
+        fprintf(stderr, "Too many file handles\n");
+        return 1;
+    }
+    handles.push_back(FileHandle());
+    handles.back().name = name;
+    handles.back().fd = *next_fd;
+    *out_fd = *next_fd;
+    (*next_fd)++;
+    return 0;
+}
+
+static int parse_file_mode(const char *s, const char **end, char *mode_out)
+{
+    s = skip_ws(s);
+    if (*s == '\0')
+        return 1;
+
+    if (*s == '"')
+    {
+        const char *quote_end = strchr(s + 1, '"');
+        if (!quote_end)
+            return 1;
+        size_t len = (size_t)(quote_end - (s + 1));
+        if (len == 0 || len >= 8)
+            return 1;
+        memcpy(mode_out, s + 1, len);
+        mode_out[len] = '\0';
+        *end = quote_end + 1;
+        return 0;
+    }
+
+    std::string token;
+    if (!parse_identifier(s, end, token))
+        return 1;
+    if (token.size() >= 8)
+        return 1;
+    memcpy(mode_out, token.data(), token.size());
+    mode_out[token.size()] = '\0';
+    return 0;
+}
+
+static size_t skip_ws(const std::string &s, size_t pos)
+{
+    while (pos < s.size() && isspace((unsigned char)s[pos]))
+        pos++;
+    return pos;
+}
+
+static bool parse_identifier(const std::string &s, size_t &pos, std::string &out)
+{
+    size_t start = pos;
+    while (pos < s.size() && (isalnum((unsigned char)s[pos]) || s[pos] == '_'))
+        pos++;
+    if (pos == start)
+        return false;
+    out = s.substr(start, pos - start);
+    return true;
+}
+
+static bool parse_quoted_string(const std::string &s, size_t &pos, std::string &out)
+{
+    if (pos >= s.size() || s[pos] != '"')
+        return false;
+    size_t end = s.find('"', pos + 1);
+    if (end == std::string::npos)
+        return false;
+    out = s.substr(pos + 1, end - pos - 1);
+    pos = end + 1;
+    return true;
+}
+
+static bool parse_file_mode(const std::string &s, size_t &pos, std::string &mode_out)
+{
+    pos = skip_ws(s, pos);
+    if (pos >= s.size())
+        return false;
+    if (s[pos] == '"')
+        return parse_quoted_string(s, pos, mode_out);
+
+    size_t start = pos;
+    while (pos < s.size() && (isalnum((unsigned char)s[pos]) || s[pos] == '_'))
+        pos++;
+    if (pos == start || pos - start >= 8)
+        return false;
+    mode_out = s.substr(start, pos - start);
     return true;
 }
 
@@ -812,6 +932,8 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
     bool in_asm_block = 0;
     int lineno = 0;
     int result = 0;
+    std::vector<FileHandle> file_handles;
+    uint8_t next_file_handle = 0;
 
     // we need to know the total slot count before we ALLOC.
     // so first pass: parse and collect variables, but don't emit code
@@ -1712,6 +1834,410 @@ int preprocess_basic(const char *input_file, const char *output_file, int debug)
                     printf("[BASIC] EXEC \"%s\"\n", command_text.data());
             }
 
+            continue;
+        }
+
+        if (starts_with_ci(s, "FOPEN"))
+        {
+            std::string arg = trim_copy(s + 5);
+            size_t pos = 0;
+            std::string mode;
+            if (!parse_file_mode(arg, pos, mode))
+            {
+                fprintf(stderr, "Syntax error line %d: expected FOPEN <mode>, <handle>, \"<filename>\"\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos);
+            if (pos >= arg.size() || arg[pos] != ',')
+            {
+                fprintf(stderr, "Syntax error line %d: expected FOPEN <mode>, <handle>, \"<filename>\"\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos + 1);
+
+            std::string handle_name;
+            if (!parse_identifier(arg, pos, handle_name))
+            {
+                fprintf(stderr, "Syntax error line %d: expected FOPEN <mode>, <handle>, \"<filename>\"\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos);
+            if (pos >= arg.size() || arg[pos] != ',')
+            {
+                fprintf(stderr, "Syntax error line %d: expected FOPEN <mode>, <handle>, \"<filename>\"\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos + 1);
+
+            std::string filename;
+            if (!parse_quoted_string(arg, pos, filename))
+            {
+                fprintf(stderr, "Syntax error line %d: expected FOPEN <mode>, <handle>, \"<filename>\"\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos);
+            if (pos != arg.size())
+            {
+                fprintf(stderr, "Syntax error line %d: unexpected trailing tokens in FOPEN\n", lineno);
+                result = 1;
+                break;
+            }
+
+            Variable *v = sym_find(&st, handle_name.data());
+            if (!v)
+            {
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", handle_name.data(), lineno);
+                result = 1;
+                break;
+            }
+            if (v->is_const)
+            {
+                fprintf(stderr, "Error line %d: cannot use CONST '%s' as file handle\n", lineno, handle_name.data());
+                result = 1;
+                break;
+            }
+            if (v->type != VAR_INT)
+            {
+                fprintf(stderr, "Type error line %d: file handle '%s' must be integer\n", lineno, handle_name.data());
+                result = 1;
+                break;
+            }
+
+            uint8_t fd;
+            if (allocate_file_handle_fd(file_handles, handle_name.data(), &next_file_handle, &fd))
+            {
+                result = 1;
+                break;
+            }
+
+            EMIT_CODE(&ob, "    FOPEN %s, F%u, \"%s\"", mode.data(), fd, filename.data());
+
+            int reg = ralloc_acquire(&ra);
+            if (reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    MOVI %s, %u", rn, fd);
+            EMIT_CODE_META(&ob, v->name, "    STOREVAR %s, %u", rn, v->slot);
+            ralloc_release(&ra, reg);
+
+            if (debug)
+                printf("[BASIC] FOPEN %s -> %s\n", filename.data(), handle_name.data());
+            continue;
+        }
+
+        if (starts_with_ci(s, "FCLOSE"))
+        {
+            std::string arg = trim_copy(s + 6);
+            size_t pos = 0;
+            std::string handle_name;
+            if (!parse_identifier(arg, pos, handle_name))
+            {
+                fprintf(stderr, "Syntax error line %d: expected FCLOSE <handle>\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos);
+            if (pos != arg.size())
+            {
+                fprintf(stderr, "Syntax error line %d: FCLOSE takes exactly one operand\n", lineno);
+                result = 1;
+                break;
+            }
+
+            uint8_t fd;
+            if (get_file_handle_fd(file_handles, handle_name.data(), &fd, lineno))
+            {
+                result = 1;
+                break;
+            }
+            EMIT_CODE(&ob, "    FCLOSE F%u", fd);
+            if (debug)
+                printf("[BASIC] FCLOSE %s\n", handle_name.data());
+            continue;
+        }
+
+        if (starts_with_ci(s, "FREAD"))
+        {
+            std::string arg = trim_copy(s + 5);
+            size_t pos = 0;
+            std::string handle_name;
+            if (!parse_identifier(arg, pos, handle_name))
+            {
+                fprintf(stderr, "Syntax error line %d: expected FREAD <handle>, <variable>\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos);
+            if (pos >= arg.size() || arg[pos] != ',')
+            {
+                fprintf(stderr, "Syntax error line %d: expected FREAD <handle>, <variable>\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos + 1);
+
+            std::string target_name;
+            if (!parse_identifier(arg, pos, target_name))
+            {
+                fprintf(stderr, "Syntax error line %d: expected FREAD <handle>, <variable>\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos);
+            if (pos != arg.size())
+            {
+                fprintf(stderr, "Syntax error line %d: FREAD takes exactly two operands\n", lineno);
+                result = 1;
+                break;
+            }
+
+            Variable *dest = sym_find(&st, target_name.data());
+            if (!dest)
+            {
+                fprintf(stderr, "Undefined variable '%s' on line %d\n", target_name.data(), lineno);
+                result = 1;
+                break;
+            }
+            if (dest->is_const)
+            {
+                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, target_name.data());
+                result = 1;
+                break;
+            }
+            if (dest->type != VAR_INT)
+            {
+                fprintf(stderr, "Type error line %d: FREAD target '%s' must be integer\n", lineno, target_name.data());
+                result = 1;
+                break;
+            }
+
+            uint8_t fd;
+            if (get_file_handle_fd(file_handles, handle_name.data(), &fd, lineno))
+            {
+                result = 1;
+                break;
+            }
+
+            int reg = ralloc_acquire(&ra);
+            if (reg < 0)
+            {
+                fprintf(stderr, "Out of scratch registers\n");
+                result = 1;
+                break;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    FREAD F%u, %s", fd, rn);
+            EMIT_CODE_META(&ob, dest->name, "    STOREVAR %s, %u", rn, dest->slot);
+            ralloc_release(&ra, reg);
+            if (debug)
+                printf("[BASIC] FREAD %s -> %s\n", handle_name.data(), target_name.data());
+            continue;
+        }
+
+        if (starts_with_ci(s, "FWRITE"))
+        {
+            std::string arg = trim_copy(s + 6);
+            size_t pos = 0;
+            std::string handle_name;
+            if (!parse_identifier(arg, pos, handle_name))
+            {
+                fprintf(stderr, "Syntax error line %d: expected FWRITE <handle>, <expr>\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos);
+            if (pos >= arg.size() || arg[pos] != ',')
+            {
+                fprintf(stderr, "Syntax error line %d: expected FWRITE <handle>, <expr>\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos + 1);
+
+            uint8_t fd;
+            if (get_file_handle_fd(file_handles, handle_name.data(), &fd, lineno))
+            {
+                result = 1;
+                break;
+            }
+
+            const char *expr = arg.c_str() + pos;
+            const char *expr_end = NULL;
+            int reg;
+            if (emit_expr_p(expr, &expr_end, &st, &ra, &ob, debug, &reg))
+            {
+                result = 1;
+                break;
+            }
+            if (*skip_ws(expr_end) != '\0')
+            {
+                ralloc_release(&ra, reg);
+                fprintf(stderr, "Syntax error line %d: FWRITE takes a single expression\n", lineno);
+                result = 1;
+                break;
+            }
+
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    FWRITE F%u, %s", fd, rn);
+            ralloc_release(&ra, reg);
+            if (debug)
+                printf("[BASIC] FWRITE %s\n", handle_name.data());
+            continue;
+        }
+
+        if (starts_with_ci(s, "FSEEK"))
+        {
+            std::string arg = trim_copy(s + 5);
+            size_t pos = 0;
+            std::string handle_name;
+            if (!parse_identifier(arg, pos, handle_name))
+            {
+                fprintf(stderr, "Syntax error line %d: expected FSEEK <handle>, <expr>\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos);
+            if (pos >= arg.size() || arg[pos] != ',')
+            {
+                fprintf(stderr, "Syntax error line %d: expected FSEEK <handle>, <expr>\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos + 1);
+
+            uint8_t fd;
+            if (get_file_handle_fd(file_handles, handle_name.data(), &fd, lineno))
+            {
+                result = 1;
+                break;
+            }
+
+            const char *expr = arg.c_str() + pos;
+            const char *expr_end = NULL;
+            int reg;
+            if (emit_expr_p(expr, &expr_end, &st, &ra, &ob, debug, &reg))
+            {
+                result = 1;
+                break;
+            }
+            if (*skip_ws(expr_end) != '\0')
+            {
+                ralloc_release(&ra, reg);
+                fprintf(stderr, "Syntax error line %d: FSEEK takes a single expression\n", lineno);
+                result = 1;
+                break;
+            }
+
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(&ob, "    FSEEK F%u, %s", fd, rn);
+            ralloc_release(&ra, reg);
+            if (debug)
+                printf("[BASIC] FSEEK %s\n", handle_name.data());
+            continue;
+        }
+
+        if (starts_with_ci(s, "FPRINT"))
+        {
+            std::string arg = trim_copy(s + 6);
+            size_t pos = 0;
+            std::string handle_name;
+            if (!parse_identifier(arg, pos, handle_name))
+            {
+                fprintf(stderr, "Syntax error line %d: expected FPRINT <handle>, <value>\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos);
+            if (pos >= arg.size() || arg[pos] != ',')
+            {
+                fprintf(stderr, "Syntax error line %d: expected FPRINT <handle>, <value>\n", lineno);
+                result = 1;
+                break;
+            }
+            pos = skip_ws(arg, pos + 1);
+
+            uint8_t fd;
+            if (get_file_handle_fd(file_handles, handle_name.data(), &fd, lineno))
+            {
+                result = 1;
+                break;
+            }
+
+            if (pos < arg.size() && arg[pos] == '"')
+            {
+                std::string text;
+                if (!parse_quoted_string(arg, pos, text))
+                {
+                    fprintf(stderr, "Syntax error line %d: unterminated string in FPRINT\n", lineno);
+                    result = 1;
+                    break;
+                }
+                pos = skip_ws(arg, pos);
+                if (pos != arg.size())
+                {
+                    fprintf(stderr, "Syntax error line %d: unexpected tokens after FPRINT string\n", lineno);
+                    result = 1;
+                    break;
+                }
+
+                int reg = ralloc_acquire(&ra);
+                if (reg < 0)
+                {
+                    fprintf(stderr, "Out of scratch registers\n");
+                    result = 1;
+                    break;
+                }
+                char rn[4];
+                reg_name(reg, rn);
+                for (unsigned char c : text)
+                {
+                    EMIT_CODE(&ob, "    MOVI %s, %u", rn, (unsigned)c);
+                    EMIT_CODE(&ob, "    FWRITE F%u, %s", fd, rn);
+                }
+                EMIT_CODE(&ob, "    MOVI %s, 10", rn);
+                EMIT_CODE(&ob, "    FWRITE F%u, %s", fd, rn);
+                ralloc_release(&ra, reg);
+            }
+            else
+            {
+                const char *expr = arg.c_str() + pos;
+                const char *expr_end = NULL;
+                int reg;
+                if (emit_expr_p(expr, &expr_end, &st, &ra, &ob, debug, &reg))
+                {
+                    result = 1;
+                    break;
+                }
+                if (*skip_ws(expr_end) != '\0')
+                {
+                    ralloc_release(&ra, reg);
+                    fprintf(stderr, "Syntax error line %d: FPRINT takes a single expression\n", lineno);
+                    result = 1;
+                    break;
+                }
+                char rn[4];
+                reg_name(reg, rn);
+                EMIT_CODE(&ob, "    FWRITE F%u, %s", fd, rn);
+                EMIT_CODE(&ob, "    MOVI %s, 10", rn);
+                EMIT_CODE(&ob, "    FWRITE F%u, %s", fd, rn);
+                ralloc_release(&ra, reg);
+            }
+
+            if (debug)
+                printf("[BASIC] FPRINT %s\n", handle_name.data());
             continue;
         }
 

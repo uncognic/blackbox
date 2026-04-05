@@ -31,6 +31,12 @@ Supported statements and blocks:
 - `GETARGC name` (stores the interpreter argument count in integer variable)
 - `GETARG name, index` (stores argv[index] into string variable)
 - `GETENV name, "VAR"` (stores environment variable value into a string variable)
+- `FOPEN mode, handle, "filename"` (opens a file into an integer handle variable)
+- `FCLOSE handle` (closes the opened file)
+- `FREAD handle, var` (reads one byte from the file into an integer variable, returns -1 on EOF)
+- `FWRITE handle, expr` (writes the low byte of an integer expression to the file)
+- `FSEEK handle, offset` (seeks the file position to the given offset)
+- `FPRINT handle, "text"` or `FPRINT handle, expr` (writes a value to the file and appends a newline)
 - Inline assembly block: `ASM:` ... `ENDASM`
 
 Expressions:

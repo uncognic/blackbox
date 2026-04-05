@@ -73,3 +73,9 @@ typedef struct
 {
     std::vector<Block> items;
 } BlockStack;
+
+typedef struct
+{
+    std::string name;
+    uint8_t fd;
+} FileHandle;

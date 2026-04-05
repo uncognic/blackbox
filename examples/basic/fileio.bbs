@@ -1,0 +1,19 @@
+// BASIC file I/O example
+// Writes text to a file, then reads it back one byte at a time
+
+VAR fh = 0
+VAR ch = 0
+
+FOPEN w, fh, "fileio.txt"
+FPRINT fh, "Hello"
+FPRINT fh, " "
+FPRINT fh, "World"
+FCLOSE fh
+
+FOPEN r, fh, "fileio.txt"
+FREAD fh, ch
+WHILE ch != -1:
+    PRINT ch
+    FREAD fh, ch
+ENDWHILE
+FCLOSE fh
