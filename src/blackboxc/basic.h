@@ -6,16 +6,11 @@
 #include <string>
 #include <vector>
 
-int preprocess_basic(const char *input, const char *output, int debug);
+int preprocess_basic(const char* input, const char* output, int debug);
 
-typedef enum
-{
-    VAR_INT,
-    VAR_STR
-} VarType;
+typedef enum { VAR_INT, VAR_STR } VarType;
 
-typedef struct
-{
+typedef struct {
     char name[128];
     VarType type;
     uint8_t is_const;
@@ -28,39 +23,30 @@ typedef struct
 #define SCRATCH_MAX 15
 #define SCRATCH_COUNT 16
 
-typedef struct
-{
+typedef struct {
     uint32_t used;
 } RegAlloc;
 
-typedef struct
-{
+typedef struct {
     std::vector<Variable> vars;
     uint32_t next_slot;
     uint32_t next_data_id;
 } SymbolTable;
 
-typedef struct
-{
+typedef struct {
     std::string data_sec; // for %data
     std::string code_sec;
 } OutBuf;
 
 // nested IF/WHILE tracking
 
-typedef enum
-{
-    BLOCK_IF,
-    BLOCK_WHILE,
-    BLOCK_FOR
-} BlockKind;
+typedef enum { BLOCK_IF, BLOCK_WHILE, BLOCK_FOR } BlockKind;
 
-typedef struct
-{
+typedef struct {
     BlockKind kind;
     char end_label[64];
     char loop_label[64];
-    int  has_else;
+    int has_else;
     char else_label[64];
     uint32_t for_var_slot;
     uint32_t for_limit_slot;
@@ -69,13 +55,11 @@ typedef struct
 
 } Block;
 
-typedef struct
-{
+typedef struct {
     std::vector<Block> items;
 } BlockStack;
 
-typedef struct
-{
+typedef struct {
     std::string name;
     uint8_t fd;
 } FileHandle;

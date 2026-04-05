@@ -10,8 +10,7 @@
 #define VAR_CAPACITY 16384
 #define MAX_SYSCALLS 256
 
-typedef enum
-{
+typedef enum {
     FAULT_PERM_READ = 0,
     FAULT_PERM_WRITE = 1,
     FAULT_BAD_SYSCALL = 2,
@@ -22,34 +21,21 @@ typedef enum
     FAULT_COUNT = 7
 } Fault;
 
-typedef struct
-{
+typedef struct {
     uint8_t priv_read;
     uint8_t priv_write;
     uint8_t prot_read;
     uint8_t prot_write;
 } SlotPermission;
 
-typedef enum
-{
-    MODE_PROTECTED,
-    MODE_PRIVILEGED
-} Mode;
+typedef enum { MODE_PROTECTED, MODE_PRIVILEGED } Mode;
 
-typedef enum
-{
-    DATA_STRING,
-    DATA_DWORD,
-    DATA_QWORD,
-    DATA_WORD,
-    DATA_BYTE
-} DataType;
+typedef enum { DATA_STRING, DATA_DWORD, DATA_QWORD, DATA_WORD, DATA_BYTE } DataType;
 
-typedef struct
-{
+typedef struct {
     char name[32];
     DataType type;
-    char *str;
+    char* str;
     uint8_t byte;
     uint16_t word;
     uint32_t dword;
@@ -57,17 +43,15 @@ typedef struct
     uint32_t offset;
 } Data;
 
-typedef struct
-{
-    char *name;
-    char **params;
+typedef struct {
+    char* name;
+    char** params;
     int paramc;
-    char **body;
+    char** body;
     int bodyc;
 } Macro;
 
-typedef struct
-{
+typedef struct {
     char name[32];
     uint32_t addr;
     uint32_t frame_size;

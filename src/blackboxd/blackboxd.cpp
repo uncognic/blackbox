@@ -150,7 +150,8 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             j += 2 + static_cast<size_t>(slen);
             break;
         }
-        case OPCODE_NEWLINE: // the reason all of the following opcodes are grouped together is that they have the same operand format
+        case OPCODE_NEWLINE: // the reason all of the following opcodes are grouped together is that
+                             // they have the same operand format
         case OPCODE_CLRSCR:
         case OPCODE_CONTINUE:
         case OPCODE_BREAK:
@@ -1227,7 +1228,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset("movi " + reg_name(dst) + ", " + std::to_string(imm));
             break;
         }
-        case OPCODE_MOV_REG: 
+        case OPCODE_MOV_REG:
         case OPCODE_ADD:
         case OPCODE_SUB:
         case OPCODE_MUL:
