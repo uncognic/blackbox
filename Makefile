@@ -1,7 +1,7 @@
 .PHONY: all clean compiler interpreter disassembler copy
 
-CC = clang-19
-CXX = clang++-19
+CC = clang
+CXX = clang++
 CFLAGS ?= -Wall -Wextra -O2
 CXXFLAGS ?= -Wall -Wextra -O2 -std=c++23 -stdlib=libc++
 
