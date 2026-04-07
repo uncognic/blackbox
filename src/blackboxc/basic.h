@@ -62,3 +62,54 @@ typedef struct {
     std::string name;
     uint8_t fd;
 } FileHandle;
+
+class CompilerState {
+  public:
+    SymbolTable st;
+    OutBuf ob;
+    RegAlloc ra;
+    BlockStack bs;
+    unsigned long uid = 0;
+    std::vector<FileHandle> file_handles;
+    uint8_t next_file_handle = 0;
+    int lineno = 0;
+    int debug = 0;
+    char emit_ctx[512] = {};
+
+    CompilerState();
+
+    Variable* sym_find(const char* name);
+    Variable* sym_add_int(const char* name);
+    Variable* sym_add_str(const char* name, const char* data_name, int is_const);
+
+    int ralloc_acquire();
+    void ralloc_release(int reg);
+
+    void set_emit_context(const char* stmt);
+    int emit_data(const char* fmt, ...);
+    int emit_code_comment(const char* detail, const char* fmt, ...);
+
+    int get_file_handle_fd(const char* name, uint8_t* out_fd);
+    int alloc_file_handle_fd(const char* name, uint8_t* out_fd);
+
+    void bstack_push(Block b);
+    Block* bstack_peek();
+    Block bstack_pop();
+
+    int emit_atom(const char* s, const char** end, int* out_reg);
+    int emit_unary(const char* s, const char** end, int* out_reg);
+    int emit_bitwise(const char* s, const char** end, int* out_reg);
+    int emit_mul(const char* s, const char** end, int* out_reg);
+    int emit_expr(const char* s, int* out_reg);
+    int emit_expr_p(const char* s, const char** end, int* out_reg);
+    int emit_condition(const char* s, const char* skip_label);
+    int emit_write_values(const char* arg, const char* stmt_name, int to_stderr);
+
+    int compile_line(char* s);
+};
+
+struct FuncDef {
+    std::string name;
+    std::vector<std::string> params;
+    CompilerState state;
+};

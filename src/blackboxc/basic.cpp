@@ -173,170 +173,152 @@ struct RegGuard {
     RegGuard& operator=(const RegGuard&) = delete;
 };
 
-class CompilerState {
-  public:
-    SymbolTable st;
-    OutBuf ob;
-    RegAlloc ra;
-    BlockStack bs;
-    unsigned long uid = 0;
-    std::vector<FileHandle> file_handles;
-    uint8_t next_file_handle = 0;
-    int lineno = 0;
-    int debug = 0;
-    char emit_ctx[512] = {};
+CompilerState::CompilerState() {
+    st.next_slot = 0;
+    st.next_data_id = 0;
+    ra.used = 0;
+    bs.items.reserve(64);
+}
 
-    CompilerState() {
-        st.next_slot = 0;
-        st.next_data_id = 0;
-        ra.used = 0;
-        bs.items.reserve(64);
-    }
-
-    Variable* sym_find(const char* name) {
-        for (auto& v : st.vars) {
-            if (strcmp(v.name, name) == 0) {
-                return &v;
-            }
+Variable* CompilerState::sym_find(const char* name) {
+    for (auto& v : st.vars) {
+        if (strcmp(v.name, name) == 0) {
+            return &v;
         }
-        return nullptr;
     }
+    return nullptr;
+}
 
-    Variable* sym_add_int(const char* name) {
-        st.vars.emplace_back();
-        Variable* var = &st.vars.back();
-        std::memset(var, 0, sizeof(*var));
-        copy_cstr(var->name, sizeof(var->name), name);
-        var->type = VAR_INT;
+Variable* CompilerState::sym_add_int(const char* name) {
+    st.vars.emplace_back();
+    Variable* var = &st.vars.back();
+    std::memset(var, 0, sizeof(*var));
+    copy_cstr(var->name, sizeof(var->name), name);
+    var->type = VAR_INT;
+    var->slot = st.next_slot++;
+    return var;
+}
+
+Variable* CompilerState::sym_add_str(const char* name, const char* data_name, int is_const) {
+    st.vars.emplace_back();
+    Variable* var = &st.vars.back();
+    std::memset(var, 0, sizeof(*var));
+    copy_cstr(var->name, sizeof(var->name), name);
+    var->type = VAR_STR;
+    var->is_const = is_const;
+    if (!is_const) {
         var->slot = st.next_slot++;
-        return var;
     }
+    copy_cstr(var->data_name, sizeof(var->data_name), data_name);
+    return var;
+}
 
-    Variable* sym_add_str(const char* name, const char* data_name, int is_const) {
-        st.vars.emplace_back();
-        Variable* var = &st.vars.back();
-        std::memset(var, 0, sizeof(*var));
-        copy_cstr(var->name, sizeof(var->name), name);
-        var->type = VAR_STR;
-        var->is_const = is_const;
-        if (!is_const) {
-            var->slot = st.next_slot++;
+int CompilerState::ralloc_acquire() {
+    for (int i = 0; i < SCRATCH_COUNT; i++) {
+        if (!(ra.used & (1u << i))) {
+            ra.used |= (1u << i);
+            return SCRATCH_MIN + i;
         }
-        copy_cstr(var->data_name, sizeof(var->data_name), data_name);
-        return var;
     }
+    return -1;
+}
 
-    int ralloc_acquire() {
-        for (int i = 0; i < SCRATCH_COUNT; i++) {
-            if (!(ra.used & (1u << i))) {
-                ra.used |= (1u << i);
-                return SCRATCH_MIN + i;
-            }
-        }
-        return -1;
+void CompilerState::ralloc_release(int reg) {
+    if (reg >= SCRATCH_MIN && reg <= SCRATCH_MAX) {
+        ra.used &= ~(1u << (reg - SCRATCH_MIN));
     }
+}
 
-    void ralloc_release(int reg) {
-        if (reg >= SCRATCH_MIN && reg <= SCRATCH_MAX) {
-            ra.used &= ~(1u << (reg - SCRATCH_MIN));
-        }
+void CompilerState::set_emit_context(const char* stmt) {
+    if (!stmt) {
+        stmt = "";
     }
-    void set_emit_context(const char* stmt) {
-        if (!stmt) {
-            stmt = "";
-        }
-        std::string snippet(stmt);
-        if (snippet.size() > 191) {
-            snippet.resize(191);
-        }
-        if (!bs.items.empty()) {
-            const Block* top = &bs.items.back();
-            if (top->kind == BLOCK_FOR && top->for_var_name[0] != '\0') {
-                snprintf(emit_ctx, sizeof(emit_ctx), "BASIC line %d | block=%s(%s) | src=%s",
-                         lineno, block_kind_name(top->kind), top->for_var_name, snippet.data());
-            } else {
-                snprintf(emit_ctx, sizeof(emit_ctx), "BASIC line %d | block=%s | src=%s", lineno,
-                         block_kind_name(top->kind), snippet.data());
-            }
-            return;
-        }
-        snprintf(emit_ctx, sizeof(emit_ctx), "BASIC line %d | src=%s", lineno, snippet.data());
+    std::string snippet(stmt);
+    if (snippet.size() > 191) {
+        snippet.resize(191);
     }
-    int emit_data(const char* fmt, ...) {
-        char tmp[512];
-        va_list ap;
-        va_start(ap, fmt);
-        vsnprintf(tmp, sizeof(tmp), fmt, ap);
-        va_end(ap);
-        ob.data_sec += tmp;
-        ob.data_sec += '\n';
-        return 0;
-    }
-
-    int emit_code_comment(const char* detail, const char* fmt, ...) {
-        char ins[512];
-        va_list ap;
-        va_start(ap, fmt);
-        vsnprintf(ins, sizeof(ins), fmt, ap);
-        va_end(ap);
-        char line_buf[1024];
-        if (detail && *detail) {
-            snprintf(line_buf, sizeof(line_buf), "%s ; %s | %s\n\n", ins,
-                     emit_ctx[0] ? emit_ctx : "BASIC", detail);
+    if (!bs.items.empty()) {
+        const Block* top = &bs.items.back();
+        if (top->kind == BLOCK_FOR && top->for_var_name[0] != '\0') {
+            snprintf(emit_ctx, sizeof(emit_ctx), "BASIC line %d | block=%s(%s) | src=%s", lineno,
+                     block_kind_name(top->kind), top->for_var_name, snippet.data());
         } else {
-            snprintf(line_buf, sizeof(line_buf), "%s ; %s\n\n", ins,
-                     emit_ctx[0] ? emit_ctx : "BASIC");
+            snprintf(emit_ctx, sizeof(emit_ctx), "BASIC line %d | block=%s | src=%s", lineno,
+                     block_kind_name(top->kind), snippet.data());
         }
-        ob.code_sec += line_buf;
-        return 0;
+        return;
     }
+    snprintf(emit_ctx, sizeof(emit_ctx), "BASIC line %d | src=%s", lineno, snippet.data());
+}
 
-    int get_file_handle_fd(const char* name, uint8_t* out_fd) {
-        int idx = get_file_handle_index(file_handles, name);
-        if (idx < 0) {
-            fprintf(stderr, "Undefined file handle '%s' on line %d\n", name, lineno);
-            return 1;
-        }
+int CompilerState::emit_data(const char* fmt, ...) {
+    char tmp[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(tmp, sizeof(tmp), fmt, ap);
+    va_end(ap);
+    ob.data_sec += tmp;
+    ob.data_sec += '\n';
+    return 0;
+}
+
+int CompilerState::emit_code_comment(const char* detail, const char* fmt, ...) {
+    char ins[512];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(ins, sizeof(ins), fmt, ap);
+    va_end(ap);
+    char line_buf[1024];
+    if (detail && *detail) {
+        snprintf(line_buf, sizeof(line_buf), "%s ; %s | %s\n\n", ins,
+                 emit_ctx[0] ? emit_ctx : "BASIC", detail);
+    } else {
+        snprintf(line_buf, sizeof(line_buf), "%s ; %s\n\n", ins, emit_ctx[0] ? emit_ctx : "BASIC");
+    }
+    ob.code_sec += line_buf;
+    return 0;
+}
+
+int CompilerState::get_file_handle_fd(const char* name, uint8_t* out_fd) {
+    int idx = get_file_handle_index(file_handles, name);
+    if (idx < 0) {
+        fprintf(stderr, "Undefined file handle '%s' on line %d\n", name, lineno);
+        return 1;
+    }
+    *out_fd = file_handles[idx].fd;
+    return 0;
+}
+
+int CompilerState::alloc_file_handle_fd(const char* name, uint8_t* out_fd) {
+    int idx = get_file_handle_index(file_handles, name);
+    if (idx >= 0) {
         *out_fd = file_handles[idx].fd;
         return 0;
     }
-
-    int alloc_file_handle_fd(const char* name, uint8_t* out_fd) {
-        int idx = get_file_handle_index(file_handles, name);
-        if (idx >= 0) {
-            *out_fd = file_handles[idx].fd;
-            return 0;
-        }
-        if (next_file_handle >= FILE_DESCRIPTORS) {
-            fprintf(stderr, "Too many file handles\n");
-            return 1;
-        }
-        file_handles.push_back(FileHandle());
-        file_handles.back().name = name;
-        file_handles.back().fd = next_file_handle;
-        *out_fd = next_file_handle++;
-        return 0;
+    if (next_file_handle >= FILE_DESCRIPTORS) {
+        fprintf(stderr, "Too many file handles\n");
+        return 1;
     }
+    file_handles.push_back(FileHandle());
+    file_handles.back().name = name;
+    file_handles.back().fd = next_file_handle;
+    *out_fd = next_file_handle++;
+    return 0;
+}
 
-    void bstack_push(Block b) { bs.items.push_back(b); }
-    Block* bstack_peek() { return bs.items.empty() ? nullptr : &bs.items.back(); }
-    Block bstack_pop() {
-        Block b = bs.items.back();
-        bs.items.pop_back();
-        return b;
-    }
+void CompilerState::bstack_push(Block b) {
+    bs.items.push_back(b);
+}
 
-    int emit_atom(const char* s, const char** end, int* out_reg);
-    int emit_unary(const char* s, const char** end, int* out_reg);
-    int emit_bitwise(const char* s, const char** end, int* out_reg);
-    int emit_mul(const char* s, const char** end, int* out_reg);
-    int emit_expr(const char* s, int* out_reg);
-    int emit_expr_p(const char* s, const char** end, int* out_reg);
-    int emit_condition(const char* s, const char* skip_label);
-    int emit_write_values(const char* arg, const char* stmt_name, int to_stderr);
+Block* CompilerState::bstack_peek() {
+    return bs.items.empty() ? nullptr : &bs.items.back();
+}
 
-    int compile_line(char* s);
-};
+Block CompilerState::bstack_pop() {
+    Block b = bs.items.back();
+    bs.items.pop_back();
+    return b;
+}
 
 #define EMIT_DATA(cs, fmt, ...)                                                                    \
     do {                                                                                           \
