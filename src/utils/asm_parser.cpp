@@ -328,14 +328,13 @@ size_t instr_size(const char* line) {
     exit(1);
 }
 
-uint8_t parse_register(const char* r, int lineno) {
-    std::string reg = r ? r : std::string();
-    if (reg.empty() || ascii_upper((unsigned char) reg[0]) != 'R') {
+uint8_t parse_register(const std::string& r, int lineno) {
+    if (r.empty() || ascii_upper((unsigned char) r[0]) != 'R') {
         fprintf(stderr, "Invalid register on line %d\n", lineno);
         exit(1);
     }
 
-    std::string digits = reg.substr(1);
+    std::string digits = r.substr(1);
     if (digits.empty()) {
         fprintf(stderr, "Invalid register on line %d\n", lineno);
         exit(1);
@@ -352,18 +351,27 @@ uint8_t parse_register(const char* r, int lineno) {
     return static_cast<uint8_t>(value);
 }
 
-uint8_t parse_file(const char* r, int lineno) {
-    if (ascii_upper((unsigned char) r[0]) != 'F') {
+uint8_t parse_file(const std::string& r, int lineno) {
+    if (r.empty() || ascii_upper((unsigned char) r[0]) != 'F') {
         fprintf(stderr, "Invalid file descriptor on line %d\n", lineno);
         exit(1);
     }
-    char* end;
-    long v = strtol(r + 1, &end, 10);
-    if (*end != '\0' || v < 0 || v >= FILE_DESCRIPTORS) {
+
+    std::string digits = r.substr(1);
+    if (digits.empty()) {
         fprintf(stderr, "Invalid file descriptor on line %d\n", lineno);
         exit(1);
     }
-    return (uint8_t) v;
+
+    int value = 0;
+    auto [ptr, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
+    if (ec != std::errc() || ptr != digits.data() + digits.size() || value < 0 ||
+        value >= FILE_DESCRIPTORS) {
+        fprintf(stderr, "Invalid file descriptor on line %d\n", lineno);
+        exit(1);
+    }
+
+    return static_cast<uint8_t>(value);
 }
 
 } // namespace tools
