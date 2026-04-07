@@ -3,7 +3,7 @@
 CC = clang
 CXX = clang++
 CFLAGS ?= -Wall -Wextra -O2
-CXXFLAGS ?= -Wall -Wextra -O2 -std=c++23 -stdlib=libc++
+CXXFLAGS ?= -Wall -Wextra -O2 -std=c++23
 
 all: compiler interpreter disassembler copy
 
