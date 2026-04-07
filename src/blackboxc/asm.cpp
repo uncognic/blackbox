@@ -1,8 +1,12 @@
 #include "asm.hpp"
 #include "../data.hpp"
 #include "../define.hpp"
-#include "../tools.hpp"
 #include "asm_util.hpp"
+#include "../utils/preprocessor.hpp"
+#include "../utils/string_utils.hpp"
+#include "../utils/macro_expansion.hpp"
+#include "../utils/asm_parser.hpp"
+#include "../utils/symbol_table.hpp"
 
 #include <cctype>
 #include <cstdint>

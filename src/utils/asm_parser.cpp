@@ -1,48 +1,18 @@
-#include "tools.hpp"
-#include "define.hpp"
+#include "asm_parser.hpp"
+#include "../define.hpp"
+#include "string_utils.hpp"
 #include <cctype>
-#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <string>
-#include <vector>
 
-#ifdef _WIN32
-#include <windows.h>
-#include <bcrypt.h>
-#else
-#include <fcntl.h>
-#include <unistd.h>
-#endif
+
 namespace blackbox {
 namespace tools {
+
 static inline unsigned char ascii_upper(unsigned char c) {
     return (unsigned char) toupper(c);
-}
-
-static bool equals_ci_str(const std::string& a, const std::string& b) {
-    if (a.size() != b.size()) {
-        return false;
-    }
-    for (size_t i = 0; i < a.size(); i++) {
-        if (ascii_upper((unsigned char) a[i]) != ascii_upper((unsigned char) b[i])) {
-            return false;
-        }
-    }
-    return true;
-}
-
-static bool starts_with_ci_str(const std::string& s, const std::string& prefix) {
-    if (s.size() < prefix.size()) {
-        return false;
-    }
-    for (size_t i = 0; i < prefix.size(); i++) {
-        if (ascii_upper((unsigned char) s[i]) != ascii_upper((unsigned char) prefix[i])) {
-            return false;
-        }
-    }
-    return true;
 }
 
 static std::string trim_copy(const std::string& s) {
@@ -91,104 +61,6 @@ static std::string operand_after_opcode(const std::string& line, size_t op_len) 
         return std::string();
     }
     return trim_copy(line.substr(op_len));
-}
-
-static bool preprocess_includes_impl(const char* input, int depth, std::string& out) {
-    if (depth > 32) {
-        fprintf(stderr, "Error: include nesting too deep\n");
-        return false;
-    }
-
-    const std::string input_path(input);
-    const size_t sep = input_path.find_last_of("/\\");
-    const std::string base_dir =
-        (sep == std::string::npos) ? std::string() : input_path.substr(0, sep);
-
-    FILE* in = fopen(input, "rb");
-    if (!in) {
-        perror("fopen");
-        return false;
-    }
-
-    out.clear();
-    out.reserve(4096);
-
-    char line[8192];
-    while (fgets(line, sizeof line, in)) {
-        std::string source(line);
-        std::string trimmed = trim_copy(source);
-        size_t comment_pos = trimmed.find(';');
-        if (comment_pos != std::string::npos) {
-            trimmed.erase(comment_pos);
-        }
-        trimmed = trim_copy(trimmed);
-        const char* s = trimmed.c_str();
-
-        if (starts_with_ci(s, "%include")) {
-            const char* p = s + 8;
-            while (*p && isspace((unsigned char) *p)) {
-                p++;
-            }
-
-            if (*p != '"') {
-                fprintf(stderr, "Error: malformed %%include directive\n");
-                fclose(in);
-                return false;
-            }
-
-            const char* end = strchr(p + 1, '"');
-            if (!end) {
-                fprintf(stderr, "Error: malformed %%include directive\n");
-                fclose(in);
-                return false;
-            }
-
-            std::string include_target(p + 1, (size_t) (end - (p + 1)));
-
-            std::string include_path;
-            if (!base_dir.empty()) {
-                include_path = base_dir + "/" + include_target;
-            } else {
-                include_path = include_target;
-            }
-
-            std::string included;
-            if (!preprocess_includes_impl(include_path.c_str(), depth + 1, included)) {
-                fclose(in);
-                return false;
-            }
-            out += included;
-            continue;
-        }
-
-        out += line;
-    }
-
-    fclose(in);
-    return true;
-}
-
-bool preprocess_includes(const std::string& input, std::string& out) {
-    return preprocess_includes_impl(input.c_str(), 0, out);
-}
-
-uint32_t find_label(const char* name, Label* labels, size_t count) {
-    for (size_t i = 0; i < count; i++) {
-        if (strcmp(labels[i].name, name) == 0) {
-            return labels[i].addr;
-        }
-    }
-    fprintf(stderr, "Unknown label %s\n", name);
-    exit(1);
-}
-uint32_t find_data(const char* name, Data* data, size_t count) {
-    for (size_t i = 0; i < count; i++) {
-        if (equals_ci(data[i].name, name)) {
-            return i;
-        }
-    }
-    fprintf(stderr, "Error: undefined string constant '%s'\n", name);
-    exit(1);
 }
 
 size_t instr_size(const char* line) {
@@ -450,6 +322,7 @@ size_t instr_size(const char* line) {
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);
 }
+
 uint8_t parse_register(const char* r, int lineno) {
     if (ascii_upper((unsigned char) r[0]) != 'R') {
         fprintf(stderr, "Invalid register on line %d\n", lineno);
@@ -463,6 +336,7 @@ uint8_t parse_register(const char* r, int lineno) {
     }
     return (uint8_t) v;
 }
+
 uint8_t parse_file(const char* r, int lineno) {
     if (ascii_upper((unsigned char) r[0]) != 'F') {
         fprintf(stderr, "Invalid file descriptor on line %d\n", lineno);
@@ -476,200 +350,6 @@ uint8_t parse_file(const char* r, int lineno) {
     }
     return (uint8_t) v;
 }
-char* trim(char* s) {
-    while (isspace((unsigned char) *s)) {
-        s++;
-    }
-    if (*s == '\0') {
-        return s;
-    }
 
-    char* end = s + strlen(s) - 1;
-    while (end >= s && (isspace(*end) || *end == '\r' || *end == '\n')) {
-        *end-- = '\0';
-    }
-    return s;
-}
-uint64_t get_true_random() {
-#ifdef _WIN32
-    uint64_t num;
-    if (!BCRYPT_SUCCESS(BCryptGenRandom(NULL, (PUCHAR) &num, (ULONG) sizeof(num),
-                                        BCRYPT_USE_SYSTEM_PREFERRED_RNG))) {
-        fprintf(stderr, "Random generation failed\n");
-        return 0;
-    }
-    return num;
-#else
-    uint64_t num = 0;
-    int fd = open("/dev/urandom", O_RDONLY);
-    if (fd < 0) {
-        perror("open /dev/urandom");
-        return 0;
-    }
-
-    ssize_t n = read(fd, &num, sizeof(num));
-    if (n != sizeof(num)) {
-        fprintf(stderr, "Failed to read 8 bytes from /dev/urandom\n");
-        close(fd);
-        return 0;
-    }
-
-    close(fd);
-    return num;
-#endif
-}
-
-Macro* find_macro(Macro* macros, size_t macro_count, const char* name) {
-    const std::string needle(name ? name : "");
-    for (size_t m = 0; m < macro_count; m++) {
-        if (std::string(macros[m].name) == needle) {
-            return &macros[m];
-        }
-    }
-    return NULL;
-}
-
-std::string replace_all(const std::string& src, const std::string& find, const std::string& repl) {
-    if (find.empty()) {
-        return src;
-    }
-
-    std::string out(src);
-    size_t pos = 0;
-    while ((pos = out.find(find, pos)) != std::string::npos) {
-        out.replace(pos, find.size(), repl);
-        pos += repl.size();
-    }
-
-    return out;
-}
-
-static std::vector<std::string> split_tokens(const std::string& s) {
-    std::vector<std::string> tokens;
-    size_t i = 0;
-    while (i < s.size()) {
-        while (i < s.size() && (isspace((unsigned char) s[i]) || s[i] == ',')) {
-            i++;
-        }
-        if (i >= s.size()) {
-            break;
-        }
-        size_t start = i;
-        while (i < s.size() && !isspace((unsigned char) s[i]) && s[i] != ',') {
-            i++;
-        }
-        tokens.emplace_back(s.substr(start, i - start));
-    }
-    return tokens;
-}
-
-static std::string replace_all_cpp(std::string text, const std::string& needle,
-                                   const std::string& replacement) {
-    if (needle.empty()) {
-        return text;
-    }
-
-    size_t pos = 0;
-    while ((pos = text.find(needle, pos)) != std::string::npos) {
-        text.replace(pos, needle.size(), replacement);
-        pos += replacement.size();
-    }
-    return text;
-}
-
-int expand_invocation(const char* invocation_line, FILE* dest, int depth, Macro* macros,
-                      size_t macro_count, unsigned long* expand_id) {
-    if (depth > 32) {
-        return -1;
-    }
-
-    std::vector<char> inv_mut(invocation_line, invocation_line + strlen(invocation_line));
-    inv_mut.push_back('\0');
-    char* t = trim(inv_mut.data());
-    if (t[0] != '%') {
-        return 0;
-    }
-
-    std::vector<std::string> tokens = split_tokens(std::string(t + 1));
-    if (tokens.empty()) {
-        return 0;
-    }
-
-    Macro* m = find_macro(macros, macro_count, tokens[0].c_str());
-    if (!m) {
-        return 0;
-    }
-
-    std::vector<std::string> args;
-    for (size_t i = 1; i < tokens.size() && args.size() < 32; i++) {
-        args.push_back(tokens[i]);
-    }
-
-    (*expand_id)++;
-    std::string id_prefix = "M" + std::to_string(*expand_id);
-
-    for (int bi = 0; bi < m->bodyc; bi++) {
-        std::string line = m->body[bi];
-        for (int pi = 0; pi < m->paramc; pi++) {
-            std::string find = "$" + std::string(m->params[pi]);
-            const std::string repl = (pi < (int) args.size()) ? args[(size_t) pi] : std::string();
-            line = replace_all_cpp(std::move(line), find, repl);
-        }
-        for (size_t pi = 0; pi < args.size(); pi++) {
-            std::string find = "$" + std::to_string(pi + 1);
-            line = replace_all_cpp(std::move(line), find, args[pi]);
-        }
-
-        const char* pcur = line.c_str();
-        std::string out;
-        out.reserve(line.size() + 16);
-        for (;;) {
-            const char* atpos = strstr(pcur, "@@");
-            if (!atpos) {
-                out += pcur;
-                break;
-            }
-            size_t prefixlen = (size_t) (atpos - pcur);
-            out.append(pcur, prefixlen);
-            const char* ident = atpos + 2;
-            int il = 0;
-            while (ident[il] && (isalnum((unsigned char) ident[il]) || ident[il] == '_')) {
-                il++;
-            }
-            out += id_prefix;
-            out += "_";
-            out.append(ident, (size_t) il);
-            pcur = ident + il;
-        }
-
-        std::vector<char> out_mut(out.begin(), out.end());
-        out_mut.push_back('\0');
-        char* wline = trim(out_mut.data());
-        if (wline[0] == '%') {
-            expand_invocation(wline, dest, depth + 1, macros, macro_count, expand_id);
-        } else {
-            fputs(wline, dest);
-            size_t l = strlen(wline);
-            if (l == 0 || wline[l - 1] != '\n') {
-                fputc('\n', dest);
-            }
-        }
-    }
-
-    return 1;
-}
-int equals_ci(const char* a, const char* b) {
-    if (!a || !b) {
-        return 0;
-    }
-    return equals_ci_str(std::string(a), std::string(b)) ? 1 : 0;
-}
-
-int starts_with_ci(const char* s, const char* prefix) {
-    if (!s || !prefix) {
-        return 0;
-    }
-    return starts_with_ci_str(std::string(s), std::string(prefix)) ? 1 : 0;
-}
 } // namespace tools
 } // namespace blackbox

@@ -12,17 +12,27 @@ compiler:
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/asm.cpp -o src/blackboxc/asm.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/basic.cpp -o src/blackboxc/basic.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/data.cpp -o src/data.o
-	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/tools.cpp -o src/tools.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/string_utils.cpp -o src/utils/string_utils.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/asm_parser.cpp -o src/utils/asm_parser.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/preprocessor.cpp -o src/utils/preprocessor.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/macro_expansion.cpp -o src/utils/macro_expansion.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/symbol_table.cpp -o src/utils/symbol_table.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/random_utils.cpp -o src/utils/random_utils.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/asm_util.cpp -o src/blackboxc/asm_util.o
-	$(CXX) src/blackboxc/compiler.o src/blackboxc/asm.o src/blackboxc/basic.o src/tools.o src/data.o src/blackboxc/asm_util.o -o src/blackboxc/bbxc
+	$(CXX) src/blackboxc/compiler.o src/blackboxc/asm.o src/blackboxc/basic.o src/data.o src/utils/string_utils.o src/utils/asm_parser.o src/utils/preprocessor.o src/utils/macro_expansion.o src/utils/symbol_table.o src/utils/random_utils.o src/blackboxc/asm_util.o -o src/blackboxc/bbxc
 
 interpreter:
 	$(CXX) $(CXXFLAGS) -Isrc/blackbox -Isrc/blackboxc -c src/blackbox/blackbox.cpp -o src/blackbox/blackbox.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackbox -Isrc/blackboxc -c src/blackbox/debug.cpp -o src/blackbox/debug.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/data.cpp -o src/data.o
-	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/tools.cpp -o src/tools.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/string_utils.cpp -o src/utils/string_utils.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/asm_parser.cpp -o src/utils/asm_parser.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/preprocessor.cpp -o src/utils/preprocessor.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/macro_expansion.cpp -o src/utils/macro_expansion.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/symbol_table.cpp -o src/utils/symbol_table.o
+	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/random_utils.cpp -o src/utils/random_utils.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackbox -c src/fmt.cpp -o src/fmt.o
-	$(CXX) src/blackbox/blackbox.o src/blackbox/debug.o src/tools.o src/data.o src/fmt.o -o src/blackbox/bbx
+	$(CXX) src/blackbox/blackbox.o src/blackbox/debug.o src/data.o src/utils/string_utils.o src/utils/asm_parser.o src/utils/preprocessor.o src/utils/macro_expansion.o src/utils/symbol_table.o src/utils/random_utils.o src/fmt.o -o src/blackbox/bbx
 
 disassembler:
 	$(CXX) $(CXXFLAGS) -Isrc -c src/blackboxd/blackboxd.cpp -o src/blackboxd/blackboxd.o
@@ -38,4 +48,4 @@ clean:
 	rm -f bbx bbxc bbxd
 	rm -f src/blackbox/bbx src/blackboxc/bbxc src/blackboxd/bbxd
 	rm -f src/blackbox/*.o src/blackboxc/*.o src/*.o
-	rm -f src/blackboxd/*.o
+	rm -f src/blackboxd/*.o src/utils/*.o

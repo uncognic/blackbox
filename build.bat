@@ -12,6 +12,7 @@ if /I "%~1"=="clean" (
     if exist "%ROOT%\bbxd.exe" del /f /q "%ROOT%\bbxd.exe"
     if exist "%SRC%\blackboxc\*.obj" del /f /q "%SRC%\blackboxc\*.obj"
     if exist "%SRC%\blackbox\*.obj" del /f /q "%SRC%\blackbox\*.obj"
+    if exist "%SRC%\utils\*.obj" del /f /q "%SRC%\utils\*.obj"
     if exist "%ROOT%\*.obj" del /f /q "%ROOT%\*.obj"
     if exist "%ROOT%\target" rmdir /s /q "%ROOT%\target"
     echo Clean complete.
@@ -19,14 +20,14 @@ if /I "%~1"=="clean" (
 )
 
 echo Building compiler...
-clang-cl /std:c++latest /EHsc /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%" /I "%SRC%\blackboxc" "%SRC%\blackboxc\compiler.cpp" "%SRC%\blackboxc\asm.cpp" "%SRC%\blackboxc\asm_util.cpp" "%SRC%\blackboxc\basic.cpp" "%SRC%\tools.cpp" "%SRC%\data.cpp" "" bcrypt.lib /Fe:"%ROOT%\bbxc.exe"
+clang-cl /std:c++latest /EHsc /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%" /I "%SRC%\blackboxc" "%SRC%\blackboxc\compiler.cpp" "%SRC%\blackboxc\asm.cpp" "%SRC%\blackboxc\asm_util.cpp" "%SRC%\blackboxc\basic.cpp" "%SRC%\data.cpp" "%SRC%\utils\string_utils.cpp" "%SRC%\utils\asm_parser.cpp" "%SRC%\utils\preprocessor.cpp" "%SRC%\utils\macro_expansion.cpp" "%SRC%\utils\symbol_table.cpp" "%SRC%\utils\random_utils.cpp" bcrypt.lib /Fe:"%ROOT%\bbxc.exe"
 if errorlevel 1 (
     echo Failed to build compiler
     exit /b 1
 )
 
 echo Building interpreter...
-clang-cl /std:c++latest /EHsc /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%" /I "%SRC%\blackbox" /I "%SRC%\blackboxc" "%SRC%\blackbox\blackbox.cpp" "%SRC%\blackbox\debug.cpp" "%SRC%\tools.cpp" "%SRC%\data.cpp" "%SRC%\fmt.cpp" bcrypt.lib /Fe:"%ROOT%\bbx.exe"
+clang-cl /std:c++latest /EHsc /D_CRT_NONSTDC_NO_WARNINGS /D_CRT_SECURE_NO_WARNINGS /I "%SRC%" /I "%SRC%\blackbox" /I "%SRC%\blackboxc" "%SRC%\blackbox\blackbox.cpp" "%SRC%\blackbox\debug.cpp" "%SRC%\data.cpp" "%SRC%\fmt.cpp" "%SRC%\utils\string_utils.cpp" "%SRC%\utils\asm_parser.cpp" "%SRC%\utils\preprocessor.cpp" "%SRC%\utils\macro_expansion.cpp" "%SRC%\utils\symbol_table.cpp" "%SRC%\utils\random_utils.cpp" bcrypt.lib /Fe:"%ROOT%\bbx.exe"
 if errorlevel 1 (
     echo Failed to build interpreter
     exit /b 1

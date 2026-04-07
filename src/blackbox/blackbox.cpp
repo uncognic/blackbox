@@ -1,7 +1,7 @@
 #include "../data.hpp"
 #include "../define.hpp"
 #include "../fmt.hpp"
-#include "../tools.hpp"
+#include "../utils/random_utils.hpp"
 #include <algorithm>
 #include <array>
 
