@@ -6,9 +6,9 @@
 #include <print>
 #include <string>
 
-#include "../tools.h"
-#include "asm.h"
-#include "basic.h"
+#include "../tools.hpp"
+#include "asm.hpp"
+#include "basic.hpp"
 
 static std::string trim_copy(const std::string& text) {
     size_t start = 0;

@@ -1,7 +1,7 @@
-#include "../data.h"
-#include "../define.h"
-#include "../fmt.h"
-#include "../tools.h"
+#include "../data.hpp"
+#include "../define.hpp"
+#include "../fmt.hpp"
+#include "../tools.hpp"
 #include <algorithm>
 #include <array>
 
@@ -26,7 +26,7 @@
 #include <termios.h>
 #include <unistd.h>
 #endif
-#include "debug.h"
+#include "debug.hpp"
 
 using size_t = decltype(sizeof(0));
 

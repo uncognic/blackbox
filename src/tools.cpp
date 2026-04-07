@@ -1,5 +1,5 @@
-#include "tools.h"
-#include "define.h"
+#include "tools.hpp"
+#include "define.hpp"
 #include <cctype>
 #include <cstdint>
 #include <cstdio>

@@ -1,6 +1,6 @@
-#include "basic.h"
-#include "../define.h"
-#include "../tools.h"
+#include "basic.hpp"
+#include "../define.hpp"
+#include "../tools.hpp"
 
 #include <cctype>
 #include <cstdarg>

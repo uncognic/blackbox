@@ -1,5 +1,5 @@
-#include "debug.h"
-#include "../define.h"
+#include "debug.hpp"
+#include "../define.hpp"
 #include <cstddef>
 #include <cstdint>
 #include <print>

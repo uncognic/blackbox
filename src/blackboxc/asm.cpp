@@ -1,8 +1,8 @@
-#include "asm.h"
-#include "../data.h"
-#include "../define.h"
-#include "../tools.h"
-#include "asm_util.h"
+#include "asm.hpp"
+#include "../data.hpp"
+#include "../define.hpp"
+#include "../tools.hpp"
+#include "asm_util.hpp"
 
 #include <cctype>
 #include <cstdint>

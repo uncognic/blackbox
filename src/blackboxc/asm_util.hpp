@@ -1,13 +1,11 @@
 #ifndef ASM_UTIL_H
 #define ASM_UTIL_H
 
-#include "../data.h"
-#include <cstdarg>
 #include <cstdint>
 #include <cstdio>
 #include <string>
-#include <utility>
 #include <vector>
+#include "../define.hpp"
 
 namespace bbxc {
 namespace asm_helpers {

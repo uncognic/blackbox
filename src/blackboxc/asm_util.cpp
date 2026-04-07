@@ -1,10 +1,12 @@
-#include "asm_util.h"
+#include "asm_util.hpp"
 
 #include <cctype>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+
+#include "../define.hpp"
 
 namespace bbxc {
 namespace asm_helpers {

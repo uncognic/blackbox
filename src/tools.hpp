@@ -1,12 +1,11 @@
 #pragma once
 
-#include <cctype>
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <string>
 
-#include "define.h"
+#include "define.hpp"
 namespace blackbox {
 namespace tools {
 

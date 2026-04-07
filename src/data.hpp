@@ -1,6 +1,5 @@
 #pragma once
 
-#include "define.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
