@@ -18,7 +18,7 @@ A small, Turing-complete bytecode virtual machine with an assembly and BASIC-lik
 
 ## Build
 ### Unix-like:
-1. Ensure you have `clang`, `make`, and the Rust toolchain installed.
+1. Ensure you have atleast Clang and make installed. On Ubuntu 24.04, you might have to manually install newer versions of Clang:
 Ubuntu:
 ```bash
 sudo apt install clang-19 libc++-19-dev libc++abi-19-dev
