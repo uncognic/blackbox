@@ -1,6 +1,6 @@
-#include "../data.hpp"
+#include "../utils/data.hpp"
 #include "../define.hpp"
-#include "../fmt.hpp"
+#include "../utils/fmt.hpp"
 #include "../utils/random_utils.hpp"
 #include <algorithm>
 #include <array>

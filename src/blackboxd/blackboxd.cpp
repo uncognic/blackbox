@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-#include "../data.hpp"
+#include "../utils/data.hpp"
 #include "../define.hpp"
 
 namespace {
