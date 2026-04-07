@@ -19,6 +19,10 @@ A small, Turing-complete bytecode virtual machine with an assembly and BASIC-lik
 ## Build
 ### Unix-like:
 1. Ensure you have `clang`, `make`, and the Rust toolchain installed.
+Ubuntu:
+```bash
+sudo apt install clang-19 libc++-19-dev libc++abi-19-dev
+```
 2. Run `make` in the project directory
 
 ### Windows MSVC

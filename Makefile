@@ -1,9 +1,9 @@
 .PHONY: all clean compiler interpreter disassembler copy
 
-CC = clang
-CXX = clang++
+CC = clang-19
+CXX = clang++-19
 CFLAGS ?= -Wall -Wextra -O2
-CXXFLAGS ?= -Wall -Wextra -O2 -std=c++23
+CXXFLAGS ?= -Wall -Wextra -O2 -std=c++23 -stdlib=libc++
 
 all: compiler interpreter disassembler copy
 
@@ -19,7 +19,7 @@ compiler:
 	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/symbol_table.cpp -o src/utils/symbol_table.o
 	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/random_utils.cpp -o src/utils/random_utils.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackboxc -c src/blackboxc/asm_util.cpp -o src/blackboxc/asm_util.o
-	$(CXX) src/blackboxc/compiler.o src/blackboxc/asm.o src/blackboxc/basic.o src/data.o src/utils/string_utils.o src/utils/asm_parser.o src/utils/preprocessor.o src/utils/macro_expansion.o src/utils/symbol_table.o src/utils/random_utils.o src/blackboxc/asm_util.o -o src/blackboxc/bbxc
+	$(CXX) $(CXXFLAGS) src/blackboxc/compiler.o src/blackboxc/asm.o src/blackboxc/basic.o src/data.o src/utils/string_utils.o src/utils/asm_parser.o src/utils/preprocessor.o src/utils/macro_expansion.o src/utils/symbol_table.o src/utils/random_utils.o src/blackboxc/asm_util.o -o src/blackboxc/bbxc
 
 interpreter:
 	$(CXX) $(CXXFLAGS) -Isrc/blackbox -Isrc/blackboxc -c src/blackbox/blackbox.cpp -o src/blackbox/blackbox.o
@@ -32,12 +32,12 @@ interpreter:
 	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/symbol_table.cpp -o src/utils/symbol_table.o
 	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/random_utils.cpp -o src/utils/random_utils.o
 	$(CXX) $(CXXFLAGS) -Isrc/blackbox -c src/utils/fmt.cpp -o src/fmt.o
-	$(CXX) src/blackbox/blackbox.o src/blackbox/debug.o src/data.o src/utils/string_utils.o src/utils/asm_parser.o src/utils/preprocessor.o src/utils/macro_expansion.o src/utils/symbol_table.o src/utils/random_utils.o src/fmt.o -o src/blackbox/bbx
+	$(CXX) $(CXXFLAGS) src/blackbox/blackbox.o src/blackbox/debug.o src/data.o src/utils/string_utils.o src/utils/asm_parser.o src/utils/preprocessor.o src/utils/macro_expansion.o src/utils/symbol_table.o src/utils/random_utils.o src/fmt.o -o src/blackbox/bbx
 
 disassembler:
 	$(CXX) $(CXXFLAGS) -Isrc -c src/blackboxd/blackboxd.cpp -o src/blackboxd/blackboxd.o
 	$(CXX) $(CXXFLAGS) -Isrc -c src/utils/data.cpp -o src/data.o
-	$(CXX) src/blackboxd/blackboxd.o src/data.o -o src/blackboxd/bbxd
+	$(CXX) $(CXXFLAGS) src/blackboxd/blackboxd.o src/data.o -o src/blackboxd/bbxd
 
 copy:
 	cp src/blackbox/bbx .

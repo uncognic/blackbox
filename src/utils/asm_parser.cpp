@@ -30,17 +30,22 @@ static std::string trim_copy(const std::string& s) {
     return s.substr(start, end - start);
 }
 
-static bool second_operand_is_reg(const char* line, size_t op_len) {
-    const char* p = line + op_len;
-    const char* comma = strchr(p, ',');
-    if (!comma) {
+static bool second_operand_is_reg(const std::string& line, size_t op_len) {
+    if (line.size() <= op_len) {
         return false;
     }
-    const char* q = comma + 1;
-    while (*q && isspace((unsigned char) *q)) {
+    size_t comma = line.find(',', op_len);
+    if (comma == std::string::npos) {
+        return false;
+    }
+    size_t q = comma + 1;
+    while (q < line.size() && isspace((unsigned char) line[q])) {
         q++;
     }
-    return ascii_upper((unsigned char) q[0]) == 'R';
+    if (q >= line.size()) {
+        return false;
+    }
+    return ascii_upper((unsigned char) line[q]) == 'R';
 }
 
 static size_t quoted_payload_size_or(const std::string& line, size_t fallback) {
@@ -127,7 +132,7 @@ size_t instr_size(const char* line) {
         if (!strchr(line + 5, ',')) {
             return 6;
         }
-        if (second_operand_is_reg(line, 5)) {
+        if (second_operand_is_reg(line_sv, 5)) {
             return 3;
         }
         return 6;
@@ -145,7 +150,7 @@ size_t instr_size(const char* line) {
         if (!strchr(line + 4, ',')) {
             return 6;
         }
-        if (second_operand_is_reg(line, 4)) {
+        if (second_operand_is_reg(line_sv, 4)) {
             return 3;
         }
         return 6;
@@ -155,7 +160,7 @@ size_t instr_size(const char* line) {
         if (!strchr(line + 7, ',')) {
             return 6;
         }
-        if (second_operand_is_reg(line, 7)) {
+        if (second_operand_is_reg(line_sv, 7)) {
             return 3;
         }
         return 6;
@@ -167,7 +172,7 @@ size_t instr_size(const char* line) {
         if (!strchr(line + 8, ',')) {
             return 6;
         }
-        if (second_operand_is_reg(line, 8)) {
+        if (second_operand_is_reg(line_sv, 8)) {
             return 3;
         }
         return 6;
@@ -187,7 +192,7 @@ size_t instr_size(const char* line) {
         if (!strchr(line + 6, ',')) {
             return 6;
         }
-        if (second_operand_is_reg(line, 6)) {
+        if (second_operand_is_reg(line_sv, 6)) {
             return 3;
         } else {
             return 6;
@@ -196,7 +201,7 @@ size_t instr_size(const char* line) {
         if (!strchr(line + 5, ',')) {
             return 6;
         }
-        if (second_operand_is_reg(line, 5)) {
+        if (second_operand_is_reg(line_sv, 5)) {
             return 3;
         } else {
             return 6;
