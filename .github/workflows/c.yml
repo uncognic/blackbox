@@ -20,8 +20,9 @@ jobs:
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: latest
-        name: Latest build
+        tag_name: ${{ github.sha }}
+        name: Continuous build ${{ github.sha }}
+        body: Build for commit ${{ github.sha }}
         files: |
           bbx
           bbxd
