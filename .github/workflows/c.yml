@@ -36,7 +36,6 @@ jobs:
         body: |
           Built from ${{ github.sha }}
           ${{ github.event.head_commit.message }}
-        prerelease: true
         files: |
           bbx
           bbxd
