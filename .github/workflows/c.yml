@@ -17,12 +17,26 @@ jobs:
     - name: Build
       run: make
 
+    - name: Check artifacts
+      run: |
+        for f in bbx bbxd bbxc; do
+          test -f "$f" || { echo "Missing artifact: $f"; exit 1; }
+        done
+
+    - name: Delete old continuous release
+      run: gh release delete continuous --yes --cleanup-tag || true
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: ${{ github.sha }}
-        name: Continuous build ${{ github.sha }}
-        body: Build for commit ${{ github.sha }}
+        tag_name: continuous
+        name: Continuous build
+        body: |
+          Built from ${{ github.sha }}
+          ${{ github.event.head_commit.message }}
+        prerelease: true
         files: |
           bbx
           bbxd
