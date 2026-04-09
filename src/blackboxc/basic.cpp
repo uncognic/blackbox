@@ -1,5 +1,4 @@
 #include "basic.hpp"
-#include "../define.hpp"
 #include "../utils/string_utils.hpp"
 
 #include <cctype>
@@ -173,16 +172,35 @@ struct RegGuard {
     RegGuard& operator=(const RegGuard&) = delete;
 };
 
-CompilerState::CompilerState() {
+#define EMIT_DATA(cs, fmt, ...)                                                                    \
+    do {                                                                                           \
+        if ((cs)->emit_data(fmt, ##__VA_ARGS__))                                                   \
+            return 1;                                                                              \
+    } while (0)
+
+#define EMIT_CODE(cs, fmt, ...)                                                                    \
+    do {                                                                                           \
+        if ((cs)->emit_code_comment(NULL, fmt, ##__VA_ARGS__))                                     \
+            return 1;                                                                              \
+    } while (0)
+
+#define EMIT_CODE_META(cs, meta, fmt, ...)                                                         \
+    do {                                                                                           \
+        if ((cs)->emit_code_comment((meta), fmt, ##__VA_ARGS__))                                   \
+            return 1;                                                                              \
+    } while (0)
+
+CompilerState::CompilerState()
+    : st(), ob(), ra(), bs(), uid(0), file_handles(), next_file_handle(0), lineno(0), debug(0), funcs(nullptr), in_func(false) {
     st.next_slot = 0;
     st.next_data_id = 0;
     ra.used = 0;
-    bs.items.reserve(64);
+    emit_ctx[0] = '\0';
 }
 
 Variable* CompilerState::sym_find(const char* name) {
     for (auto& v : st.vars) {
-        if (strcmp(v.name, name) == 0) {
+        if (std::strcmp(v.name, name) == 0) {
             return &v;
         }
     }
@@ -190,27 +208,33 @@ Variable* CompilerState::sym_find(const char* name) {
 }
 
 Variable* CompilerState::sym_add_int(const char* name) {
-    st.vars.emplace_back();
-    Variable* var = &st.vars.back();
-    std::memset(var, 0, sizeof(*var));
-    copy_cstr(var->name, sizeof(var->name), name);
-    var->type = VAR_INT;
-    var->slot = st.next_slot++;
-    return var;
+    Variable* existing = sym_find(name);
+    if (existing) {
+        return existing;
+    }
+    Variable v;
+    copy_cstr(v.name, sizeof(v.name), name);
+    v.type = VAR_INT;
+    v.is_const = 0;
+    v.slot = st.next_slot++;
+    v.data_name[0] = '\0';
+    st.vars.push_back(v);
+    return &st.vars.back();
 }
 
 Variable* CompilerState::sym_add_str(const char* name, const char* data_name, int is_const) {
-    st.vars.emplace_back();
-    Variable* var = &st.vars.back();
-    std::memset(var, 0, sizeof(*var));
-    copy_cstr(var->name, sizeof(var->name), name);
-    var->type = VAR_STR;
-    var->is_const = is_const;
-    if (!is_const) {
-        var->slot = st.next_slot++;
+    Variable* existing = sym_find(name);
+    if (existing) {
+        return existing;
     }
-    copy_cstr(var->data_name, sizeof(var->data_name), data_name);
-    return var;
+    Variable v;
+    copy_cstr(v.name, sizeof(v.name), name);
+    v.type = VAR_STR;
+    v.is_const = is_const ? 1 : 0;
+    v.slot = st.next_slot++;
+    copy_cstr(v.data_name, sizeof(v.data_name), data_name);
+    st.vars.push_back(v);
+    return &st.vars.back();
 }
 
 int CompilerState::ralloc_acquire() {
@@ -230,79 +254,73 @@ void CompilerState::ralloc_release(int reg) {
 }
 
 void CompilerState::set_emit_context(const char* stmt) {
-    if (!stmt) {
-        stmt = "";
-    }
-    std::string snippet(stmt);
-    if (snippet.size() > 191) {
-        snippet.resize(191);
-    }
-    if (!bs.items.empty()) {
-        const Block* top = &bs.items.back();
-        if (top->kind == BLOCK_FOR && top->for_var_name[0] != '\0') {
-            snprintf(emit_ctx, sizeof(emit_ctx), "BASIC line %d | block=%s(%s) | src=%s", lineno,
-                     block_kind_name(top->kind), top->for_var_name, snippet.data());
-        } else {
-            snprintf(emit_ctx, sizeof(emit_ctx), "BASIC line %d | block=%s | src=%s", lineno,
-                     block_kind_name(top->kind), snippet.data());
-        }
-        return;
-    }
-    snprintf(emit_ctx, sizeof(emit_ctx), "BASIC line %d | src=%s", lineno, snippet.data());
+    copy_cstr(emit_ctx, sizeof(emit_ctx), stmt);
 }
 
 int CompilerState::emit_data(const char* fmt, ...) {
-    char tmp[512];
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(tmp, sizeof(tmp), fmt, ap);
-    va_end(ap);
-    ob.data_sec += tmp;
-    ob.data_sec += '\n';
+    char buf[8192];
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    if (len < 0 || len >= (int) sizeof(buf)) {
+        return 1;
+    }
+    ob.data_sec.append(buf, (size_t) len);
+    ob.data_sec.push_back('\n');
     return 0;
 }
 
 int CompilerState::emit_code_comment(const char* detail, const char* fmt, ...) {
-    char ins[512];
-    va_list ap;
-    va_start(ap, fmt);
-    vsnprintf(ins, sizeof(ins), fmt, ap);
-    va_end(ap);
-    char line_buf[1024];
-    if (detail && *detail) {
-        snprintf(line_buf, sizeof(line_buf), "%s ; %s | %s\n\n", ins,
-                 emit_ctx[0] ? emit_ctx : "BASIC", detail);
-    } else {
-        snprintf(line_buf, sizeof(line_buf), "%s ; %s\n\n", ins, emit_ctx[0] ? emit_ctx : "BASIC");
+    char buf[8192];
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    if (len < 0 || len >= (int) sizeof(buf)) {
+        return 1;
     }
-    ob.code_sec += line_buf;
+    if (detail && detail[0]) {
+        ob.code_sec.append("    ; ");
+        ob.code_sec.append(detail);
+        ob.code_sec.push_back('\n');
+    }
+    ob.code_sec.append(buf, (size_t) len);
+    ob.code_sec.push_back('\n');
     return 0;
 }
 
 int CompilerState::get_file_handle_fd(const char* name, uint8_t* out_fd) {
-    int idx = get_file_handle_index(file_handles, name);
-    if (idx < 0) {
+    int index = get_file_handle_index(file_handles, name);
+    if (index < 0) {
         fprintf(stderr, "Undefined file handle '%s' on line %d\n", name, lineno);
         return 1;
     }
-    *out_fd = file_handles[idx].fd;
+    if (out_fd) {
+        *out_fd = file_handles[index].fd;
+    }
     return 0;
 }
 
 int CompilerState::alloc_file_handle_fd(const char* name, uint8_t* out_fd) {
-    int idx = get_file_handle_index(file_handles, name);
-    if (idx >= 0) {
-        *out_fd = file_handles[idx].fd;
+    int index = get_file_handle_index(file_handles, name);
+    if (index >= 0) {
+        if (out_fd) {
+            *out_fd = file_handles[index].fd;
+        }
         return 0;
     }
-    if (next_file_handle >= FILE_DESCRIPTORS) {
-        fprintf(stderr, "Too many file handles\n");
+    if (next_file_handle == 0xFF) {
+        fprintf(stderr, "Too many file handles on line %d\n", lineno);
         return 1;
     }
-    file_handles.push_back(FileHandle());
-    file_handles.back().name = name;
-    file_handles.back().fd = next_file_handle;
-    *out_fd = next_file_handle++;
+    FileHandle fh;
+    fh.name = name;
+    fh.fd = next_file_handle++;
+    file_handles.push_back(fh);
+    if (out_fd) {
+        *out_fd = fh.fd;
+    }
     return 0;
 }
 
@@ -311,32 +329,20 @@ void CompilerState::bstack_push(Block b) {
 }
 
 Block* CompilerState::bstack_peek() {
-    return bs.items.empty() ? nullptr : &bs.items.back();
+    if (bs.items.empty()) {
+        return nullptr;
+    }
+    return &bs.items.back();
 }
 
 Block CompilerState::bstack_pop() {
+    if (bs.items.empty()) {
+        return Block{};
+    }
     Block b = bs.items.back();
     bs.items.pop_back();
     return b;
 }
-
-#define EMIT_DATA(cs, fmt, ...)                                                                    \
-    do {                                                                                           \
-        if ((cs)->emit_data(fmt, ##__VA_ARGS__))                                                   \
-            return 1;                                                                              \
-    } while (0)
-
-#define EMIT_CODE(cs, fmt, ...)                                                                    \
-    do {                                                                                           \
-        if ((cs)->emit_code_comment(NULL, fmt, ##__VA_ARGS__))                                     \
-            return 1;                                                                              \
-    } while (0)
-
-#define EMIT_CODE_META(cs, meta, fmt, ...)                                                         \
-    do {                                                                                           \
-        if ((cs)->emit_code_comment((meta), fmt, ##__VA_ARGS__))                                   \
-            return 1;                                                                              \
-    } while (0)
 
 int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
     s = skip_ws(s);
@@ -379,6 +385,64 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
             fprintf(stderr, "Expression error: expected identifier\n");
             return 1;
         }
+
+        // function call?
+        std::string after_name = skip_ws(next);
+        if (after_name.starts_with('(') && funcs) {
+            const FuncDef* fd = nullptr;
+            for (auto& f : *funcs) {
+                if (f.name == name) {
+                    fd = &f;
+                    break;
+                }
+            }
+
+            if (fd) {
+                const char* p = skip_ws(after_name.c_str() + 1);
+                while (*p && *p != ')') {
+                    int arg_reg;
+                    if (emit_expr_p(p, &p, &arg_reg)) {
+                        return 1;
+                    }
+                    char rn[4];
+                    reg_name(arg_reg, rn);
+                    EMIT_CODE(this, "    PUSH %s ; argument for call to %s", rn, name.data());
+                    ralloc_release(arg_reg);
+
+                    p = skip_ws(p);
+                    if (*p == ',') {
+                        p = skip_ws(p + 1);
+                        continue;
+                    }
+                    if (*p == ')') {
+                        break;
+                    }
+                    fprintf(stderr,
+                            "Expression error line %d: expected ',' or ')' in call to '%s'\n",
+                            lineno, name.data());
+                    return 1;
+                }
+                if (*p != ')') {
+                    fprintf(stderr, "Expression error line %d: expected ')' in call to '%s'\n",
+                            lineno, name.data());
+                    return 1;
+                }
+                *end = p + 1;
+                EMIT_CODE(this, "    CALL __bbx_func_%s ; Call to %s", name.data(), name.data());
+                RegGuard rg(&ra);
+                if (!rg.ok()) {
+                    fprintf(stderr, "Out of registers\n");
+                    return 1;
+                }
+                char rn[4];
+                reg_name(rg, rn);
+                EMIT_CODE(this, "    MOV %s, R00 ; Return value from call to %s", rn, name.data());
+                *out_reg = rg.reg;
+                rg.reg = -1; // transfer ownership to caller
+                return 0;
+            }
+        }
+        // not a function call
         *end = next;
         Variable* v = sym_find(name.data());
         if (!v) {
@@ -1293,7 +1357,72 @@ int CompilerState::compile_line(char* s) {
 
     // CALL
     if (blackbox::tools::starts_with_ci(s, "CALL ")) {
-        std::string name = trim_copy(s + 5);
+        const char* arg = skip_ws(s + 5);
+
+        // check for function call
+        std::string name;
+        const char* p = arg;
+        if (!parse_identifier(p, &p, name)) {
+            fprintf(stderr, "Syntax error line %d: expected CALL <name>\n", lineno);
+            return 1;
+        }
+        p = skip_ws(p);
+
+        if (*p == '(' && funcs) {
+            // check it's a known BASIC function
+            const FuncDef* fd = nullptr;
+            for (auto& f : *funcs) {
+                if (f.name == name) {
+                    fd = &f;
+                    break;
+                }
+            }
+
+            if (fd) {
+                p = skip_ws(p + 1);
+                while (*p && *p != ')') {
+                    int areg;
+                    if (emit_expr_p(p, &p, &areg)) {
+                        return 1;
+                    }
+                    char arn[4];
+                    reg_name(areg, arn);
+                    EMIT_CODE(this, "    PUSH %s ; argument for call to %s", arn, name.data());
+                    ralloc_release(areg);
+                    p = skip_ws(p);
+                    if (*p == ',') {
+                        p = skip_ws(p + 1);
+                        continue;
+                    }
+                    if (*p == ')') {
+                        break;
+                    }
+                    fprintf(stderr, "Syntax error line %d: expected ',' or ')' in CALL '%s'\n",
+                            lineno, name.data());
+                    return 1;
+                }
+                if (*p != ')') {
+                    fprintf(stderr, "Syntax error line %d: missing ')' in CALL '%s'\n", lineno,
+                            name.data());
+                    return 1;
+                }
+                p = skip_ws(p + 1);
+                if (*p != '\0') {
+                    fprintf(stderr, "Syntax error line %d: unexpected tokens after CALL\n", lineno);
+                    return 1;
+                }
+                EMIT_CODE(this, "    CALL __bbx_func_%s", name.data());
+                if (debug) {
+                    printf("[BASIC] CALL %s(...)\n", name.data());
+                }
+                return 0;
+            }
+        }
+
+        if (*p != '\0') {
+            fprintf(stderr, "Syntax error line %d: unexpected tokens after CALL target\n", lineno);
+            return 1;
+        }
         EMIT_CODE(this, "    CALL %s", name.data());
         if (debug) {
             printf("[BASIC] CALL %s\n", name.data());
@@ -1302,10 +1431,33 @@ int CompilerState::compile_line(char* s) {
     }
 
     // RETURN
-    if (blackbox::tools::equals_ci(s, "RETURN")) {
-        EMIT_CODE(this, "    RET");
+    if (blackbox::tools::starts_with_ci(s, "RETURN")) {
+        const char* arg = skip_ws(s + 6);
+        if (*arg != '\0') {
+            // RETURN expr: evaluate into a reg, move to R00
+            if (!in_func) {
+                fprintf(stderr, "Error line %d: RETURN with value outside FUNC\n", lineno);
+                return 1;
+            }
+            const char* expr_end = nullptr;
+            int reg;
+            if (emit_expr_p(arg, &expr_end, &reg)) {
+                return 1;
+            }
+            if (*skip_ws(expr_end) != '\0') {
+                ralloc_release(reg);
+                fprintf(stderr, "Syntax error line %d: unexpected tokens after RETURN expression\n",
+                        lineno);
+                return 1;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+            EMIT_CODE(this, "    MOV R00, %s", rn);
+            ralloc_release(reg);
+        }
+        EMIT_CODE(this, "    RET ;", *arg ? " with value" : "");
         if (debug) {
-            printf("[BASIC] RETURN\n");
+            printf("[BASIC] RETURN%s\n", *arg ? " <expr>" : "");
         }
         return 0;
     }
@@ -2355,6 +2507,10 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     CompilerState cs;
     cs.debug = debug;
 
+    std::vector<FuncDef> funcs;
+    cs.funcs = &funcs;
+    FuncDef* current_func = nullptr;
+
     bool in_asm_block = false;
     int result = 0;
     char line[8192];
@@ -2372,7 +2528,129 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         }
 
         char* s = &stmt[0];
-        cs.set_emit_context(s);
+
+        if (blackbox::tools::starts_with_ci(s, "FUNC ")) {
+            if (current_func) {
+                fprintf(stderr, "Error line %d: nested FUNC is not allowed\n", cs.lineno);
+                result = 1;
+                break;
+            }
+
+            const char* p = skip_ws(s + 5);
+            const char* colon = strchr(p, ':');
+            if (!colon) {
+                fprintf(stderr, "Syntax error line %d: expected FUNC <name>: ...\n", cs.lineno);
+                result = 1;
+                break;
+            }
+            std::string func_name = trim_copy(std::string(p, (size_t) (colon - p)));
+            if (func_name.empty()) {
+                fprintf(stderr, "Syntax error line %d: expected FUNC <name>: ...\n", cs.lineno);
+                result = 1;
+                break;
+            }
+
+            for (auto& f : funcs) {
+                if (f.name == func_name) {
+                    fprintf(stderr, "Error line %d: function '%s' already defined\n", cs.lineno,
+                            func_name.data());
+                    result = 1;
+                    break;
+                }
+            }
+            if (result) {
+                break;
+            }
+
+            // push a new FuncDef
+            funcs.emplace_back();
+            current_func = &funcs.back();
+            current_func->name = func_name;
+            current_func->state.debug = debug;
+            current_func->state.uid = cs.uid;
+            current_func->state.funcs = &funcs;
+            current_func->state.in_func = true;
+
+            p = skip_ws(colon + 1);
+            while (*p) {
+                int is_str = 0;
+                if (blackbox::tools::starts_with_ci(p, "VAR") &&
+                    !(isalnum((unsigned char) p[3]) || p[3] == '_')) {
+                    p = skip_ws(p + 3);
+                } else if (blackbox::tools::starts_with_ci(p, "STR") &&
+                           !(isalnum((unsigned char) p[3]) || p[3] == '_')) {
+                    is_str = 1;
+                    p = skip_ws(p + 3);
+                } else {
+                    fprintf(stderr, "Syntax error line %d: expected VAR or STR before param name\n",
+                            cs.lineno);
+                    result = 1;
+                    break;
+                }
+
+                std::string param_name;
+                if (!parse_identifier(p, &p, param_name)) {
+                    fprintf(stderr, "Syntax error line %d: expected parameter name\n", cs.lineno);
+                    result = 1;
+                    break;
+                }
+
+                current_func->params.push_back(param_name);
+                if (is_str) {
+                    char placeholder[64];
+                    snprintf(placeholder, sizeof(placeholder), "_fparam_%s", param_name.data());
+                    current_func->state.sym_add_str(param_name.data(), placeholder, 0);
+                } else {
+                    current_func->state.sym_add_int(param_name.data());
+                }
+
+                p = skip_ws(p);
+                if (*p == ',') {
+                    p = skip_ws(p + 1);
+                    continue;
+                }
+                if (*p == '\0') {
+                    break;
+                }
+                fprintf(stderr, "Syntax error line %d: expected ',' between parameters\n",
+                        cs.lineno);
+                result = 1;
+                break;
+            }
+            if (result) {
+                break;
+            }
+
+            if (debug) {
+                printf("[BASIC] FUNC %s (%zu params)\n", func_name.data(),
+                       current_func->params.size());
+            }
+            continue;
+        }
+
+        if (blackbox::tools::equals_ci(s, "ENDFUNC")) {
+            if (!current_func) {
+                fprintf(stderr, "Error line %d: ENDFUNC without FUNC\n", cs.lineno);
+                result = 1;
+                break;
+            }
+            if (!current_func->state.bs.items.empty()) {
+                fprintf(stderr, "Error line %d: unclosed block inside FUNC '%s'\n", cs.lineno,
+                        current_func->name.data());
+                result = 1;
+                break;
+            }
+            cs.uid = current_func->state.uid;
+            if (debug) {
+                printf("[BASIC] ENDFUNC %s\n", current_func->name.data());
+            }
+            current_func = nullptr;
+            continue;
+        }
+
+        CompilerState* active = current_func ? &current_func->state : &cs;
+        active->lineno = cs.lineno;
+        active->set_emit_context(s);
 
         if (blackbox::tools::equals_ci(s, "ASM:")) {
             in_asm_block = true;
@@ -2384,18 +2662,27 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         }
 
         if (in_asm_block) {
-            EMIT_CODE_META(&cs, "inline ASM block", "%s", s);
+            EMIT_CODE_META(active, "inline ASM block", "%s", s);
             continue;
         }
 
-        if (cs.compile_line(s)) {
+        if (active->compile_line(s)) {
             result = 1;
             break;
+        }
+
+        if (current_func) {
+            cs.uid = current_func->state.uid;
+        } else {
         }
     }
 
     fclose(in);
 
+    if (current_func && result == 0) {
+        fprintf(stderr, "Error: unterminated FUNC '%s'\n", current_func->name.data());
+        result = 1;
+    }
     if (!cs.bs.items.empty() && result == 0) {
         fprintf(stderr, "Error: unclosed block (%s)\n",
                 cs.bs.items.back().kind == BLOCK_IF      ? "IF"
@@ -2414,10 +2701,22 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     }
 
     fprintf(out, "%%asm\n");
-    if (!cs.ob.data_sec.empty()) {
+
+    bool any_data = !cs.ob.data_sec.empty();
+    for (auto& f : funcs) {
+        if (!f.state.ob.data_sec.empty()) {
+            any_data = true;
+            break;
+        }
+    }
+    if (any_data) {
         fprintf(out, "%%data\n");
         fwrite(cs.ob.data_sec.data(), 1, cs.ob.data_sec.size(), out);
+        for (auto& f : funcs) {
+            fwrite(f.state.ob.data_sec.data(), 1, f.state.ob.data_sec.size(), out);
+        }
     }
+
     fprintf(out, "%%main\n");
     fprintf(out, "    CALL __bbx_basic_main\n");
     fprintf(out, "    HALT OK\n");
@@ -2427,11 +2726,38 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     }
     fwrite(cs.ob.code_sec.data(), 1, cs.ob.code_sec.size(), out);
     fprintf(out, "    RET\n");
+
+    for (auto& f : funcs) {
+        fprintf(out, ".__bbx_func_%s:\n", f.name.data());
+        if (f.state.st.next_slot > 0) {
+            fprintf(out, "    FRAME %u\n", f.state.st.next_slot);
+        }
+        for (int i = (int) f.params.size() - 1; i >= 0; i--) {
+            Variable* v = f.state.sym_find(f.params[i].data());
+            if (!v) {
+                continue; // shouldn't happen
+            }
+            int reg = f.state.ralloc_acquire();
+            if (reg < 0) {
+                fprintf(stderr, "Out of scratch registers in FUNC '%s' prologue\n", f.name.data());
+                fclose(out);
+                return 1;
+            }
+            char rn[4];
+            reg_name(reg, rn);
+            fprintf(out, "    POP %s\n", rn);
+            fprintf(out, "    STOREVAR %s, %u\n", rn, v->slot);
+            f.state.ralloc_release(reg);
+        }
+        fwrite(f.state.ob.code_sec.data(), 1, f.state.ob.code_sec.size(), out);
+        fprintf(out, "    RET\n");
+    }
+
     fclose(out);
 
     if (debug) {
-        printf("[BASIC] Emitted %zu data bytes, %zu code bytes, %u slots\n", cs.ob.data_sec.size(),
-               cs.ob.code_sec.size(), cs.st.next_slot);
+        printf("[BASIC] Emitted %zu data bytes, %zu code bytes, %u slots, %zu functions\n",
+               cs.ob.data_sec.size(), cs.ob.code_sec.size(), cs.st.next_slot, funcs.size());
     }
     return 0;
 }

@@ -62,6 +62,8 @@ typedef struct {
     uint8_t fd;
 } FileHandle;
 
+struct FuncDef;
+
 class CompilerState {
   public:
     SymbolTable st;
@@ -74,6 +76,8 @@ class CompilerState {
     int lineno = 0;
     int debug = 0;
     char emit_ctx[512] = {};
+    const std::vector<FuncDef>* funcs = nullptr;
+    bool in_func = false;
 
     CompilerState();
 

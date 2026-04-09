@@ -207,6 +207,33 @@ PRINT test
 WRITE "You entered the string: "
 PRINT string
 ```
+## Functions
+### Function definition
+```basic
+FUNC add: VAR a, VAR b
+    RETURN a + b
+ENDFUNC
+```
+- `FUNC <name>:` begins a function definition.
+- Parameters are declared after the colon using `VAR` for integer parameters and `STR` for string parameters.
+- Functions end with `ENDFUNC`.
+
+### Function calls
+```basic
+VAR sum = add(3, 4)
+PRINT sum
+```
+- `CALL name(arg1, arg2, ...)` invokes a BASIC function explicitly.
+- A function can also be called inside expressions: `VAR result = add(x, y) * 2`
+- Function return values are provided through `RETURN <expr>`.
+
+### RETURN
+```basic
+RETURN value
+```
+- `RETURN <expr>` inside a function returns an integer value.
+- A bare `RETURN` without an expression is also allowed, and simply returns to the caller.
+
 ## INC / DEC
 ```basic
 FOR VAR I = 10 TO 0 STEP 0

@@ -1,0 +1,48 @@
+// The expected output of this program is:
+
+// 7
+// 10
+// hello
+// hello
+// hello
+// 720
+// math works
+
+// add two numbers and return the result
+FUNC add: VAR a, VAR b
+    VAR result = a + b
+    RETURN result
+ENDFUNC
+
+// print a number n times
+FUNC repeat_print: VAR n
+    FOR VAR i = 0 TO n - 1:
+        PRINT "hello"
+    NEXT i
+ENDFUNC
+
+// factorial
+FUNC factorial: VAR n
+    VAR acc = 1
+    FOR VAR i = 2 TO n:
+        acc = acc * i
+    NEXT i
+    RETURN acc
+ENDFUNC
+
+// main
+VAR x = add(3, 4)
+PRINT x
+
+VAR y = add(x, add(1, 2))
+PRINT y
+
+CALL repeat_print(3)
+
+VAR f = factorial(6)
+PRINT f
+
+// function call inside a condition
+IF add(2, 3) == 5:
+    PRINT "math works"
+ENDIF
