@@ -13,13 +13,8 @@
     "languages": [
       {
         "id": "blackboxbasic",
-        "aliases": [
-          "Blackbox BASIC",
-          "blackboxbasic"
-        ],
-        "extensions": [
-          "bbs"
-        ],
+        "aliases": ["Blackbox BASIC"],
+        "extensions": [".bbs"],
         "configuration": "./language-configuration.json"
       }
     ],
