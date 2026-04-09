@@ -4,22 +4,31 @@
   "description": "Syntax highlighting for Blackbox BASIC",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.115.0"
+    "vscode": ">=1.60.0"
   },
   "categories": [
     "Programming Languages"
   ],
   "contributes": {
-    "languages": [{
-      "id": "blackboxbasic",
-      "aliases": ["Blackbox BASIC", "blackboxbasic"],
-      "extensions": ["bbs"],
-      "configuration": "./language-configuration.json"
-    }],
-    "grammars": [{
-      "language": "blackboxbasic",
-      "scopeName": "source.blackboxbasic",
-      "path": "./syntaxes/blackboxbasic.tmLanguage.json"
-    }]
+    "languages": [
+      {
+        "id": "blackboxbasic",
+        "aliases": [
+          "Blackbox BASIC",
+          "blackboxbasic"
+        ],
+        "extensions": [
+          "bbs"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "blackboxbasic",
+        "scopeName": "source.blackboxbasic",
+        "path": "./syntaxes/blackboxbasic.tmLanguage.json"
+      }
+    ]
   }
 }
