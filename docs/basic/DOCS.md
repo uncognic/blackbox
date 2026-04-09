@@ -40,6 +40,7 @@ Supported statements and blocks:
 - `FSEEK handle, offset` (seeks the file position to the given offset)
 - `FPRINT handle, "text"` or `FPRINT handle, expr` (writes a value to the file and appends a newline)
 - Inline assembly block: `ASM:` ... `ENDASM`
+An optional entry point can be declared with `@ENTRY`. Execution will start from there.
 
 Expressions:
 - Integer literals and variables

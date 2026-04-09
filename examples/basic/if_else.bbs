@@ -1,3 +1,4 @@
+@ENTRY
 VAR X = 10
 IF X >= 10:
     PRINT "X is at least 10"

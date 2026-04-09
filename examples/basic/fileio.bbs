@@ -1,6 +1,6 @@
 // BASIC file I/O example
 // Writes text to a file, then reads it back one byte at a time
-
+@ENTRY
 VAR fh = 0
 VAR ch = 0
 

@@ -1,4 +1,5 @@
 // Test ELSE IF chain
+@ENTRY
 VAR x = 5
 
 IF x == 1:

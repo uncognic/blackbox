@@ -1,3 +1,4 @@
+@ENTRY
 VAR test = 0
 INPUT "Enter a number: ", test
 

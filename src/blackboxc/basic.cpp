@@ -191,7 +191,18 @@ struct RegGuard {
     } while (0)
 
 CompilerState::CompilerState()
-    : st(), ob(), ra(), bs(), uid(0), file_handles(), next_file_handle(0), lineno(0), debug(0), funcs(nullptr), in_func(false) {
+    : st(),
+      ob(),
+      ra(),
+      bs(),
+      uid(0),
+      file_handles(),
+      next_file_handle(0),
+      lineno(0),
+      debug(0),
+      funcs(nullptr),
+      in_func(false),
+      entry_point_declared(false) {
     st.next_slot = 0;
     st.next_data_id = 0;
     ra.used = 0;
@@ -853,6 +864,29 @@ int CompilerState::emit_write_values(const char* arg, const char* stmt_name, int
 }
 
 int CompilerState::compile_line(char* s) {
+
+    // ENTRY point directive
+    if (blackbox::tools::starts_with_ci(s, "@ENTRY")) {
+        const char* tail = skip_ws(s + 6);
+        if (*tail != '\0') {
+            fprintf(stderr, "Syntax error line %d: unexpected tokens after @ENTRY\n", lineno);
+            return 1;
+        }
+        if (in_func) {
+            fprintf(stderr, "Error line %d: @ENTRY is not allowed inside FUNC\n", lineno);
+            return 1;
+        }
+        if (entry_point_declared) {
+            fprintf(stderr, "Error line %d: multiple @ENTRY directives are not allowed\n", lineno);
+            return 1;
+        }
+        EMIT_CODE(this, ".__bbx_basic_main:");
+        entry_point_declared = true;
+        if (debug) {
+            printf("[BASIC] @ENTRY\n");
+        }
+        return 0;
+    }
 
     // CONST
     if (blackbox::tools::starts_with_ci(s, "CONST ")) {
@@ -2720,12 +2754,33 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     fprintf(out, "%%main\n");
     fprintf(out, "    CALL __bbx_basic_main\n");
     fprintf(out, "    HALT OK\n");
-    fprintf(out, ".__bbx_basic_main:\n");
-    if (cs.st.next_slot > 0) {
-        fprintf(out, "    FRAME %u\n", cs.st.next_slot);
+
+    if (!cs.entry_point_declared) {
+        fprintf(out, ".__bbx_basic_main:\n");
+        if (cs.st.next_slot > 0) {
+            fprintf(out, "    FRAME %u\n", cs.st.next_slot);
+        }
+        fwrite(cs.ob.code_sec.data(), 1, cs.ob.code_sec.size(), out);
+        fprintf(out, "    RET\n");
+    } else {
+        if (cs.st.next_slot > 0) {
+            const char* entry_label = ".__bbx_basic_main:\n";
+            std::string code(cs.ob.code_sec);
+            size_t pos = code.find(entry_label);
+            if (pos == std::string::npos) {
+                fprintf(stderr, "Internal error: @ENTRY label missing from code section\n");
+                fclose(out);
+                return 1;
+            }
+            size_t insert_pos = pos + strlen(entry_label);
+            fwrite(code.data(), 1, insert_pos, out);
+            fprintf(out, "    FRAME %u\n", cs.st.next_slot);
+            fwrite(code.data() + insert_pos, 1, code.size() - insert_pos, out);
+        } else {
+            fwrite(cs.ob.code_sec.data(), 1, cs.ob.code_sec.size(), out);
+        }
+        fprintf(out, "    RET\n");
     }
-    fwrite(cs.ob.code_sec.data(), 1, cs.ob.code_sec.size(), out);
-    fprintf(out, "    RET\n");
 
     for (auto& f : funcs) {
         fprintf(out, ".__bbx_func_%s:\n", f.name.data());

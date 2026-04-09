@@ -9,7 +9,7 @@
 // loop A=5
 // loop A=4
 // done
-
+@ENTRY
 VAR A = 6
 VAR B = 2
 VAR C = 9

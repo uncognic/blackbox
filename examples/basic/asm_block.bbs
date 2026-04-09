@@ -1,3 +1,4 @@
+@ENTRY
 PRINT "Before ASM"
 
 ASM:

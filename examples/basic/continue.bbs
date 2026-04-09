@@ -1,5 +1,5 @@
 // This skips even numbers, so it should print 1, 3, 5, 7, 9
-
+@ENTRY
 PRINT "WHILE CONTINUE"
 VAR i = 0
 WHILE i < 10:

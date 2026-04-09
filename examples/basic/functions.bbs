@@ -7,7 +7,7 @@
 // hello
 // 720
 // math works
-
+@ENTRY
 // add two numbers and return the result
 FUNC add: VAR a, VAR b
     VAR result = a + b

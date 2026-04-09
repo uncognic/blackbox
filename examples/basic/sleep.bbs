@@ -1,3 +1,4 @@
+@ENTRY
 PRINT "Sleeping for 1 second..."
 SLEEP 1000
 

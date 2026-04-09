@@ -1,3 +1,4 @@
+@ENTRY
 // bitwise ops test
 VAR a = 0b1100  // not supported, use literals
 a = 12      // 1100 in binary

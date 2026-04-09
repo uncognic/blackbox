@@ -1,3 +1,4 @@
+@ENTRY
 VAR test = -1
 WHILE test == -1:
     GETKEY test

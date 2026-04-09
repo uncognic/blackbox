@@ -78,6 +78,7 @@ class CompilerState {
     char emit_ctx[512] = {};
     const std::vector<FuncDef>* funcs = nullptr;
     bool in_func = false;
+    bool entry_point_declared = false;
 
     CompilerState();
 

@@ -1,3 +1,4 @@
+@ENTRY
 ASM:
     ; Register fault 6 (FAULT_ENV_VAR_NOT_FOUND) to handler_fault
     REGFAULT 6, handler_fault
