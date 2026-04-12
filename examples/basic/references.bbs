@@ -1,0 +1,13 @@
+// This should print 20 and then 10
+FUNC swap: &a, &b
+    VAR tmp = a
+    a = b
+    b = tmp
+ENDFUNC
+
+@ENTRY
+VAR x = 10
+VAR y = 20
+CALL swap(x, y)
+PRINT x
+PRINT y

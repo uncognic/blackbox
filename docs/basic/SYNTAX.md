@@ -218,6 +218,23 @@ ENDFUNC
 - Parameters are declared after the colon using `VAR` for integer parameters and `STR` for string parameters.
 - Functions end with `ENDFUNC`.
 
+### Reference parameters
+You can also pass parameters by reference using `&`:
+```basic
+// This should print 20 and then 10
+FUNC swap: &a, &b
+    VAR tmp = a
+    a = b
+    b = tmp
+ENDFUNC
+
+@ENTRY
+VAR x = 10
+VAR y = 20
+CALL swap(x, y)
+PRINT x
+PRINT y
+```
 ### Function calls
 ```basic
 VAR sum = add(3, 4)

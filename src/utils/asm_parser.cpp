@@ -323,6 +323,10 @@ size_t instr_size(const char* line) {
             len = 255;
         }
         return 3 + len;
+    } else if (starts_with_ci(line, "LOADREF")) {
+        return 3;
+    } else if (starts_with_ci(line, "STOREREF")) {
+        return 3;
     }
     fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
     exit(1);

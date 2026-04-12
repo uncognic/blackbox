@@ -21,7 +21,7 @@ Supported statements and blocks:
 - `CONTINUE` (skips to next iteration of innermost loop)
 - `HALT [OK|BAD|number]`
 - `LABEL, CALL, RETURN, GOTO`
-- `FUNC name: VAR arg1, STR arg2, ...` ... `ENDFUNC` (define a BASIC function)
+- `FUNC name: VAR arg1, STR arg2, &ref, ...` ... `ENDFUNC` (define a BASIC function)
 - `CALL name(expr1, expr2, ...)` (call a BASIC function; functions return a value to be used in expressions)
 - `INPUT name` (reads an integer or string from input, stores in variable)
 - `INC name` (increments variable)

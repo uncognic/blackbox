@@ -15,6 +15,7 @@ typedef struct {
     uint8_t is_const;
     uint32_t slot;
     char data_name[128];
+    bool is_ref;
 } Variable;
 
 // the registers we claim
@@ -85,6 +86,7 @@ class CompilerState {
     Variable* sym_find(const char* name);
     Variable* sym_add_int(const char* name);
     Variable* sym_add_str(const char* name, const char* data_name, int is_const);
+    Variable* sym_add_ref(const char* name);
 
     int ralloc_acquire();
     void ralloc_release(int reg);
@@ -115,5 +117,6 @@ class CompilerState {
 struct FuncDef {
     std::string name;
     std::vector<std::string> params;
+    std::vector<bool> param_is_ref;
     CompilerState state;
 };

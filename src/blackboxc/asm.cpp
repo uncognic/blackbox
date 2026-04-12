@@ -1,12 +1,12 @@
 #include "asm.hpp"
-#include "../utils/data.hpp"
 #include "../define.hpp"
-#include "asm_util.hpp"
+#include "../utils/asm_parser.hpp"
+#include "../utils/data.hpp"
+#include "../utils/macro_expansion.hpp"
 #include "../utils/preprocessor.hpp"
 #include "../utils/string_utils.hpp"
-#include "../utils/macro_expansion.hpp"
-#include "../utils/asm_parser.hpp"
 #include "../utils/symbol_table.hpp"
+#include "asm_util.hpp"
 
 #include <cctype>
 #include <cstdint>
@@ -1151,6 +1151,35 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
                 fputc(reg, out);
                 blackbox::data::write_u32(out, slot);
             }
+        } else if (blackbox::tools::starts_with_ci(s, "LOADREF")) {
+            char rdst[16], rsrc[16];
+            if (sscanf(s + 7, " %15[^,], %15s", rdst, rsrc) != 2) {
+                fprintf(stderr, "Syntax error on line %d: expected LOADREF <dst>, <src>\nGot: %s\n",
+                        lineno, s);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t dst = blackbox::tools::parse_register(rdst, lineno);
+            uint8_t src = blackbox::tools::parse_register(rsrc, lineno);
+            fputc(opcode_to_byte(Opcode::LOADREF), out);
+            fputc(dst, out);
+            fputc(src, out);
+        } else if (blackbox::tools::starts_with_ci(s, "STOREREF")) {
+            char rdst[16], rsrc[16];
+            if (sscanf(s + 8, " %15[^,], %15s", rdst, rsrc) != 2) {
+                fprintf(stderr,
+                        "Syntax error on line %d: expected STOREREF <dst>, <src>\nGot: %s\n",
+                        lineno, s);
+                fclose(in);
+                fclose(out);
+                return 1;
+            }
+            uint8_t dst = blackbox::tools::parse_register(rdst, lineno);
+            uint8_t src = blackbox::tools::parse_register(rsrc, lineno);
+            fputc(opcode_to_byte(Opcode::STOREREF), out);
+            fputc(dst, out);
+            fputc(src, out);
         } else if (blackbox::tools::starts_with_ci(s, "load")) {
             bbxc::asm_helpers::dbg(debug, "[DEBUG] Encoding instruction: %s\n", s);
             char regname[16];
@@ -2097,9 +2126,7 @@ int assemble_file(const char* filename, const char* output_file, int debug) {
             for (size_t i = 0; i < len; i++) {
                 fputc((uint8_t) varname[i], out);
             }
-        }
-
-        else {
+        } else {
             fprintf(stderr, "Unknown instruction on line %d:\n %s\n", lineno, s);
             fclose(in);
             fclose(out);

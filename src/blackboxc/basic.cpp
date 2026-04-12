@@ -247,6 +247,16 @@ Variable* CompilerState::sym_add_str(const char* name, const char* data_name, in
     st.vars.push_back(v);
     return &st.vars.back();
 }
+Variable* CompilerState::sym_add_ref(const char* name) {
+    st.vars.emplace_back();
+    Variable* var = &st.vars.back();
+    std::memset(var, 0, sizeof(*var));
+    copy_cstr(var->name, sizeof(var->name), name);
+    var->type = VAR_INT;
+    var->is_ref = 1;
+    var->slot = st.next_slot++;
+    return var;
+}
 
 int CompilerState::ralloc_acquire() {
     for (int i = 0; i < SCRATCH_COUNT; i++) {
@@ -398,8 +408,8 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
         }
 
         // function call?
-        std::string after_name = skip_ws(next);
-        if (after_name.starts_with('(') && funcs) {
+        const char* after_name = skip_ws(next);
+        if (*after_name == '(' && funcs) {
             const FuncDef* fd = nullptr;
             for (auto& f : *funcs) {
                 if (f.name == name) {
@@ -409,17 +419,47 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
             }
 
             if (fd) {
-                const char* p = skip_ws(after_name.c_str() + 1);
+                const char* p = skip_ws(after_name + 1);
+                int arg_index = 0;
                 while (*p && *p != ')') {
-                    int arg_reg;
-                    if (emit_expr_p(p, &p, &arg_reg)) {
-                        return 1;
+                    if (arg_index < (int) fd->param_is_ref.size() && fd->param_is_ref[arg_index]) {
+                        // ref param — push caller's slot number
+                        std::string refname;
+                        const char* ref_end = p;
+                        if (!parse_identifier(p, &ref_end, refname)) {
+                            fprintf(stderr, "Error line %d: ref param requires a variable name\n",
+                                    lineno);
+                            return 1;
+                        }
+                        Variable* rv = sym_find(refname.data());
+                        if (!rv) {
+                            fprintf(stderr, "Undefined variable '%s' on line %d\n", refname.data(),
+                                    lineno);
+                            return 1;
+                        }
+                        p = ref_end;
+                        RegGuard rg(&ra);
+                        if (!rg.ok()) {
+                            fprintf(stderr, "Out of scratch registers\n");
+                            return 1;
+                        }
+                        char rn[4];
+                        reg_name(rg, rn);
+                        EMIT_CODE(this, "    MOVI %s, %u ; ref slot for %s", rn, rv->slot,
+                                  refname.data());
+                        EMIT_CODE(this, "    PUSH %s ; ref arg for call to %s", rn, name.data());
+                    } else {
+                        // regular parameter
+                        int arg_reg;
+                        if (emit_expr_p(p, &p, &arg_reg)) {
+                            return 1;
+                        }
+                        char arn[4];
+                        reg_name(arg_reg, arn);
+                        EMIT_CODE(this, "    PUSH %s ; argument for call to %s", arn, name.data());
+                        ralloc_release(arg_reg);
                     }
-                    char rn[4];
-                    reg_name(arg_reg, rn);
-                    EMIT_CODE(this, "    PUSH %s ; argument for call to %s", rn, name.data());
-                    ralloc_release(arg_reg);
-
+                    arg_index++;
                     p = skip_ws(p);
                     if (*p == ',') {
                         p = skip_ws(p + 1);
@@ -439,41 +479,63 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
                     return 1;
                 }
                 *end = p + 1;
-                EMIT_CODE(this, "    CALL __bbx_func_%s ; Call to %s", name.data(), name.data());
+                EMIT_CODE(this, "    CALL __bbx_func_%s", name.data());
                 RegGuard rg(&ra);
                 if (!rg.ok()) {
-                    fprintf(stderr, "Out of registers\n");
+                    fprintf(stderr, "Out of scratch registers\n");
                     return 1;
                 }
                 char rn[4];
                 reg_name(rg, rn);
-                EMIT_CODE(this, "    MOV %s, R00 ; Return value from call to %s", rn, name.data());
+                EMIT_CODE(this, "    MOV %s, R00 ; return value from %s", rn, name.data());
                 *out_reg = rg.reg;
-                rg.reg = -1; // transfer ownership to caller
+                rg.reg = -1;
                 return 0;
             }
         }
-        // not a function call
+
+        // not a function
         *end = next;
         Variable* v = sym_find(name.data());
         if (!v) {
             fprintf(stderr, "Undefined variable '%s'\n", name.data());
             return 1;
         }
-        RegGuard rg(&ra);
-        if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
-            return 1;
-        }
-        char rn[4];
-        reg_name(rg, rn);
-        if (v->type == VAR_INT || !v->is_const) {
-            EMIT_CODE_META(this, v->name, "    LOADVAR %s, %u", rn, v->slot);
+
+        if (v->is_ref) {
+            RegGuard slot_r(&ra);
+            if (!slot_r.ok()) {
+                fprintf(stderr, "Out of scratch registers\n");
+                return 1;
+            }
+            RegGuard val_r(&ra);
+            if (!val_r.ok()) {
+                fprintf(stderr, "Out of scratch registers\n");
+                return 1;
+            }
+            char srn[4], vrn[4];
+            reg_name(slot_r, srn);
+            reg_name(val_r, vrn);
+            EMIT_CODE_META(this, v->name, "    LOADVAR %s, %u", srn, v->slot);
+            EMIT_CODE(this, "    LOADREF %s, %s", vrn, srn);
+            *out_reg = val_r.reg;
+            val_r.reg = -1;
         } else {
-            EMIT_CODE(this, "    LOADSTR $%s, %s", v->data_name, rn);
+            RegGuard rg(&ra);
+            if (!rg.ok()) {
+                fprintf(stderr, "Out of scratch registers\n");
+                return 1;
+            }
+            char rn[4];
+            reg_name(rg, rn);
+            if (v->type == VAR_INT || !v->is_const) {
+                EMIT_CODE_META(this, v->name, "    LOADVAR %s, %u", rn, v->slot);
+            } else {
+                EMIT_CODE(this, "    LOADSTR $%s, %s", v->data_name, rn);
+            }
+            *out_reg = rg.reg;
+            rg.reg = -1;
         }
-        *out_reg = rg.reg;
-        rg.reg = -1;
         return 0;
     }
 
@@ -1065,10 +1127,25 @@ int CompilerState::compile_line(char* s) {
                     if (emit_expr(rhs.data(), &ereg)) {
                         return 1;
                     }
-                    char ern[4];
-                    reg_name(ereg, ern);
-                    EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", ern, v->slot);
-                    ralloc_release(ereg);
+                    if (v->is_ref) {
+                        RegGuard slot_r(&ra);
+                        if (!slot_r.ok()) {
+                            ralloc_release(ereg);
+                            fprintf(stderr, "Out of scratch registers\n");
+                            return 1;
+                        }
+                        char srn[4], ern[4];
+                        reg_name(slot_r, srn);
+                        reg_name(ereg, ern);
+                        EMIT_CODE_META(this, name.data(), "    LOADVAR %s, %u", srn, v->slot);
+                        EMIT_CODE(this, "    STOREREF %s, %s", srn, ern);
+                        ralloc_release(ereg);
+                    } else {
+                        char ern[4];
+                        reg_name(ereg, ern);
+                        EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", ern, v->slot);
+                        ralloc_release(ereg);
+                    }
                     if (debug) {
                         printf("[BASIC] ASSIGN %s -> slot %u\n", name.data(), v->slot);
                     }
@@ -1393,7 +1470,6 @@ int CompilerState::compile_line(char* s) {
     if (blackbox::tools::starts_with_ci(s, "CALL ")) {
         const char* arg = skip_ws(s + 5);
 
-        // check for function call
         std::string name;
         const char* p = arg;
         if (!parse_identifier(p, &p, name)) {
@@ -1403,7 +1479,6 @@ int CompilerState::compile_line(char* s) {
         p = skip_ws(p);
 
         if (*p == '(' && funcs) {
-            // check it's a known BASIC function
             const FuncDef* fd = nullptr;
             for (auto& f : *funcs) {
                 if (f.name == name) {
@@ -1414,15 +1489,46 @@ int CompilerState::compile_line(char* s) {
 
             if (fd) {
                 p = skip_ws(p + 1);
+                int arg_index = 0;
                 while (*p && *p != ')') {
-                    int areg;
-                    if (emit_expr_p(p, &p, &areg)) {
-                        return 1;
+                    if (arg_index < (int) fd->param_is_ref.size() && fd->param_is_ref[arg_index]) {
+                        // ref param
+                        std::string refname;
+                        const char* ref_end = p;
+                        if (!parse_identifier(p, &ref_end, refname)) {
+                            fprintf(stderr, "Error line %d: ref param requires a variable name\n",
+                                    lineno);
+                            return 1;
+                        }
+                        Variable* rv = sym_find(refname.data());
+                        if (!rv) {
+                            fprintf(stderr, "Undefined variable '%s' on line %d\n", refname.data(),
+                                    lineno);
+                            return 1;
+                        }
+                        p = ref_end;
+                        RegGuard rg(&ra);
+                        if (!rg.ok()) {
+                            fprintf(stderr, "Out of scratch registers\n");
+                            return 1;
+                        }
+                        char rn[4];
+                        reg_name(rg, rn);
+                        EMIT_CODE(this, "    MOVI %s, %u ; ref slot for %s", rn, rv->slot,
+                                  refname.data());
+                        EMIT_CODE(this, "    PUSH %s ; ref arg for call to %s", rn, name.data());
+                    } else {
+                        // value param
+                        int areg;
+                        if (emit_expr_p(p, &p, &areg)) {
+                            return 1;
+                        }
+                        char arn[4];
+                        reg_name(areg, arn);
+                        EMIT_CODE(this, "    PUSH %s ; argument for call to %s", arn, name.data());
+                        ralloc_release(areg);
                     }
-                    char arn[4];
-                    reg_name(areg, arn);
-                    EMIT_CODE(this, "    PUSH %s ; argument for call to %s", arn, name.data());
-                    ralloc_release(areg);
+                    arg_index++;
                     p = skip_ws(p);
                     if (*p == ',') {
                         p = skip_ws(p + 1);
@@ -1453,6 +1559,7 @@ int CompilerState::compile_line(char* s) {
             }
         }
 
+        // plain CALL 
         if (*p != '\0') {
             fprintf(stderr, "Syntax error line %d: unexpected tokens after CALL target\n", lineno);
             return 1;
@@ -2608,15 +2715,21 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             p = skip_ws(colon + 1);
             while (*p) {
                 int is_str = 0;
-                if (blackbox::tools::starts_with_ci(p, "VAR") &&
-                    !(isalnum((unsigned char) p[3]) || p[3] == '_')) {
+                int is_ref = 0;
+
+                if (*p == '&') {
+                    is_ref = 1;
+                    p = skip_ws(p + 1);
+                } else if (blackbox::tools::starts_with_ci(p, "VAR") &&
+                           !(isalnum((unsigned char) p[3]) || p[3] == '_')) {
                     p = skip_ws(p + 3);
                 } else if (blackbox::tools::starts_with_ci(p, "STR") &&
                            !(isalnum((unsigned char) p[3]) || p[3] == '_')) {
                     is_str = 1;
                     p = skip_ws(p + 3);
                 } else {
-                    fprintf(stderr, "Syntax error line %d: expected VAR or STR before param name\n",
+                    fprintf(stderr,
+                            "Syntax error line %d: expected VAR, STR, or & before param name\n",
                             cs.lineno);
                     result = 1;
                     break;
@@ -2630,7 +2743,11 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 }
 
                 current_func->params.push_back(param_name);
-                if (is_str) {
+                current_func->param_is_ref.push_back(is_ref);
+
+                if (is_ref) {
+                    current_func->state.sym_add_ref(param_name.data());
+                } else if (is_str) {
                     char placeholder[64];
                     snprintf(placeholder, sizeof(placeholder), "_fparam_%s", param_name.data());
                     current_func->state.sym_add_str(param_name.data(), placeholder, 0);

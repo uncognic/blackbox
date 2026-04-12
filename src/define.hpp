@@ -146,6 +146,8 @@ enum class Opcode : uint8_t {
     GETARG = 0x63,
     GETARGC = 0x64,
     GETENV = 0x65,
+    LOADREF = 0x66,
+    STOREREF = 0x67,
     HALT = 0xFF,
     BREAK = 0xFE,
 };

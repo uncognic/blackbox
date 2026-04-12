@@ -1,5 +1,5 @@
-#include "../utils/data.hpp"
 #include "../define.hpp"
+#include "../utils/data.hpp"
 #include "../utils/fmt.hpp"
 #include "../utils/random_utils.hpp"
 #include <algorithm>
@@ -2350,6 +2350,58 @@ int main(int argc, char* argv[]) {
                 str_heap_size += value_len;
                 str_heap[str_heap_size++] = 0;
                 registers[reg] = (int64_t) start_addr;
+                break;
+            }
+            case Opcode::LOADREF: {
+                uint8_t dst = program[pc++];
+                uint8_t src = program[pc++];
+                if (dst >= REGISTERS || src >= REGISTERS) {
+                    blackbox::fmt::err_fmt("Invalid register in LOADREF at pc=%zu\n", pc);
+                    return 1;
+                }
+                if (fsp < 2) {
+                    blackbox::fmt::err_fmt("LOADREF requires a caller frame at pc=%zu\n", pc);
+                    return 1;
+                }
+                int64_t slot64 = registers[src];
+                if (slot64 < 0) {
+                    blackbox::fmt::err_fmt("LOADREF negative slot at pc=%zu\n", pc);
+                    return 1;
+                }
+                size_t caller_base = frame_base_stack[fsp - 2];
+                size_t abs_idx = caller_base + (size_t) slot64;
+                if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
+                    blackbox::fmt::err_fmt("LOADREF slot out of bounds: %zu at pc=%zu\n", abs_idx,
+                                           pc);
+                    return 1;
+                }
+                registers[dst] = vars[abs_idx];
+                break;
+            }
+            case Opcode::STOREREF: {
+                uint8_t dst = program[pc++];
+                uint8_t src = program[pc++];
+                if (dst >= REGISTERS || src >= REGISTERS) {
+                    blackbox::fmt::err_fmt("Invalid register in STOREREF at pc=%zu\n", pc);
+                    return 1;
+                }
+                if (fsp < 2) {
+                    blackbox::fmt::err_fmt("STOREREF requires a caller frame at pc=%zu\n", pc);
+                    return 1;
+                }
+                int64_t slot64 = registers[dst];
+                if (slot64 < 0) {
+                    blackbox::fmt::err_fmt("STOREREF negative slot at pc=%zu\n", pc);
+                    return 1;
+                }
+                size_t caller_base = frame_base_stack[fsp - 2];
+                size_t abs_idx = caller_base + (size_t) slot64;
+                if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
+                    blackbox::fmt::err_fmt("STOREREF slot out of bounds: %zu at pc=%zu\n", abs_idx,
+                                           pc);
+                    return 1;
+                }
+                vars[abs_idx] = registers[src];
                 break;
             }
             default: {
