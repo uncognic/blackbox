@@ -19,9 +19,9 @@ typedef struct {
 } Variable;
 
 // the registers we claim
-#define SCRATCH_MIN 0
-#define SCRATCH_MAX 15
-#define SCRATCH_COUNT 16
+constexpr int SCRATCH_MIN = 0;
+constexpr int SCRATCH_MAX = 15;
+constexpr int SCRATCH_COUNT = 16;
 
 typedef struct {
     uint32_t used;

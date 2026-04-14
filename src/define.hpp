@@ -1,14 +1,14 @@
 #pragma once
 
 #include <cstdint>
-#define MAGIC 0x626378
-#define MAGIC_SIZE 3
-#define HEADER_FIXED_SIZE 8
-#define STACK_SIZE 16384
-#define REGISTERS 99
-#define FILE_DESCRIPTORS 99
-#define VAR_CAPACITY 16384
-#define MAX_SYSCALLS 256
+constexpr int MAGIC = 0x626378U;
+constexpr int MAGIC_SIZE = 3;
+constexpr int HEADER_FIXED_SIZE = 8;
+constexpr int STACK_SIZE = 16384;
+constexpr int REGISTERS = 99;
+constexpr int FILE_DESCRIPTORS = 99;
+constexpr int VAR_CAPACITY = 16384;
+constexpr int MAX_SYSCALLS = 256;
 
 typedef enum {
     FAULT_PERM_READ = 0,
