@@ -44,3 +44,6 @@ new.bbx
 test.bbs
 *.o
 *.pdb
+/.vs
+/out
+/build

@@ -18,18 +18,31 @@ A small, Turing-complete bytecode virtual machine with an assembly and BASIC-lik
 
 ## Build
 ### Unix-like:
-1. Ensure you have atleast Clang and make installed. On Ubuntu 24.04, you might have to manually install newer versions of Clang:
-Ubuntu:
+1. Ensure you have GCC and CMake installed. On Ubuntu 24.04:
 ```bash
-sudo apt install clang-19 libc++-19-dev libc++abi-19-dev
+sudo apt install g++-14 cmake
 ```
-2. Run `make` in the project directory
+2. Run the following commands in the project directory:
+```bash
+cmake -B build
+cmake --build build
+```
 
-### Windows MSVC
-1. Ensure you have atleast Visual Studio 2022 with the "Desktop development with C++" workload and "C++ Clang compiler for Windows" component installed.
-2. Ensure you have the Rust programming language installed.
-3. Open the Developer Command Prompt for Visual Studio.
-4. Run `build.bat` in the project directory.
+### Windows
+#### Visual Studio 2022
+1. Ensure you have Visual Studio 2022 with the "Desktop development with C++" workload installed.
+2. Open the repo folder in Visual Studio
+3. Visual Studio will detect CMakeLists.txt and configure automatically.
+4. Build with Build All (Ctrl+Shift+B).
+
+#### Command Line (clang-cl)
+1. Ensure you have Visual Studio 2022 with the "Desktop development with C++" workload installed.
+2. Open the Developer Command Prompt for Visual Studio.
+3. Run the following in the project directory:
+```bat
+cmake -B build
+cmake --build build
+```
 
 ## Examples
 
