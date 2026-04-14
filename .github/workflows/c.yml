@@ -1,33 +1,29 @@
 name: Make build
-
 on:
   push:
     branches: [ "main" ]
-
 permissions:
   contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
-
+    - name: Install dependencies
+      run: sudo apt install g++-14 cmake
     - name: Build
-      run: make
-
+      run: |
+        cmake -B build
+        cmake --build build
     - name: Check artifacts
       run: |
         for f in bbx bbxd bbxc; do
-          test -f "$f" || { echo "Missing artifact: $f"; exit 1; }
+          test -f "build/$f" || { echo "Missing artifact: $f"; exit 1; }
         done
-
     - name: Delete old continuous release
       run: gh release delete continuous --yes --cleanup-tag || true
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
@@ -37,6 +33,6 @@ jobs:
           Built from ${{ github.sha }}
           ${{ github.event.head_commit.message }}
         files: |
-          bbx
-          bbxd
-          bbxc
+          build/bbx
+          build/bbxd
+          build/bbxc
