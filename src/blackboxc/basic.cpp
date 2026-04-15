@@ -7,48 +7,48 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <print>
 #include <string>
-
-static void copy_cstr(char* dst, size_t dst_size, const char* src) {
+namespace {
+void copy_cstr(char* dst, size_t dst_size, const char* src) {
     if (dst_size == 0) {
         return;
     }
     snprintf(dst, dst_size, "%s", src ? src : "");
 }
 
-static std::string trim_copy(const std::string& s) {
+std::string trim_copy(const std::string& s) {
     size_t start = 0;
-    while (start < s.size() && isspace((unsigned char) s[start])) {
+    while (start < s.size() && isspace(static_cast<unsigned char>(s[start]))) {
         start++;
     }
     size_t end = s.size();
-    while (end > start && isspace((unsigned char) s[end - 1])) {
+    while (end > start && isspace(static_cast<unsigned char>(s[end - 1]))) {
         end--;
     }
     return s.substr(start, end - start);
 }
-
-static void reg_name(int reg, char* buf) {
+void reg_name(int reg, char* buf) {
     snprintf(buf, 4, "R%02d", reg);
 }
 
-static const char* skip_ws(const char* s) {
-    while (*s && isspace((unsigned char) *s)) {
+const char* skip_ws(const char* s) {
+    while (*s && isspace(static_cast<unsigned char>(*s))) {
         s++;
     }
     return s;
 }
 
-static size_t skip_ws(const std::string& s, size_t pos) {
-    while (pos < s.size() && isspace((unsigned char) s[pos])) {
+size_t skip_ws(const std::string& s, size_t pos) {
+    while (pos < s.size() && isspace(static_cast<unsigned char>(s[pos]))) {
         pos++;
     }
     return pos;
 }
 
-static bool parse_identifier(const char* p, const char** next, std::string& out) {
+bool parse_identifier(const char* p, const char** next, std::string& out) {
     size_t n = 0;
-    while (isalnum((unsigned char) p[n]) || p[n] == '_') {
+    while (isalnum(static_cast<unsigned char>(p[n])) || p[n] == '_') {
         n++;
     }
     if (n == 0) {
@@ -61,9 +61,9 @@ static bool parse_identifier(const char* p, const char** next, std::string& out)
     return true;
 }
 
-static bool parse_identifier(const std::string& s, size_t& pos, std::string& out) {
+bool parse_identifier(const std::string& s, size_t& pos, std::string& out) {
     size_t start = pos;
-    while (pos < s.size() && (isalnum((unsigned char) s[pos]) || s[pos] == '_')) {
+    while (pos < s.size() && (isalnum(static_cast<unsigned char>(s[pos])) || s[pos] == '_')) {
         pos++;
     }
     if (pos == start) {
@@ -73,7 +73,7 @@ static bool parse_identifier(const std::string& s, size_t& pos, std::string& out
     return true;
 }
 
-static bool parse_quoted_string(const std::string& s, size_t& pos, std::string& out) {
+bool parse_quoted_string(const std::string& s, size_t& pos, std::string& out) {
     if (pos >= s.size() || s[pos] != '"') {
         return false;
     }
@@ -86,7 +86,7 @@ static bool parse_quoted_string(const std::string& s, size_t& pos, std::string& 
     return true;
 }
 
-static bool parse_file_mode(const std::string& s, size_t& pos, std::string& mode_out) {
+bool parse_file_mode(const std::string& s, size_t& pos, std::string& mode_out) {
     pos = skip_ws(s, pos);
     if (pos >= s.size()) {
         return false;
@@ -95,7 +95,7 @@ static bool parse_file_mode(const std::string& s, size_t& pos, std::string& mode
         return parse_quoted_string(s, pos, mode_out);
     }
     size_t start = pos;
-    while (pos < s.size() && (isalnum((unsigned char) s[pos]) || s[pos] == '_')) {
+    while (pos < s.size() && (isalnum(static_cast<unsigned char>(s[pos])) || s[pos] == '_')) {
         pos++;
     }
     if (pos == start || pos - start >= 8) {
@@ -105,14 +105,14 @@ static bool parse_file_mode(const std::string& s, size_t& pos, std::string& mode
     return true;
 }
 
-static const char* find_keyword_token(const char* s, const char* kw) {
+const char* find_keyword_token(const char* s, const char* kw) {
     size_t n = strlen(kw);
     for (const char* p = s; *p; p++) {
         if (!blackbox::tools::starts_with_ci(p, kw)) {
             continue;
         }
-        int left_ok = (p == s) || !(isalnum((unsigned char) p[-1]) || p[-1] == '_');
-        int right_ok = !(isalnum((unsigned char) p[n]) || p[n] == '_');
+        int left_ok = (p == s) || !(isalnum(static_cast<unsigned char>(p[-1])) || p[-1] == '_');
+        int right_ok = !(isalnum(static_cast<unsigned char>(p[n])) || p[n] == '_');
         if (left_ok && right_ok) {
             return p;
         }
@@ -120,7 +120,7 @@ static const char* find_keyword_token(const char* s, const char* kw) {
     return nullptr;
 }
 
-static const char* block_kind_name(BlockKind kind) {
+const char* block_kind_name(BlockKind kind) {
     switch (kind) {
         case BLOCK_IF:
             return "IF";
@@ -133,15 +133,15 @@ static const char* block_kind_name(BlockKind kind) {
     }
 }
 
-static int get_file_handle_index(const std::vector<FileHandle>& handles, const char* name) {
+int get_file_handle_index(const std::vector<FileHandle>& handles, const char* name) {
     for (size_t i = 0; i < handles.size(); i++) {
         if (handles[i].name == name) {
-            return (int) i;
+            return static_cast<int>(i);
         }
     }
     return -1;
 }
-
+} // namespace
 struct RegGuard {
     RegAlloc* ra;
     int reg;
@@ -191,18 +191,7 @@ struct RegGuard {
     } while (0)
 
 CompilerState::CompilerState()
-    : st(),
-      ob(),
-      ra(),
-      bs(),
-      uid(0),
-      file_handles(),
-      next_file_handle(0),
-      lineno(0),
-      debug(0),
-      funcs(nullptr),
-      in_func(false),
-      entry_point_declared(false) {
+    : ra() {
     st.next_slot = 0;
     st.next_data_id = 0;
     ra.used = 0;
@@ -219,14 +208,14 @@ Variable* CompilerState::sym_find(const char* name) {
 }
 
 Variable* CompilerState::sym_add_int(const char* name) {
-    Variable* existing = sym_find(name);
-    if (existing) {
+    if (Variable* existing = sym_find(name)) {
         return existing;
     }
     Variable v;
     copy_cstr(v.name, sizeof(v.name), name);
     v.type = VAR_INT;
     v.is_const = 0;
+    v.is_ref = false;
     v.slot = st.next_slot++;
     v.data_name[0] = '\0';
     st.vars.push_back(v);
@@ -234,14 +223,14 @@ Variable* CompilerState::sym_add_int(const char* name) {
 }
 
 Variable* CompilerState::sym_add_str(const char* name, const char* data_name, int is_const) {
-    Variable* existing = sym_find(name);
-    if (existing) {
+    if (Variable* existing = sym_find(name)) {
         return existing;
     }
     Variable v;
     copy_cstr(v.name, sizeof(v.name), name);
     v.type = VAR_STR;
     v.is_const = is_const ? 1 : 0;
+    v.is_ref = false;
     v.slot = st.next_slot++;
     copy_cstr(v.data_name, sizeof(v.data_name), data_name);
     st.vars.push_back(v);
@@ -253,7 +242,7 @@ Variable* CompilerState::sym_add_ref(const char* name) {
     std::memset(var, 0, sizeof(*var));
     copy_cstr(var->name, sizeof(var->name), name);
     var->type = VAR_INT;
-    var->is_ref = 1;
+    var->is_ref = true;
     var->slot = st.next_slot++;
     return var;
 }
@@ -284,10 +273,10 @@ int CompilerState::emit_data(const char* fmt, ...) {
     va_start(args, fmt);
     int len = vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
-    if (len < 0 || len >= (int) sizeof(buf)) {
+    if (len < 0 || len >= static_cast<int>(sizeof(buf))) {
         return 1;
     }
-    ob.data_sec.append(buf, (size_t) len);
+    ob.data_sec.append(buf, static_cast<size_t>(len));
     ob.data_sec.push_back('\n');
     return 0;
 }
@@ -298,7 +287,7 @@ int CompilerState::emit_code_comment(const char* detail, const char* fmt, ...) {
     va_start(args, fmt);
     int len = vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
-    if (len < 0 || len >= (int) sizeof(buf)) {
+    if (len < 0 || len >= static_cast<int>(sizeof(buf))) {
         return 1;
     }
     if (detail && detail[0]) {
@@ -306,7 +295,7 @@ int CompilerState::emit_code_comment(const char* detail, const char* fmt, ...) {
         ob.code_sec.append(detail);
         ob.code_sec.push_back('\n');
     }
-    ob.code_sec.append(buf, (size_t) len);
+    ob.code_sec.append(buf, static_cast<size_t>(len));
     ob.code_sec.push_back('\n');
     return 0;
 }
@@ -314,7 +303,7 @@ int CompilerState::emit_code_comment(const char* detail, const char* fmt, ...) {
 int CompilerState::get_file_handle_fd(const char* name, uint8_t* out_fd) {
     int index = get_file_handle_index(file_handles, name);
     if (index < 0) {
-        fprintf(stderr, "Undefined file handle '%s' on line %d\n", name, lineno);
+        std::println(stderr, "Undefined file handle '{}' on line {}", name, lineno);
         return 1;
     }
     if (out_fd) {
@@ -332,7 +321,7 @@ int CompilerState::alloc_file_handle_fd(const char* name, uint8_t* out_fd) {
         return 0;
     }
     if (next_file_handle == 0xFF) {
-        fprintf(stderr, "Too many file handles on line %d\n", lineno);
+        std::println(stderr, "Too many file handles on line {}", lineno);
         return 1;
     }
     FileHandle fh;
@@ -345,7 +334,7 @@ int CompilerState::alloc_file_handle_fd(const char* name, uint8_t* out_fd) {
     return 0;
 }
 
-void CompilerState::bstack_push(Block b) {
+void CompilerState::bstack_push(const Block& b) {
     bs.items.push_back(b);
 }
 
@@ -375,19 +364,19 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
         }
         s = skip_ws(*end);
         if (*s != ')') {
-            fprintf(stderr, "Expected ')' in expression\n");
+            std::println(stderr, "Expected ')' in expression");
             return 1;
         }
         *end = s + 1;
         return 0;
     }
 
-    if (*s == '-' || isdigit((unsigned char) *s)) {
+    if (*s == '-' || isdigit(static_cast<unsigned char>(*s))) {
         char* endptr;
-        int32_t val = (int32_t) strtol(s, &endptr, 10);
+        int32_t val = static_cast<int32_t>(strtol(s, &endptr, 10));
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of registers\n");
+            std::println(stderr, "Out of registers");
             return 1;
         }
         char rn[4];
@@ -399,11 +388,11 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
         return 0;
     }
 
-    if (isalpha((unsigned char) *s) || *s == '_') {
+    if (isalpha(static_cast<unsigned char>(*s)) || *s == '_') {
         std::string name;
         const char* next = s;
         if (!parse_identifier(s, &next, name)) {
-            fprintf(stderr, "Expression error: expected identifier\n");
+            std::println(stderr, "Expression error: expected identifier");
             return 1;
         }
 
@@ -422,25 +411,25 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
                 const char* p = skip_ws(after_name + 1);
                 int arg_index = 0;
                 while (*p && *p != ')') {
-                    if (arg_index < (int) fd->param_is_ref.size() && fd->param_is_ref[arg_index]) {
-                        // ref param — push caller's slot number
+                    if (arg_index < static_cast<int>(fd->param_is_ref.size()) && fd->param_is_ref[arg_index]) {
+                        // ref param - push caller's slot number
                         std::string refname;
                         const char* ref_end = p;
                         if (!parse_identifier(p, &ref_end, refname)) {
-                            fprintf(stderr, "Error line %d: ref param requires a variable name\n",
-                                    lineno);
+                            std::println(stderr, "Error line {}: ref param requires a variable name",
+                                         lineno);
                             return 1;
                         }
                         Variable* rv = sym_find(refname.data());
                         if (!rv) {
-                            fprintf(stderr, "Undefined variable '%s' on line %d\n", refname.data(),
-                                    lineno);
+                            std::println(stderr, "Undefined variable '{}' on line {}", refname,
+                                         lineno);
                             return 1;
                         }
                         p = ref_end;
                         RegGuard rg(&ra);
                         if (!rg.ok()) {
-                            fprintf(stderr, "Out of scratch registers\n");
+                            std::println(stderr, "Out of scratch registers");
                             return 1;
                         }
                         char rn[4];
@@ -468,21 +457,21 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
                     if (*p == ')') {
                         break;
                     }
-                    fprintf(stderr,
-                            "Expression error line %d: expected ',' or ')' in call to '%s'\n",
-                            lineno, name.data());
+                    std::println(stderr,
+                                 "Expression error line {}: expected ',' or ')' in call to '{}'",
+                                 lineno, name);
                     return 1;
                 }
                 if (*p != ')') {
-                    fprintf(stderr, "Expression error line %d: expected ')' in call to '%s'\n",
-                            lineno, name.data());
+                    std::println(stderr, "Expression error line {}: expected ')' in call to '{}'",
+                                 lineno, name);
                     return 1;
                 }
                 *end = p + 1;
                 EMIT_CODE(this, "    CALL __bbx_func_%s", name.data());
                 RegGuard rg(&ra);
                 if (!rg.ok()) {
-                    fprintf(stderr, "Out of scratch registers\n");
+                    std::println(stderr, "Out of scratch registers");
                     return 1;
                 }
                 char rn[4];
@@ -498,19 +487,19 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
         *end = next;
         Variable* v = sym_find(name.data());
         if (!v) {
-            fprintf(stderr, "Undefined variable '%s'\n", name.data());
+            std::println(stderr, "Undefined variable '{}'", name);
             return 1;
         }
 
         if (v->is_ref) {
             RegGuard slot_r(&ra);
             if (!slot_r.ok()) {
-                fprintf(stderr, "Out of scratch registers\n");
+                std::println(stderr, "Out of scratch registers");
                 return 1;
             }
             RegGuard val_r(&ra);
             if (!val_r.ok()) {
-                fprintf(stderr, "Out of scratch registers\n");
+                std::println(stderr, "Out of scratch registers");
                 return 1;
             }
             char srn[4], vrn[4];
@@ -523,7 +512,7 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
         } else {
             RegGuard rg(&ra);
             if (!rg.ok()) {
-                fprintf(stderr, "Out of scratch registers\n");
+                std::println(stderr, "Out of scratch registers");
                 return 1;
             }
             char rn[4];
@@ -539,7 +528,7 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
         return 0;
     }
 
-    fprintf(stderr, "Expression error: unexpected character '%c'\n", *s);
+    std::println(stderr, "Expression error: unexpected character '{}'", *s);
     return 1;
 }
 
@@ -712,10 +701,10 @@ int CompilerState::emit_condition(const char* s, const char* skip_label) {
 
     for (const char* q = p; *q; q++) {
         if (blackbox::tools::starts_with_ci(q, "OR") &&
-            (q == p || !(isalnum((unsigned char) q[-1]) || q[-1] == '_')) &&
-            !(isalnum((unsigned char) q[2]) || q[2] == '_')) {
+            (q == p || !(isalnum(static_cast<unsigned char>(q[-1])) || q[-1] == '_')) &&
+            !(isalnum(static_cast<unsigned char>(q[2])) || q[2] == '_')) {
 
-            std::string left(p, (size_t) (q - p));
+            std::string left(p, static_cast<size_t>(q - p));
             char next_or_label[64], pass_label[64];
             snprintf(next_or_label, sizeof(next_or_label), "_or_next_%lu", uid++);
             snprintf(pass_label, sizeof(pass_label), "_or_pass_%lu", uid++);
@@ -733,7 +722,7 @@ int CompilerState::emit_condition(const char* s, const char* skip_label) {
         }
     }
 
-    while (1) {
+    while (true) {
         int lreg;
         if (emit_expr_p(p, &p, &lreg)) {
             return 1;
@@ -768,7 +757,7 @@ int CompilerState::emit_condition(const char* s, const char* skip_label) {
             op[0] = '>';
             p++;
         } else {
-            fprintf(stderr, "Condition error: expected comparison operator near '%s'\n", p);
+            std::println(stderr, "Condition error: expected comparison operator near '{}'", p);
             ralloc_release(lreg);
             return 1;
         }
@@ -786,7 +775,7 @@ int CompilerState::emit_condition(const char* s, const char* skip_label) {
 
         const char* next = skip_ws(p);
         int is_and = blackbox::tools::starts_with_ci(next, "AND") &&
-                     !(isalnum((unsigned char) next[3]) || next[3] == '_');
+                     !(isalnum(static_cast<unsigned char>(next[3])) || next[3] == '_');
 
         bool flip = (strcmp(op, ">") == 0 || strcmp(op, "<=") == 0);
         EMIT_CODE(this, "    CMP %s, %s", flip ? rn : ln, flip ? ln : rn);
@@ -820,12 +809,12 @@ int CompilerState::emit_write_values(const char* arg, const char* stmt_name, int
     while (*arg) {
         const char* arg_start = skip_ws(arg);
 
-        if (isalpha((unsigned char) *arg_start) || *arg_start == '_') {
+        if (isalpha(static_cast<unsigned char>(*arg_start)) || *arg_start == '_') {
             std::string name;
             const char* p = arg_start;
             if (!parse_identifier(arg_start, &p, name)) {
-                fprintf(stderr, "Syntax error line %d: expected identifier in %s\n", lineno,
-                        stmt_name);
+                std::println(stderr, "Syntax error line {}: expected identifier in {}", lineno,
+                             stmt_name);
                 return 1;
             }
             if (*skip_ws(p) == '\0' || *skip_ws(p) == ',') {
@@ -833,7 +822,7 @@ int CompilerState::emit_write_values(const char* arg, const char* stmt_name, int
                 if (v && v->type == VAR_STR) {
                     RegGuard rg(&ra);
                     if (!rg.ok()) {
-                        fprintf(stderr, "Out of scratch registers\n");
+                        std::println(stderr, "Out of scratch registers");
                         return 1;
                     }
                     char rn[4];
@@ -849,7 +838,7 @@ int CompilerState::emit_write_values(const char* arg, const char* stmt_name, int
                         EMIT_CODE(this, "    PRINTSTR %s", rn);
                     }
                     if (debug) {
-                        printf("[BASIC] %s %s\n", stmt_name, name.data());
+                        std::println("[BASIC] {} {}", stmt_name, name);
                     }
                     arg = skip_ws(p);
                     goto next_arg;
@@ -861,17 +850,17 @@ int CompilerState::emit_write_values(const char* arg, const char* stmt_name, int
             const char* str_start = arg + 1;
             const char* str_end = strchr(str_start, '"');
             if (!str_end) {
-                fprintf(stderr, "Syntax error line %d: unterminated string in %s\n", lineno,
-                        stmt_name);
+                std::println(stderr, "Syntax error line {}: unterminated string in {}", lineno,
+                             stmt_name);
                 return 1;
             }
             char data_name[64];
             snprintf(data_name, sizeof(data_name), "_p%lu", uid++);
-            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name, (int) (str_end - str_start),
+            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name, static_cast<int>(str_end - str_start),
                       str_start);
             RegGuard rg(&ra);
             if (!rg.ok()) {
-                fprintf(stderr, "Out of scratch registers\n");
+                std::println(stderr, "Out of scratch registers");
                 return 1;
             }
             char rn[4];
@@ -883,7 +872,8 @@ int CompilerState::emit_write_values(const char* arg, const char* stmt_name, int
                 EMIT_CODE(this, "    PRINTSTR %s", rn);
             }
             if (debug) {
-                printf("[BASIC] %s \"%.*s\"\n", stmt_name, (int) (str_end - str_start), str_start);
+                std::println("[BASIC] {} \"{:.{}}\"", stmt_name, str_start,
+                             static_cast<int>(str_end - str_start));
             }
             arg = skip_ws(str_end + 1);
         } else {
@@ -901,7 +891,7 @@ int CompilerState::emit_write_values(const char* arg, const char* stmt_name, int
             }
             ralloc_release(reg);
             if (debug) {
-                printf("[BASIC] %s %.*s\n", stmt_name, (int) (expr_end - arg), arg);
+                std::println("[BASIC] {} {:.{}}", stmt_name, arg, static_cast<int>(expr_end - arg));
             }
             arg = skip_ws(expr_end);
         }
@@ -910,15 +900,15 @@ int CompilerState::emit_write_values(const char* arg, const char* stmt_name, int
         if (*arg == ',') {
             arg = skip_ws(arg + 1);
             if (*arg == '\0') {
-                fprintf(stderr, "Syntax error line %d: expected value after ',' in %s\n", lineno,
-                        stmt_name);
+                std::println(stderr, "Syntax error line {}: expected value after ',' in {}", lineno,
+                             stmt_name);
                 return 1;
             }
             continue;
         }
         if (*arg != '\0') {
-            fprintf(stderr, "Syntax error line %d: expected ',' between %s values\n", lineno,
-                    stmt_name);
+            std::println(stderr, "Syntax error line {}: expected ',' between {} values", lineno,
+                         stmt_name);
             return 1;
         }
     }
@@ -931,21 +921,21 @@ int CompilerState::compile_line(char* s) {
     if (blackbox::tools::starts_with_ci(s, "@ENTRY")) {
         const char* tail = skip_ws(s + 6);
         if (*tail != '\0') {
-            fprintf(stderr, "Syntax error line %d: unexpected tokens after @ENTRY\n", lineno);
+            std::println(stderr, "Syntax error line {}: unexpected tokens after @ENTRY", lineno);
             return 1;
         }
         if (in_func) {
-            fprintf(stderr, "Error line %d: @ENTRY is not allowed inside FUNC\n", lineno);
+            std::println(stderr, "Error line {}: @ENTRY is not allowed inside FUNC", lineno);
             return 1;
         }
         if (entry_point_declared) {
-            fprintf(stderr, "Error line %d: multiple @ENTRY directives are not allowed\n", lineno);
+            std::println(stderr, "Error line {}: multiple @ENTRY directives are not allowed", lineno);
             return 1;
         }
         EMIT_CODE(this, ".__bbx_basic_main:");
         entry_point_declared = true;
         if (debug) {
-            printf("[BASIC] @ENTRY\n");
+            std::println("[BASIC] @ENTRY");
         }
         return 0;
     }
@@ -954,16 +944,16 @@ int CompilerState::compile_line(char* s) {
     if (blackbox::tools::starts_with_ci(s, "CONST ")) {
         const char* eq = strchr(s + 6, '=');
         if (!eq) {
-            fprintf(stderr, "Syntax error line %d: expected CONST <n> = <value>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected CONST <n> = <value>", lineno);
             return 1;
         }
-        std::string name = trim_copy(std::string(s + 6, (size_t) (eq - (s + 6))));
+        std::string name = trim_copy(std::string(s + 6, static_cast<size_t>(eq - (s + 6))));
         if (name.empty()) {
-            fprintf(stderr, "Syntax error line %d: expected CONST <n> = <value>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected CONST <n> = <value>", lineno);
             return 1;
         }
         if (sym_find(name.data())) {
-            fprintf(stderr, "Error line %d: variable '%s' already defined\n", lineno, name.data());
+            std::println(stderr, "Error line {}: variable '{}' already defined", lineno, name);
             return 1;
         }
         std::string rhs = trim_copy(eq + 1);
@@ -971,16 +961,16 @@ int CompilerState::compile_line(char* s) {
             const char* str_start = rhs.data() + 1;
             const char* str_end = strchr(str_start, '"');
             if (!str_end) {
-                fprintf(stderr, "Syntax error line %d: unterminated string literal\n", lineno);
+                std::println(stderr, "Syntax error line {}: unterminated string literal", lineno);
                 return 1;
             }
             char data_name[64];
             snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name.data());
-            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name, (int) (str_end - str_start),
+            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name, static_cast<int>(str_end - str_start),
                       str_start);
             sym_add_str(name.data(), data_name, 1);
             if (debug) {
-                printf("[BASIC] CONST string %s -> $%s\n", name.data(), data_name);
+                std::println("[BASIC] CONST string {} -> ${}", name, data_name);
             }
         } else {
             Variable* v = sym_add_int(name.data());
@@ -994,7 +984,7 @@ int CompilerState::compile_line(char* s) {
             EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", ern, v->slot);
             ralloc_release(ereg);
             if (debug) {
-                printf("[BASIC] CONST int %s -> slot %u\n", name.data(), v->slot);
+                std::println("[BASIC] CONST int {} -> slot {}", name, v->slot);
             }
         }
         return 0;
@@ -1004,30 +994,30 @@ int CompilerState::compile_line(char* s) {
     if (blackbox::tools::starts_with_ci(s, "VAR ")) {
         const char* eq = strchr(s + 4, '=');
         if (!eq) {
-            fprintf(stderr, "Syntax error line %d: expected VAR <n> = <value>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected VAR <n> = <value>", lineno);
             return 1;
         }
-        std::string name = trim_copy(std::string(s + 4, (size_t) (eq - (s + 4))));
+        std::string name = trim_copy(std::string(s + 4, static_cast<size_t>(eq - (s + 4))));
         std::string rhs = trim_copy(eq + 1);
         if (name.empty()) {
-            fprintf(stderr, "Syntax error line %d: expected VAR <n> = <value>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected VAR <n> = <value>", lineno);
             return 1;
         }
         if (!rhs.empty() && rhs[0] == '"') {
             const char* str_start = rhs.data() + 1;
             const char* str_end = strchr(str_start, '"');
             if (!str_end) {
-                fprintf(stderr, "Syntax error line %d: unterminated string\n", lineno);
+                std::println(stderr, "Syntax error line {}: unterminated string", lineno);
                 return 1;
             }
             char data_name[64];
             snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name.data());
-            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name, (int) (str_end - str_start),
+            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name, static_cast<int>(str_end - str_start),
                       str_start);
             Variable* v = sym_add_str(name.data(), data_name, 0);
             RegGuard rg(&ra);
             if (!rg.ok()) {
-                fprintf(stderr, "Out of scratch registers\n");
+                std::println(stderr, "Out of scratch registers");
                 return 1;
             }
             char rn[4];
@@ -1035,12 +1025,12 @@ int CompilerState::compile_line(char* s) {
             EMIT_CODE(this, "    LOADSTR $%s, %s", data_name, rn);
             EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", rn, v->slot);
             if (debug) {
-                printf("[BASIC] VAR string %s -> $%s\n", name.data(), data_name);
+                std::println("[BASIC] VAR string {} -> ${}", name, data_name);
             }
         } else {
             if (sym_find(name.data())) {
-                fprintf(stderr, "Error line %d: variable '%s' already defined\n", lineno,
-                        name.data());
+                std::println(stderr, "Error line {}: variable '{}' already defined", lineno,
+                             name);
                 return 1;
             }
             Variable* v = sym_add_int(name.data());
@@ -1053,7 +1043,7 @@ int CompilerState::compile_line(char* s) {
             EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", ern, v->slot);
             ralloc_release(ereg);
             if (debug) {
-                printf("[BASIC] VAR int %s -> slot %u\n", name.data(), v->slot);
+                std::println("[BASIC] VAR int {} -> slot {}", name, v->slot);
             }
         }
         return 0;
@@ -1070,41 +1060,41 @@ int CompilerState::compile_line(char* s) {
             }
         }
         if (eq) {
-            size_t lhslen = (size_t) (eq - s);
+            size_t lhslen = static_cast<size_t>(eq - s);
             if (lhslen < 64) {
                 std::string name = trim_copy(std::string(s, lhslen));
                 Variable* v = sym_find(name.data());
                 if (v) {
                     if (v->is_const) {
-                        fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno,
-                                name.data());
+                        std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno,
+                                     name);
                         return 1;
                     }
                     std::string rhs = trim_copy(eq + 1);
                     if (v->type == VAR_STR) {
                         if (rhs.empty() || rhs[0] != '"') {
-                            fprintf(stderr,
-                                    "Type error line %d: expected string literal for '%s'\n",
-                                    lineno, name.data());
+                            std::println(stderr,
+                                         "Type error line {}: expected string literal for '{}'",
+                                         lineno, name);
                             return 1;
                         }
                         const char* str_start = rhs.data() + 1;
                         const char* str_end = strchr(str_start, '"');
                         if (!str_end) {
-                            fprintf(stderr, "Syntax error line %d: unterminated string\n", lineno);
+                            std::println(stderr, "Syntax error line {}: unterminated string", lineno);
                             return 1;
                         }
                         if (*skip_ws(str_end + 1) != '\0') {
-                            fprintf(
+                            std::println(
                                 stderr,
-                                "Syntax error line %d: unexpected trailing tokens after string\n",
+                                "Syntax error line {}: unexpected trailing tokens after string",
                                 lineno);
                             return 1;
                         }
                         char data_name[64];
                         snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name.data());
                         EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name,
-                                  (int) (str_end - str_start), str_start);
+                                  static_cast<int>(str_end - str_start), str_start);
                         copy_cstr(v->data_name, sizeof(v->data_name), data_name);
                         RegGuard rg(&ra);
                         char rn[4];
@@ -1112,15 +1102,15 @@ int CompilerState::compile_line(char* s) {
                         EMIT_CODE(this, "    LOADSTR $%s, %s", data_name, rn);
                         EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", rn, v->slot);
                         if (debug) {
-                            printf("[BASIC] ASSIGN string %s -> $%s\n", name.data(), data_name);
+                            std::println("[BASIC] ASSIGN string {} -> ${}", name, data_name);
                         }
                         return 0;
                     }
                     if (v->type != VAR_INT) {
-                        fprintf(
+                        std::println(
                             stderr,
-                            "Type error line %d: cannot assign to string '%s' with numeric expr\n",
-                            lineno, name.data());
+                            "Type error line {}: cannot assign to string '{}' with numeric expr",
+                            lineno, name);
                         return 1;
                     }
                     int ereg;
@@ -1131,7 +1121,7 @@ int CompilerState::compile_line(char* s) {
                         RegGuard slot_r(&ra);
                         if (!slot_r.ok()) {
                             ralloc_release(ereg);
-                            fprintf(stderr, "Out of scratch registers\n");
+                            std::println(stderr, "Out of scratch registers");
                             return 1;
                         }
                         char srn[4], ern[4];
@@ -1147,7 +1137,7 @@ int CompilerState::compile_line(char* s) {
                         ralloc_release(ereg);
                     }
                     if (debug) {
-                        printf("[BASIC] ASSIGN %s -> slot %u\n", name.data(), v->slot);
+                        std::println("[BASIC] ASSIGN {} -> slot {}", name, v->slot);
                     }
                     return 0;
                 }
@@ -1176,7 +1166,7 @@ int CompilerState::compile_line(char* s) {
         }
         bstack_push(b);
         if (debug) {
-            printf("[BASIC] IF condition, skip to %s if false\n", b.else_label);
+            std::println("[BASIC] IF condition, skip to {} if false", b.else_label);
         }
         return 0;
     }
@@ -1187,7 +1177,7 @@ int CompilerState::compile_line(char* s) {
         if (blackbox::tools::starts_with_ci(p, "IF ")) {
             Block b = bstack_pop();
             if (b.kind != BLOCK_IF) {
-                fprintf(stderr, "Error line %d: ELSE IF without IF\n", lineno);
+                std::println(stderr, "Error line {}: ELSE IF without IF", lineno);
                 return 1;
             }
             EMIT_CODE(this, "    JMP %s", b.end_label + 1);
@@ -1211,8 +1201,8 @@ int CompilerState::compile_line(char* s) {
             nb.loop_label[0] = '\0';
             bstack_push(nb);
             if (debug) {
-                printf("[BASIC] ELSE IF condition, else to %s, exit to %s\n", nb.else_label,
-                       nb.end_label);
+                std::println("[BASIC] ELSE IF condition, else to {}, exit to {}", nb.else_label,
+                             nb.end_label);
             }
             return 0;
         }
@@ -1222,14 +1212,14 @@ int CompilerState::compile_line(char* s) {
     if (blackbox::tools::equals_ci(s, "ELSE:")) {
         Block* b = bstack_peek();
         if (!b || b->kind != BLOCK_IF) {
-            fprintf(stderr, "Error line %d: ELSE without IF\n", lineno);
+            std::println(stderr, "Error line {}: ELSE without IF", lineno);
             return 1;
         }
         b->has_else = 1;
         EMIT_CODE(this, "    JMP %s", b->end_label + 1);
         EMIT_CODE(this, "%s:", b->else_label);
         if (debug) {
-            printf("[BASIC] ELSE\n");
+            std::println("[BASIC] ELSE");
         }
         return 0;
     }
@@ -1238,7 +1228,7 @@ int CompilerState::compile_line(char* s) {
     if (blackbox::tools::equals_ci(s, "ENDIF")) {
         Block b = bstack_pop();
         if (b.kind != BLOCK_IF) {
-            fprintf(stderr, "Error line %d: ENDIF without IF\n", lineno);
+            std::println(stderr, "Error line {}: ENDIF without IF", lineno);
             return 1;
         }
         if (!b.has_else) {
@@ -1246,7 +1236,7 @@ int CompilerState::compile_line(char* s) {
         }
         EMIT_CODE(this, "%s:", b.end_label);
         if (debug) {
-            printf("[BASIC] ENDIF\n");
+            std::println("[BASIC] ENDIF");
         }
         return 0;
     }
@@ -1273,7 +1263,7 @@ int CompilerState::compile_line(char* s) {
         }
         bstack_push(b);
         if (debug) {
-            printf("[BASIC] WHILE -> top=%s end=%s\n", b.loop_label, b.end_label);
+            std::println("[BASIC] WHILE -> top={} end={}", b.loop_label, b.end_label);
         }
         return 0;
     }
@@ -1282,21 +1272,21 @@ int CompilerState::compile_line(char* s) {
     if (blackbox::tools::equals_ci(s, "ENDWHILE")) {
         Block b = bstack_pop();
         if (b.kind != BLOCK_WHILE) {
-            fprintf(stderr, "Error line %d: ENDWHILE without WHILE\n", lineno);
+            std::println(stderr, "Error line {}: ENDWHILE without WHILE", lineno);
             return 1;
         }
         EMIT_CODE(this, "    JMP %s", b.loop_label + 1);
         EMIT_CODE(this, "%s:", b.end_label);
         if (debug) {
-            printf("[BASIC] ENDWHILE\n");
+            std::println("[BASIC] ENDWHILE");
         }
         return 0;
     }
 
     if (blackbox::tools::starts_with_ci(s, "EWRITE")) {
         const char* arg = s + 6;
-        if (*arg != '\0' && !isspace((unsigned char) *arg)) {
-            fprintf(stderr, "Syntax error line %d: expected EWRITE [<value>[, ...]]\n", lineno);
+        if (*arg != '\0' && !isspace(static_cast<unsigned char>(*arg))) {
+            std::println(stderr, "Syntax error line {}: expected EWRITE [<value>[, ...]]", lineno);
             return 1;
         }
         arg = skip_ws(arg);
@@ -1307,8 +1297,8 @@ int CompilerState::compile_line(char* s) {
     }
     if (blackbox::tools::starts_with_ci(s, "WRITE")) {
         const char* arg = s + 5;
-        if (*arg != '\0' && !isspace((unsigned char) *arg)) {
-            fprintf(stderr, "Syntax error line %d: expected WRITE [<value>[, ...]]\n", lineno);
+        if (*arg != '\0' && !isspace(static_cast<unsigned char>(*arg))) {
+            std::println(stderr, "Syntax error line {}: expected WRITE [<value>[, ...]]", lineno);
             return 1;
         }
         arg = skip_ws(arg);
@@ -1319,8 +1309,8 @@ int CompilerState::compile_line(char* s) {
     }
     if (blackbox::tools::starts_with_ci(s, "EPRINT")) {
         const char* arg = s + 6;
-        if (*arg != '\0' && !isspace((unsigned char) *arg)) {
-            fprintf(stderr, "Syntax error line %d: expected EPRINT [<value>[, ...]]\n", lineno);
+        if (*arg != '\0' && !isspace(static_cast<unsigned char>(*arg))) {
+            std::println(stderr, "Syntax error line {}: expected EPRINT [<value>[, ...]]", lineno);
             return 1;
         }
         arg = skip_ws(arg);
@@ -1330,7 +1320,7 @@ int CompilerState::compile_line(char* s) {
         {
             RegGuard rg(&ra);
             if (!rg.ok()) {
-                fprintf(stderr, "Out of scratch registers\n");
+                std::println(stderr, "Out of scratch registers");
                 return 1;
             }
             char rn[4];
@@ -1339,14 +1329,14 @@ int CompilerState::compile_line(char* s) {
             EMIT_CODE(this, "    EPRINTCHAR %s", rn);
         }
         if (debug) {
-            printf("[BASIC] EPRINT <newline>\n");
+            std::println("[BASIC] EPRINT <newline>");
         }
         return 0;
     }
     if (blackbox::tools::starts_with_ci(s, "PRINT")) {
         const char* arg = s + 5;
-        if (*arg != '\0' && !isspace((unsigned char) *arg)) {
-            fprintf(stderr, "Syntax error line %d: expected PRINT [<value>[, ...]]\n", lineno);
+        if (*arg != '\0' && !isspace(static_cast<unsigned char>(*arg))) {
+            std::println(stderr, "Syntax error line {}: expected PRINT [<value>[, ...]]", lineno);
             return 1;
         }
         arg = skip_ws(arg);
@@ -1356,7 +1346,7 @@ int CompilerState::compile_line(char* s) {
         {
             RegGuard rg(&ra);
             if (!rg.ok()) {
-                fprintf(stderr, "Out of scratch registers\n");
+                std::println(stderr, "Out of scratch registers");
                 return 1;
             }
             char rn[4];
@@ -1365,7 +1355,7 @@ int CompilerState::compile_line(char* s) {
             EMIT_CODE(this, "    PRINTCHAR %s", rn);
         }
         if (debug) {
-            printf("[BASIC] PRINT <newline>\n");
+            std::println("[BASIC] PRINT <newline>");
         }
         return 0;
     }
@@ -1373,13 +1363,13 @@ int CompilerState::compile_line(char* s) {
     // SLEEP
     if (blackbox::tools::starts_with_ci(s, "SLEEP")) {
         const char* arg = s + 5;
-        if (*arg != '\0' && !isspace((unsigned char) *arg)) {
-            fprintf(stderr, "Syntax error line %d: expected SLEEP <expr>\n", lineno);
+        if (*arg != '\0' && !isspace(static_cast<unsigned char>(*arg))) {
+            std::println(stderr, "Syntax error line {}: expected SLEEP <expr>", lineno);
             return 1;
         }
         arg = skip_ws(arg);
         if (*arg == '\0') {
-            fprintf(stderr, "Syntax error line %d: expected SLEEP <expr>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected SLEEP <expr>", lineno);
             return 1;
         }
         const char* expr_end = nullptr;
@@ -1389,7 +1379,7 @@ int CompilerState::compile_line(char* s) {
         }
         if (*skip_ws(expr_end) != '\0') {
             ralloc_release(reg);
-            fprintf(stderr, "Syntax error line %d: SLEEP takes a single expression\n", lineno);
+            std::println(stderr, "Syntax error line {}: SLEEP takes a single expression", lineno);
             return 1;
         }
         char rn[4];
@@ -1397,7 +1387,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    SLEEP %s", rn);
         ralloc_release(reg);
         if (debug) {
-            printf("[BASIC] SLEEP %s\n", arg);
+            std::println("[BASIC] SLEEP {}", arg);
         }
         return 0;
     }
@@ -1405,25 +1395,25 @@ int CompilerState::compile_line(char* s) {
     // HALT
     if (blackbox::tools::starts_with_ci(s, "HALT")) {
         const char* halt_suffix = s + 4;
-        if (*halt_suffix != '\0' && !std::isspace((unsigned char) *halt_suffix)) {
-            fprintf(stderr, "Syntax error line %d: expected HALT [OK|BAD|<number>]\n", lineno);
+        if (*halt_suffix != '\0' && !std::isspace(static_cast<unsigned char>(*halt_suffix))) {
+            std::println(stderr, "Syntax error line {}: expected HALT [OK|BAD|<number>]", lineno);
             return 1;
         }
         std::string arg = trim_copy(halt_suffix);
         if (arg.empty()) {
             EMIT_CODE(this, "    HALT");
             if (debug) {
-                printf("[BASIC] HALT\n");
+                std::println("[BASIC] HALT");
             }
             return 0;
         }
         size_t tok_len = 0;
-        while (tok_len < arg.size() && !std::isspace((unsigned char) arg[tok_len])) {
+        while (tok_len < arg.size() && !std::isspace(static_cast<unsigned char>(arg[tok_len]))) {
             tok_len++;
         }
         std::string token = arg.substr(0, tok_len);
         if (!trim_copy(arg.substr(tok_len)).empty()) {
-            fprintf(stderr, "Syntax error line %d: HALT takes at most one operand\n", lineno);
+            std::println(stderr, "Syntax error line {}: HALT takes at most one operand", lineno);
             return 1;
         }
         if (blackbox::tools::equals_ci(token.data(), "OK")) {
@@ -1434,14 +1424,14 @@ int CompilerState::compile_line(char* s) {
             char* endp = nullptr;
             unsigned long v = strtoul(token.data(), &endp, 0);
             if (!endp || *endp != '\0') {
-                fprintf(stderr, "Syntax error line %d: invalid HALT operand '%s'\n", lineno,
-                        token.data());
+                std::println(stderr, "Syntax error line {}: invalid HALT operand '{}'", lineno,
+                             token);
                 return 1;
             }
             EMIT_CODE(this, "    HALT %lu", v);
         }
         if (debug) {
-            printf("[BASIC] HALT %s\n", token.data());
+            std::println("[BASIC] HALT {}", token);
         }
         return 0;
     }
@@ -1451,7 +1441,7 @@ int CompilerState::compile_line(char* s) {
         std::string name = trim_copy(s + 6);
         EMIT_CODE(this, ".%s:", name.data());
         if (debug) {
-            printf("[BASIC] LABEL %s\n", name.data());
+            std::println("[BASIC] LABEL {}", name);
         }
         return 0;
     }
@@ -1461,7 +1451,7 @@ int CompilerState::compile_line(char* s) {
         std::string name = trim_copy(s + 5);
         EMIT_CODE(this, "    JMP %s", name.data());
         if (debug) {
-            printf("[BASIC] GOTO %s\n", name.data());
+            std::println("[BASIC] GOTO {}", name);
         }
         return 0;
     }
@@ -1473,7 +1463,7 @@ int CompilerState::compile_line(char* s) {
         std::string name;
         const char* p = arg;
         if (!parse_identifier(p, &p, name)) {
-            fprintf(stderr, "Syntax error line %d: expected CALL <name>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected CALL <name>", lineno);
             return 1;
         }
         p = skip_ws(p);
@@ -1491,25 +1481,25 @@ int CompilerState::compile_line(char* s) {
                 p = skip_ws(p + 1);
                 int arg_index = 0;
                 while (*p && *p != ')') {
-                    if (arg_index < (int) fd->param_is_ref.size() && fd->param_is_ref[arg_index]) {
+                    if (arg_index < static_cast<int>(fd->param_is_ref.size()) && fd->param_is_ref[arg_index]) {
                         // ref param
                         std::string refname;
                         const char* ref_end = p;
                         if (!parse_identifier(p, &ref_end, refname)) {
-                            fprintf(stderr, "Error line %d: ref param requires a variable name\n",
-                                    lineno);
+                            std::println(stderr, "Error line {}: ref param requires a variable name",
+                                         lineno);
                             return 1;
                         }
                         Variable* rv = sym_find(refname.data());
                         if (!rv) {
-                            fprintf(stderr, "Undefined variable '%s' on line %d\n", refname.data(),
-                                    lineno);
+                            std::println(stderr, "Undefined variable '{}' on line {}", refname,
+                                         lineno);
                             return 1;
                         }
                         p = ref_end;
                         RegGuard rg(&ra);
                         if (!rg.ok()) {
-                            fprintf(stderr, "Out of scratch registers\n");
+                            std::println(stderr, "Out of scratch registers");
                             return 1;
                         }
                         char rn[4];
@@ -1537,36 +1527,36 @@ int CompilerState::compile_line(char* s) {
                     if (*p == ')') {
                         break;
                     }
-                    fprintf(stderr, "Syntax error line %d: expected ',' or ')' in CALL '%s'\n",
-                            lineno, name.data());
+                    std::println(stderr, "Syntax error line {}: expected ',' or ')' in CALL '{}'",
+                                 lineno, name);
                     return 1;
                 }
                 if (*p != ')') {
-                    fprintf(stderr, "Syntax error line %d: missing ')' in CALL '%s'\n", lineno,
-                            name.data());
+                    std::println(stderr, "Syntax error line {}: missing ')' in CALL '{}'", lineno,
+                                 name);
                     return 1;
                 }
                 p = skip_ws(p + 1);
                 if (*p != '\0') {
-                    fprintf(stderr, "Syntax error line %d: unexpected tokens after CALL\n", lineno);
+                    std::println(stderr, "Syntax error line {}: unexpected tokens after CALL", lineno);
                     return 1;
                 }
                 EMIT_CODE(this, "    CALL __bbx_func_%s", name.data());
                 if (debug) {
-                    printf("[BASIC] CALL %s(...)\n", name.data());
+                    std::println("[BASIC] CALL {}(...)", name);
                 }
                 return 0;
             }
         }
 
-        // plain CALL 
+        // plain CALL
         if (*p != '\0') {
-            fprintf(stderr, "Syntax error line %d: unexpected tokens after CALL target\n", lineno);
+            std::println(stderr, "Syntax error line {}: unexpected tokens after CALL target", lineno);
             return 1;
         }
         EMIT_CODE(this, "    CALL %s", name.data());
         if (debug) {
-            printf("[BASIC] CALL %s\n", name.data());
+            std::println("[BASIC] CALL {}", name);
         }
         return 0;
     }
@@ -1577,7 +1567,7 @@ int CompilerState::compile_line(char* s) {
         if (*arg != '\0') {
             // RETURN expr: evaluate into a reg, move to R00
             if (!in_func) {
-                fprintf(stderr, "Error line %d: RETURN with value outside FUNC\n", lineno);
+                std::println(stderr, "Error line {}: RETURN with value outside FUNC", lineno);
                 return 1;
             }
             const char* expr_end = nullptr;
@@ -1587,8 +1577,8 @@ int CompilerState::compile_line(char* s) {
             }
             if (*skip_ws(expr_end) != '\0') {
                 ralloc_release(reg);
-                fprintf(stderr, "Syntax error line %d: unexpected tokens after RETURN expression\n",
-                        lineno);
+                std::println(stderr, "Syntax error line {}: unexpected tokens after RETURN expression",
+                             lineno);
                 return 1;
             }
             char rn[4];
@@ -1598,7 +1588,7 @@ int CompilerState::compile_line(char* s) {
         }
         EMIT_CODE(this, "    RET ;", *arg ? " with value" : "");
         if (debug) {
-            printf("[BASIC] RETURN%s\n", *arg ? " <expr>" : "");
+            std::println("[BASIC] RETURN{}", *arg ? " <expr>" : "");
         }
         return 0;
     }
@@ -1606,22 +1596,22 @@ int CompilerState::compile_line(char* s) {
     // EXEC
     if (blackbox::tools::starts_with_ci(s, "EXEC")) {
         const char* arg = s + 4;
-        if (*arg != '\0' && !isspace((unsigned char) *arg)) {
-            fprintf(stderr, "Syntax error line %d: expected EXEC \"<cmd>\", <var>\n", lineno);
+        if (*arg != '\0' && !isspace(static_cast<unsigned char>(*arg))) {
+            std::println(stderr, "Syntax error line {}: expected EXEC \"<cmd>\", <var>", lineno);
             return 1;
         }
         arg = skip_ws(arg);
         if (*arg != '"') {
-            fprintf(stderr, "Syntax error line %d: expected EXEC \"<cmd>\", <var>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected EXEC \"<cmd>\", <var>", lineno);
             return 1;
         }
         const char* str_start = arg + 1;
         const char* str_end = strchr(str_start, '"');
         if (!str_end) {
-            fprintf(stderr, "Syntax error line %d: missing closing quote for EXEC\n", lineno);
+            std::println(stderr, "Syntax error line {}: missing closing quote for EXEC", lineno);
             return 1;
         }
-        std::string cmd(str_start, (size_t) (str_end - str_start));
+        std::string cmd(str_start, static_cast<size_t>(str_end - str_start));
         if (cmd.size() > 255) {
             cmd.resize(255);
         }
@@ -1630,44 +1620,44 @@ int CompilerState::compile_line(char* s) {
         Variable* dv = nullptr;
         if (*after != '\0') {
             if (*after != ',') {
-                fprintf(stderr, "Syntax error line %d: expected ',' before EXEC destination\n",
-                        lineno);
+                std::println(stderr, "Syntax error line {}: expected ',' before EXEC destination",
+                             lineno);
                 return 1;
             }
             after = skip_ws(after + 1);
             std::string varname;
             const char* var_end = after;
             if (!parse_identifier(after, &var_end, varname)) {
-                fprintf(stderr, "Syntax error line %d: expected EXEC destination variable\n",
-                        lineno);
+                std::println(stderr, "Syntax error line {}: expected EXEC destination variable",
+                             lineno);
                 return 1;
             }
             after = skip_ws(var_end);
             if (*after != '\0') {
-                fprintf(stderr, "Syntax error line %d: unexpected tokens after EXEC destination\n",
-                        lineno);
+                std::println(stderr, "Syntax error line {}: unexpected tokens after EXEC destination",
+                             lineno);
                 return 1;
             }
             dv = sym_find(varname.data());
             if (!dv) {
-                fprintf(stderr, "Undefined variable '%s' on line %d\n", varname.data(), lineno);
+                std::println(stderr, "Undefined variable '{}' on line {}", varname, lineno);
                 return 1;
             }
             if (dv->is_const) {
-                fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno,
-                        varname.data());
+                std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno,
+                             varname);
                 return 1;
             }
             if (dv->type != VAR_INT) {
-                fprintf(stderr, "Type error line %d: EXEC destination '%s' must be integer\n",
-                        lineno, varname.data());
+                std::println(stderr, "Type error line {}: EXEC destination '{}' must be integer",
+                             lineno, varname);
                 return 1;
             }
             have_dest = 1;
         }
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
+            std::println(stderr, "Out of scratch registers");
             return 1;
         }
         char rn[4];
@@ -1678,9 +1668,9 @@ int CompilerState::compile_line(char* s) {
         }
         if (debug) {
             if (have_dest) {
-                printf("[BASIC] EXEC \"%s\" -> %s\n", cmd.data(), dv->name);
+                std::println("[BASIC] EXEC \"{}\" -> {}", cmd, dv->name);
             } else {
-                printf("[BASIC] EXEC \"%s\"\n", cmd.data());
+                std::println("[BASIC] EXEC \"{}\"", cmd);
             }
         }
         return 0;
@@ -1692,54 +1682,54 @@ int CompilerState::compile_line(char* s) {
         size_t pos = 0;
         std::string mode;
         if (!parse_file_mode(arg, pos, mode)) {
-            fprintf(stderr, "Syntax error line %d: expected FOPEN <mode>, <handle>, \"<file>\"\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
+                         lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos >= arg.size() || arg[pos] != ',') {
-            fprintf(stderr, "Syntax error line %d: expected FOPEN <mode>, <handle>, \"<file>\"\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
+                         lineno);
             return 1;
         }
         pos = skip_ws(arg, pos + 1);
         std::string handle_name;
         if (!parse_identifier(arg, pos, handle_name)) {
-            fprintf(stderr, "Syntax error line %d: expected FOPEN <mode>, <handle>, \"<file>\"\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
+                         lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos >= arg.size() || arg[pos] != ',') {
-            fprintf(stderr, "Syntax error line %d: expected FOPEN <mode>, <handle>, \"<file>\"\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
+                         lineno);
             return 1;
         }
         pos = skip_ws(arg, pos + 1);
         std::string filename;
         if (!parse_quoted_string(arg, pos, filename)) {
-            fprintf(stderr, "Syntax error line %d: expected FOPEN <mode>, <handle>, \"<file>\"\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
+                         lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos != arg.size()) {
-            fprintf(stderr, "Syntax error line %d: unexpected trailing tokens in FOPEN\n", lineno);
+            std::println(stderr, "Syntax error line {}: unexpected trailing tokens in FOPEN", lineno);
             return 1;
         }
         Variable* v = sym_find(handle_name.data());
         if (!v) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", handle_name.data(), lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", handle_name, lineno);
             return 1;
         }
         if (v->is_const) {
-            fprintf(stderr, "Error line %d: cannot use CONST '%s' as file handle\n", lineno,
-                    handle_name.data());
+            std::println(stderr, "Error line {}: cannot use CONST '{}' as file handle", lineno,
+                         handle_name);
             return 1;
         }
         if (v->type != VAR_INT) {
-            fprintf(stderr, "Type error line %d: file handle '%s' must be integer\n", lineno,
-                    handle_name.data());
+            std::println(stderr, "Type error line {}: file handle '{}' must be integer", lineno,
+                         handle_name);
             return 1;
         }
         uint8_t fd;
@@ -1749,7 +1739,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    FOPEN %s, F%u, \"%s\"", mode.data(), fd, filename.data());
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
+            std::println(stderr, "Out of scratch registers");
             return 1;
         }
         char rn[4];
@@ -1757,7 +1747,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    MOVI %s, %u", rn, fd);
         EMIT_CODE_META(this, v->name, "    STOREVAR %s, %u", rn, v->slot);
         if (debug) {
-            printf("[BASIC] FOPEN %s -> %s\n", filename.data(), handle_name.data());
+            std::println("[BASIC] FOPEN {} -> {}", filename, handle_name);
         }
         return 0;
     }
@@ -1768,12 +1758,12 @@ int CompilerState::compile_line(char* s) {
         size_t pos = 0;
         std::string handle_name;
         if (!parse_identifier(arg, pos, handle_name)) {
-            fprintf(stderr, "Syntax error line %d: expected FCLOSE <handle>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected FCLOSE <handle>", lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos != arg.size()) {
-            fprintf(stderr, "Syntax error line %d: FCLOSE takes exactly one operand\n", lineno);
+            std::println(stderr, "Syntax error line {}: FCLOSE takes exactly one operand", lineno);
             return 1;
         }
         uint8_t fd;
@@ -1782,7 +1772,7 @@ int CompilerState::compile_line(char* s) {
         }
         EMIT_CODE(this, "    FCLOSE F%u", fd);
         if (debug) {
-            printf("[BASIC] FCLOSE %s\n", handle_name.data());
+            std::println("[BASIC] FCLOSE {}", handle_name);
         }
         return 0;
     }
@@ -1793,38 +1783,38 @@ int CompilerState::compile_line(char* s) {
         size_t pos = 0;
         std::string handle_name;
         if (!parse_identifier(arg, pos, handle_name)) {
-            fprintf(stderr, "Syntax error line %d: expected FREAD <handle>, <variable>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected FREAD <handle>, <variable>", lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos >= arg.size() || arg[pos] != ',') {
-            fprintf(stderr, "Syntax error line %d: expected FREAD <handle>, <variable>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected FREAD <handle>, <variable>", lineno);
             return 1;
         }
         pos = skip_ws(arg, pos + 1);
         std::string target_name;
         if (!parse_identifier(arg, pos, target_name)) {
-            fprintf(stderr, "Syntax error line %d: expected FREAD <handle>, <variable>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected FREAD <handle>, <variable>", lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos != arg.size()) {
-            fprintf(stderr, "Syntax error line %d: FREAD takes exactly two operands\n", lineno);
+            std::println(stderr, "Syntax error line {}: FREAD takes exactly two operands", lineno);
             return 1;
         }
         Variable* dest = sym_find(target_name.data());
         if (!dest) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", target_name.data(), lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", target_name, lineno);
             return 1;
         }
         if (dest->is_const) {
-            fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno,
-                    target_name.data());
+            std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno,
+                         target_name);
             return 1;
         }
         if (dest->type != VAR_INT) {
-            fprintf(stderr, "Type error line %d: FREAD target '%s' must be integer\n", lineno,
-                    target_name.data());
+            std::println(stderr, "Type error line {}: FREAD target '{}' must be integer", lineno,
+                         target_name);
             return 1;
         }
         uint8_t fd;
@@ -1833,7 +1823,7 @@ int CompilerState::compile_line(char* s) {
         }
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
+            std::println(stderr, "Out of scratch registers");
             return 1;
         }
         char rn[4];
@@ -1841,7 +1831,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    FREAD F%u, %s", fd, rn);
         EMIT_CODE_META(this, dest->name, "    STOREVAR %s, %u", rn, dest->slot);
         if (debug) {
-            printf("[BASIC] FREAD %s -> %s\n", handle_name.data(), target_name.data());
+            std::println("[BASIC] FREAD {} -> {}", handle_name, target_name);
         }
         return 0;
     }
@@ -1852,12 +1842,12 @@ int CompilerState::compile_line(char* s) {
         size_t pos = 0;
         std::string handle_name;
         if (!parse_identifier(arg, pos, handle_name)) {
-            fprintf(stderr, "Syntax error line %d: expected FWRITE <handle>, <expr>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected FWRITE <handle>, <expr>", lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos >= arg.size() || arg[pos] != ',') {
-            fprintf(stderr, "Syntax error line %d: expected FWRITE <handle>, <expr>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected FWRITE <handle>, <expr>", lineno);
             return 1;
         }
         pos = skip_ws(arg, pos + 1);
@@ -1873,7 +1863,7 @@ int CompilerState::compile_line(char* s) {
         }
         if (*skip_ws(expr_end) != '\0') {
             ralloc_release(reg);
-            fprintf(stderr, "Syntax error line %d: FWRITE takes a single expression\n", lineno);
+            std::println(stderr, "Syntax error line {}: FWRITE takes a single expression", lineno);
             return 1;
         }
         char rn[4];
@@ -1881,7 +1871,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    FWRITE F%u, %s", fd, rn);
         ralloc_release(reg);
         if (debug) {
-            printf("[BASIC] FWRITE %s\n", handle_name.data());
+            std::println("[BASIC] FWRITE {}", handle_name);
         }
         return 0;
     }
@@ -1892,12 +1882,12 @@ int CompilerState::compile_line(char* s) {
         size_t pos = 0;
         std::string handle_name;
         if (!parse_identifier(arg, pos, handle_name)) {
-            fprintf(stderr, "Syntax error line %d: expected FSEEK <handle>, <expr>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected FSEEK <handle>, <expr>", lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos >= arg.size() || arg[pos] != ',') {
-            fprintf(stderr, "Syntax error line %d: expected FSEEK <handle>, <expr>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected FSEEK <handle>, <expr>", lineno);
             return 1;
         }
         pos = skip_ws(arg, pos + 1);
@@ -1913,7 +1903,7 @@ int CompilerState::compile_line(char* s) {
         }
         if (*skip_ws(expr_end) != '\0') {
             ralloc_release(reg);
-            fprintf(stderr, "Syntax error line %d: FSEEK takes a single expression\n", lineno);
+            std::println(stderr, "Syntax error line {}: FSEEK takes a single expression", lineno);
             return 1;
         }
         char rn[4];
@@ -1921,7 +1911,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    FSEEK F%u, %s", fd, rn);
         ralloc_release(reg);
         if (debug) {
-            printf("[BASIC] FSEEK %s\n", handle_name.data());
+            std::println("[BASIC] FSEEK {}", handle_name);
         }
         return 0;
     }
@@ -1932,12 +1922,12 @@ int CompilerState::compile_line(char* s) {
         size_t pos = 0;
         std::string handle_name;
         if (!parse_identifier(arg, pos, handle_name)) {
-            fprintf(stderr, "Syntax error line %d: expected FPRINT <handle>, <value>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected FPRINT <handle>, <value>", lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos >= arg.size() || arg[pos] != ',') {
-            fprintf(stderr, "Syntax error line %d: expected FPRINT <handle>, <value>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected FPRINT <handle>, <value>", lineno);
             return 1;
         }
         pos = skip_ws(arg, pos + 1);
@@ -1948,24 +1938,24 @@ int CompilerState::compile_line(char* s) {
         if (pos < arg.size() && arg[pos] == '"') {
             std::string text;
             if (!parse_quoted_string(arg, pos, text)) {
-                fprintf(stderr, "Syntax error line %d: unterminated string in FPRINT\n", lineno);
+                std::println(stderr, "Syntax error line {}: unterminated string in FPRINT", lineno);
                 return 1;
             }
             pos = skip_ws(arg, pos);
             if (pos != arg.size()) {
-                fprintf(stderr, "Syntax error line %d: unexpected tokens after FPRINT string\n",
-                        lineno);
+                std::println(stderr, "Syntax error line {}: unexpected tokens after FPRINT string",
+                             lineno);
                 return 1;
             }
             RegGuard rg(&ra);
             if (!rg.ok()) {
-                fprintf(stderr, "Out of scratch registers\n");
+                std::println(stderr, "Out of scratch registers");
                 return 1;
             }
             char rn[4];
             reg_name(rg, rn);
             for (unsigned char c : text) {
-                EMIT_CODE(this, "    MOVI %s, %u", rn, (unsigned) c);
+                EMIT_CODE(this, "    MOVI %s, %u", rn, static_cast<unsigned>(c));
                 EMIT_CODE(this, "    FWRITE F%u, %s", fd, rn);
             }
             EMIT_CODE(this, "    MOVI %s, 10", rn);
@@ -1979,7 +1969,7 @@ int CompilerState::compile_line(char* s) {
             }
             if (*skip_ws(expr_end) != '\0') {
                 ralloc_release(reg);
-                fprintf(stderr, "Syntax error line %d: FPRINT takes a single expression\n", lineno);
+                std::println(stderr, "Syntax error line {}: FPRINT takes a single expression", lineno);
                 return 1;
             }
             char rn[4];
@@ -1990,7 +1980,7 @@ int CompilerState::compile_line(char* s) {
             ralloc_release(reg);
         }
         if (debug) {
-            printf("[BASIC] FPRINT %s\n", handle_name.data());
+            std::println("[BASIC] FPRINT {}", handle_name);
         }
         return 0;
     }
@@ -2001,23 +1991,23 @@ int CompilerState::compile_line(char* s) {
         if (*name == '"') {
             const char* str_end = strchr(name + 1, '"');
             if (!str_end) {
-                fprintf(stderr, "Syntax error line %d: unterminated string in INPUT\n", lineno);
+                std::println(stderr, "Syntax error line {}: unterminated string in INPUT", lineno);
                 return 1;
             }
-            std::string prompt(name, (size_t) (str_end - name + 1));
+            std::string prompt(name, static_cast<size_t>(str_end - name + 1));
             if (emit_write_values(prompt.data(), "WRITE", 0)) {
                 return 1;
             }
             name = skip_ws(str_end + 1);
             if (*name != ',') {
-                fprintf(stderr, "Syntax error line %d: expected ',' after INPUT prompt\n", lineno);
+                std::println(stderr, "Syntax error line {}: expected ',' after INPUT prompt", lineno);
                 return 1;
             }
             name = skip_ws(name + 1);
         }
         Variable* v = sym_find(name);
         if (!v) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", name, lineno);
             return 1;
         }
         RegGuard rg(&ra);
@@ -2031,7 +2021,7 @@ int CompilerState::compile_line(char* s) {
             EMIT_CODE_META(this, name, "    STOREVAR %s, %u", rn, v->slot);
         }
         if (debug) {
-            printf("[BASIC] INPUT %s\n", name);
+            std::println("[BASIC] INPUT {}", name);
         }
         return 0;
     }
@@ -2041,29 +2031,29 @@ int CompilerState::compile_line(char* s) {
         const char* p = skip_ws(s + 6);
         std::string name;
         if (!parse_identifier(p, &p, name)) {
-            fprintf(stderr, "Syntax error line %d: expected GETKEY <identifier>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected GETKEY <identifier>", lineno);
             return 1;
         }
         if (*skip_ws(p) != '\0') {
-            fprintf(stderr, "Syntax error line %d: GETKEY takes at most one operand\n", lineno);
+            std::println(stderr, "Syntax error line {}: GETKEY takes at most one operand", lineno);
             return 1;
         }
         Variable* v = sym_find(name.data());
         if (!v) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", name.data(), lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", name, lineno);
             return 1;
         }
         if (v->is_const) {
-            fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name.data());
+            std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno, name);
             return 1;
         }
         if (v->type != VAR_INT) {
-            fprintf(stderr, "Type error line %d: GETKEY target must be integer\n", lineno);
+            std::println(stderr, "Type error line {}: GETKEY target must be integer", lineno);
             return 1;
         }
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
+            std::println(stderr, "Out of scratch registers");
             return 1;
         }
         char rn[4];
@@ -2071,7 +2061,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    GETKEY %s", rn);
         EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", rn, v->slot);
         if (debug) {
-            printf("[BASIC] GETKEY %s\n", name.data());
+            std::println("[BASIC] GETKEY {}", name);
         }
         return 0;
     }
@@ -2081,29 +2071,29 @@ int CompilerState::compile_line(char* s) {
         const char* p = skip_ws(s + 7);
         std::string name;
         if (!parse_identifier(p, &p, name)) {
-            fprintf(stderr, "Syntax error line %d: expected GETARGC <identifier>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected GETARGC <identifier>", lineno);
             return 1;
         }
         if (*skip_ws(p) != '\0') {
-            fprintf(stderr, "Syntax error line %d: GETARGC takes at most one operand\n", lineno);
+            std::println(stderr, "Syntax error line {}: GETARGC takes at most one operand", lineno);
             return 1;
         }
         Variable* v = sym_find(name.data());
         if (!v) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", name.data(), lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", name, lineno);
             return 1;
         }
         if (v->is_const) {
-            fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name.data());
+            std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno, name);
             return 1;
         }
         if (v->type != VAR_INT) {
-            fprintf(stderr, "Type error line %d: GETARGC target must be integer\n", lineno);
+            std::println(stderr, "Type error line {}: GETARGC target must be integer", lineno);
             return 1;
         }
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
+            std::println(stderr, "Out of scratch registers");
             return 1;
         }
         char rn[4];
@@ -2111,7 +2101,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    GETARGC %s", rn);
         EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", rn, v->slot);
         if (debug) {
-            printf("[BASIC] GETARGC %s\n", name.data());
+            std::println("[BASIC] GETARGC {}", name);
         }
         return 0;
     }
@@ -2121,50 +2111,50 @@ int CompilerState::compile_line(char* s) {
         const char* p = skip_ws(s + 6);
         std::string name;
         if (!parse_identifier(p, &p, name)) {
-            fprintf(stderr, "Syntax error line %d: expected GETARG <identifier>, <index>\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected GETARG <identifier>, <index>",
+                         lineno);
             return 1;
         }
         p = skip_ws(p);
         if (*p != ',') {
-            fprintf(stderr, "Syntax error line %d: expected GETARG <identifier>, <index>\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected GETARG <identifier>, <index>",
+                         lineno);
             return 1;
         }
         p = skip_ws(p + 1);
         std::string idx_tok;
         if (!parse_identifier(p, &p, idx_tok)) {
-            fprintf(stderr, "Syntax error line %d: expected GETARG <identifier>, <index>\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected GETARG <identifier>, <index>",
+                         lineno);
             return 1;
         }
         if (*skip_ws(p) != '\0') {
-            fprintf(stderr, "Syntax error line %d: GETARG takes exactly two operands\n", lineno);
+            std::println(stderr, "Syntax error line {}: GETARG takes exactly two operands", lineno);
             return 1;
         }
         char* endptr;
         unsigned long idx = strtoul(idx_tok.data(), &endptr, 0);
         if (*endptr != '\0') {
-            fprintf(stderr, "Syntax error line %d: invalid GETARG index '%s'\n", lineno,
-                    idx_tok.data());
+            std::println(stderr, "Syntax error line {}: invalid GETARG index '{}'", lineno,
+                         idx_tok);
             return 1;
         }
         Variable* v = sym_find(name.data());
         if (!v) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", name.data(), lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", name, lineno);
             return 1;
         }
         if (v->is_const) {
-            fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name.data());
+            std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno, name);
             return 1;
         }
         if (v->type != VAR_STR) {
-            fprintf(stderr, "Type error line %d: GETARG target must be string\n", lineno);
+            std::println(stderr, "Type error line {}: GETARG target must be string", lineno);
             return 1;
         }
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
+            std::println(stderr, "Out of scratch registers");
             return 1;
         }
         char rn[4];
@@ -2172,7 +2162,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    GETARG %s, %lu", rn, idx);
         EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", rn, v->slot);
         if (debug) {
-            printf("[BASIC] GETARG %s, %lu\n", name.data(), idx);
+            std::println("[BASIC] GETARG {}, {}", name, idx);
         }
         return 0;
     }
@@ -2182,14 +2172,14 @@ int CompilerState::compile_line(char* s) {
         const char* p = skip_ws(s + 6);
         std::string name;
         if (!parse_identifier(p, &p, name)) {
-            fprintf(stderr, "Syntax error line %d: expected GETENV <identifier>, <varname>\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected GETENV <identifier>, <varname>",
+                         lineno);
             return 1;
         }
         p = skip_ws(p);
         if (*p != ',') {
-            fprintf(stderr, "Syntax error line %d: expected GETENV <identifier>, <varname>\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected GETENV <identifier>, <varname>",
+                         lineno);
             return 1;
         }
         p = skip_ws(p + 1);
@@ -2197,40 +2187,40 @@ int CompilerState::compile_line(char* s) {
         if (*p == '"') {
             const char* end = strchr(p + 1, '"');
             if (!end) {
-                fprintf(stderr, "Syntax error line %d: unterminated string in GETENV\n", lineno);
+                std::println(stderr, "Syntax error line {}: unterminated string in GETENV", lineno);
                 return 1;
             }
-            envname.assign(p + 1, (size_t) (end - (p + 1)));
+            envname.assign(p + 1, static_cast<size_t>(end - (p + 1)));
             p = skip_ws(end + 1);
         } else {
             const char* next = p;
             if (!parse_identifier(p, &next, envname)) {
-                fprintf(stderr, "Syntax error line %d: expected GETENV <identifier>, <varname>\n",
-                        lineno);
+                std::println(stderr, "Syntax error line {}: expected GETENV <identifier>, <varname>",
+                             lineno);
                 return 1;
             }
             p = skip_ws(next);
         }
         if (*p != '\0') {
-            fprintf(stderr, "Syntax error line %d: GETENV takes exactly two operands\n", lineno);
+            std::println(stderr, "Syntax error line {}: GETENV takes exactly two operands", lineno);
             return 1;
         }
         Variable* v = sym_find(name.data());
         if (!v) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", name.data(), lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", name, lineno);
             return 1;
         }
         if (v->is_const) {
-            fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name.data());
+            std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno, name);
             return 1;
         }
         if (v->type != VAR_STR) {
-            fprintf(stderr, "Type error line %d: GETENV target must be string\n", lineno);
+            std::println(stderr, "Type error line {}: GETENV target must be string", lineno);
             return 1;
         }
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
+            std::println(stderr, "Out of scratch registers");
             return 1;
         }
         char rn[4];
@@ -2238,7 +2228,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    GETENV %s, \"%s\"", rn, envname.data());
         EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", rn, v->slot);
         if (debug) {
-            printf("[BASIC] GETENV %s, %s\n", name.data(), envname.data());
+            std::println("[BASIC] GETENV {}, {}", name, envname);
         }
         return 0;
     }
@@ -2248,26 +2238,26 @@ int CompilerState::compile_line(char* s) {
         const char* p = skip_ws(s + 6);
         std::string name;
         if (!parse_identifier(p, &p, name)) {
-            fprintf(stderr, "Syntax error line %d: expected RANDOM <identifier>\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected RANDOM <identifier>", lineno);
             return 1;
         }
         p = skip_ws(p);
         Variable* v = sym_find(name.data());
         if (!v) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", name.data(), lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", name, lineno);
             return 1;
         }
         if (v->is_const) {
-            fprintf(stderr, "Error line %d: cannot assign to CONST '%s'\n", lineno, name.data());
+            std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno, name);
             return 1;
         }
         if (v->type != VAR_INT) {
-            fprintf(stderr, "Type error line %d: RANDOM target must be integer\n", lineno);
+            std::println(stderr, "Type error line {}: RANDOM target must be integer", lineno);
             return 1;
         }
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
+            std::println(stderr, "Out of scratch registers");
             return 1;
         }
         char rn[4];
@@ -2277,15 +2267,15 @@ int CompilerState::compile_line(char* s) {
             std::string range_text(p);
             size_t comma_pos = range_text.find(',');
             if (comma_pos == std::string::npos) {
-                fprintf(stderr, "Syntax error line %d: expected RANDOM <n>, <min>, <max>\n",
-                        lineno);
+                std::println(stderr, "Syntax error line {}: expected RANDOM <n>, <min>, <max>",
+                             lineno);
                 return 1;
             }
             std::string min_str = trim_copy(range_text.substr(0, comma_pos));
             std::string max_str = trim_copy(range_text.substr(comma_pos + 1));
             if (min_str.empty() || max_str.empty()) {
-                fprintf(stderr, "Syntax error line %d: expected RANDOM <n>, <min>, <max>\n",
-                        lineno);
+                std::println(stderr, "Syntax error line {}: expected RANDOM <n>, <min>, <max>",
+                             lineno);
                 return 1;
             }
             EMIT_CODE_META(this, name.data(), "    RAND %s, %s, %s", rn, min_str.data(),
@@ -2295,7 +2285,7 @@ int CompilerState::compile_line(char* s) {
         }
         EMIT_CODE_META(this, name.data(), "    STOREVAR %s, %u", rn, v->slot);
         if (debug) {
-            printf("[BASIC] RANDOM %s\n", name.data());
+            std::println("[BASIC] RANDOM {}", name);
         }
         return 0;
     }
@@ -2310,64 +2300,64 @@ int CompilerState::compile_line(char* s) {
         const char* p = skip_ws(s + 4);
         int inline_decl = 0;
         if (blackbox::tools::starts_with_ci(p, "VAR") &&
-            !(isalnum((unsigned char) p[3]) || p[3] == '_')) {
+            !(isalnum(static_cast<unsigned char>(p[3])) || p[3] == '_')) {
             inline_decl = 1;
             p = skip_ws(p + 3);
         }
 
         std::string var_name;
         if (!parse_identifier(p, &p, var_name)) {
-            fprintf(stderr, "Syntax error line %d: expected FOR [VAR] <identifier> = ...\n",
-                    lineno);
+            std::println(stderr, "Syntax error line {}: expected FOR [VAR] <identifier> = ...",
+                         lineno);
             return 1;
         }
         p = skip_ws(p);
         if (*p != '=') {
-            fprintf(stderr, "Syntax error line %d: expected '=' in FOR statement\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected '=' in FOR statement", lineno);
             return 1;
         }
         const char* init_start = skip_ws(p + 1);
         const char* to_kw = find_keyword_token(init_start, "TO");
         if (!to_kw) {
-            fprintf(stderr, "Syntax error line %d: expected TO in FOR statement\n", lineno);
+            std::println(stderr, "Syntax error line {}: expected TO in FOR statement", lineno);
             return 1;
         }
         const char* to_rhs = skip_ws(to_kw + 2);
         const char* step_kw = find_keyword_token(to_rhs, "STEP");
 
-        std::string init_expr = trim_copy(std::string(init_start, (size_t) (to_kw - init_start)));
+        std::string init_expr = trim_copy(std::string(init_start, static_cast<size_t>(to_kw - init_start)));
         std::string limit_expr = trim_copy(
-            std::string(to_rhs, (size_t) ((step_kw ? step_kw : to_rhs + strlen(to_rhs)) - to_rhs)));
+            std::string(to_rhs, static_cast<size_t>((step_kw ? step_kw : to_rhs + strlen(to_rhs)) - to_rhs)));
         std::string step_expr =
             step_kw ? trim_copy(std::string(step_kw + 4,
-                                            (size_t) ((to_rhs + strlen(to_rhs)) - (step_kw + 4))))
+                                            static_cast<size_t>((to_rhs + strlen(to_rhs)) - (step_kw + 4))))
                     : std::string("1");
 
         if (init_expr.empty() || limit_expr.empty() || step_expr.empty()) {
-            fprintf(stderr, "Syntax error line %d: FOR requires init, TO, and STEP\n", lineno);
+            std::println(stderr, "Syntax error line {}: FOR requires init, TO, and STEP", lineno);
             return 1;
         }
 
         Variable* v = sym_find(var_name.data());
         if (inline_decl) {
             if (v) {
-                fprintf(stderr, "Error line %d: variable '%s' already defined\n", lineno,
-                        var_name.data());
+                std::println(stderr, "Error line {}: variable '{}' already defined", lineno,
+                             var_name);
                 return 1;
             }
             v = sym_add_int(var_name.data());
         } else if (!v) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", var_name.data(), lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", var_name, lineno);
             return 1;
         }
         if (v->is_const) {
-            fprintf(stderr, "Error line %d: cannot use CONST '%s' as FOR variable\n", lineno,
-                    var_name.data());
+            std::println(stderr, "Error line {}: cannot use CONST '{}' as FOR variable", lineno,
+                         var_name);
             return 1;
         }
         if (v->type != VAR_INT) {
-            fprintf(stderr, "Type error line %d: FOR control variable '%s' must be integer\n",
-                    lineno, var_name.data());
+            std::println(stderr, "Type error line {}: FOR control variable '{}' must be integer",
+                         lineno, var_name);
             return 1;
         }
 
@@ -2412,8 +2402,7 @@ int CompilerState::compile_line(char* s) {
         snprintf(body_label, sizeof(body_label), "for_body_%lu", uid);
         uid++;
 
-        Block b;
-        std::memset(&b, 0, sizeof(b));
+        Block b = {};
         b.kind = BLOCK_FOR;
         b.for_var_slot = v->slot;
         b.for_limit_slot = limit_slot;
@@ -2426,7 +2415,7 @@ int CompilerState::compile_line(char* s) {
 
         RegGuard step_r(&ra), zero_r(&ra), var_r(&ra), limit_r(&ra);
         if (!step_r.ok() || !zero_r.ok() || !var_r.ok() || !limit_r.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
+            std::println(stderr, "Out of scratch registers");
             return 1;
         }
         char step_rn[4], zero_rn[4], var_rn[4], limit_rn[4];
@@ -2453,8 +2442,8 @@ int CompilerState::compile_line(char* s) {
 
         bstack_push(b);
         if (debug) {
-            printf("[BASIC] FOR %s = (%s) TO (%s) STEP (%s)\n", var_name.data(), init_expr.data(),
-                   limit_expr.data(), step_expr.data());
+            std::println("[BASIC] FOR {} = ({}) TO ({}) STEP ({})", var_name, init_expr,
+                         limit_expr, step_expr);
         }
         return 0;
     }
@@ -2464,31 +2453,31 @@ int CompilerState::compile_line(char* s) {
         const char* arg = skip_ws(s + 4);
         Block* top = bstack_peek();
         if (!top || top->kind != BLOCK_FOR) {
-            fprintf(stderr, "Error line %d: NEXT without FOR\n", lineno);
+            std::println(stderr, "Error line {}: NEXT without FOR", lineno);
             return 1;
         }
         if (*arg) {
             std::string next_var;
             const char* next_end = arg;
             if (!parse_identifier(arg, &next_end, next_var)) {
-                fprintf(stderr, "Syntax error line %d: expected NEXT [<identifier>]\n", lineno);
+                std::println(stderr, "Syntax error line {}: expected NEXT [<identifier>]", lineno);
                 return 1;
             }
             if (*skip_ws(next_end) != '\0') {
-                fprintf(stderr, "Syntax error line %d: expected NEXT [<identifier>]\n", lineno);
+                std::println(stderr, "Syntax error line {}: expected NEXT [<identifier>]", lineno);
                 return 1;
             }
             if (!blackbox::tools::equals_ci(next_var.data(), top->for_var_name)) {
-                fprintf(stderr,
-                        "Error line %d: NEXT variable '%s' does not match FOR variable '%s'\n",
-                        lineno, next_var.data(), top->for_var_name);
+                std::println(stderr,
+                             "Error line {}: NEXT variable '{}' does not match FOR variable '{}'",
+                             lineno, next_var, top->for_var_name);
                 return 1;
             }
         }
         Block b = bstack_pop();
         RegGuard var_r(&ra), step_r(&ra);
         if (!var_r.ok() || !step_r.ok()) {
-            fprintf(stderr, "Out of scratch registers\n");
+            std::println(stderr, "Out of scratch registers");
             return 1;
         }
         char vrn[4], srn[4];
@@ -2501,7 +2490,7 @@ int CompilerState::compile_line(char* s) {
         EMIT_CODE(this, "    JMP %s", b.loop_label + 1);
         EMIT_CODE(this, "%s:", b.end_label);
         if (debug) {
-            printf("[BASIC] NEXT %s\n", b.for_var_name);
+            std::println("[BASIC] NEXT {}", b.for_var_name);
         }
         return 0;
     }
@@ -2511,20 +2500,20 @@ int CompilerState::compile_line(char* s) {
         const char* name = skip_ws(s + 4);
         Variable* v = sym_find(name);
         if (!v) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", name, lineno);
             return 1;
         }
         if (v->is_const) {
-            fprintf(stderr, "Error line %d: cannot INC CONST '%s'\n", lineno, name);
+            std::println(stderr, "Error line {}: cannot INC CONST '{}'", lineno, name);
             return 1;
         }
         if (v->type != VAR_INT) {
-            fprintf(stderr, "Type error line %d: cannot INC non-integer '%s'\n", lineno, name);
+            std::println(stderr, "Type error line {}: cannot INC non-integer '{}'", lineno, name);
             return 1;
         }
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers on line %d\n", lineno);
+            std::println(stderr, "Out of scratch registers on line {}", lineno);
             return 1;
         }
         char rn[4];
@@ -2540,20 +2529,20 @@ int CompilerState::compile_line(char* s) {
         const char* name = skip_ws(s + 4);
         Variable* v = sym_find(name);
         if (!v) {
-            fprintf(stderr, "Undefined variable '%s' on line %d\n", name, lineno);
+            std::println(stderr, "Undefined variable '{}' on line {}", name, lineno);
             return 1;
         }
         if (v->is_const) {
-            fprintf(stderr, "Error line %d: cannot DEC CONST '%s'\n", lineno, name);
+            std::println(stderr, "Error line {}: cannot DEC CONST '{}'", lineno, name);
             return 1;
         }
         if (v->type != VAR_INT) {
-            fprintf(stderr, "Type error line %d: cannot DEC non-integer '%s'\n", lineno, name);
+            std::println(stderr, "Type error line {}: cannot DEC non-integer '{}'", lineno, name);
             return 1;
         }
         RegGuard rg(&ra);
         if (!rg.ok()) {
-            fprintf(stderr, "Out of scratch registers on line %d\n", lineno);
+            std::println(stderr, "Out of scratch registers on line {}", lineno);
             return 1;
         }
         char rn[4];
@@ -2567,19 +2556,19 @@ int CompilerState::compile_line(char* s) {
     // BREAK
     if (blackbox::tools::equals_ci(s, "BREAK")) {
         Block* target = nullptr;
-        for (int i = (int) bs.items.size() - 1; i >= 0; i--) {
+        for (int i = static_cast<int>(bs.items.size()) - 1; i >= 0; i--) {
             if (bs.items[i].kind == BLOCK_WHILE || bs.items[i].kind == BLOCK_FOR) {
                 target = &bs.items[i];
                 break;
             }
         }
         if (!target) {
-            fprintf(stderr, "Error line %d: BREAK outside WHILE or FOR loop\n", lineno);
+            std::println(stderr, "Error line {}: BREAK outside WHILE or FOR loop", lineno);
             return 1;
         }
         EMIT_CODE(this, "    JMP %s", target->end_label + 1);
         if (debug) {
-            printf("[BASIC] BREAK\n");
+            std::println("[BASIC] BREAK");
         }
         return 0;
     }
@@ -2587,25 +2576,25 @@ int CompilerState::compile_line(char* s) {
     // CONTINUE
     if (blackbox::tools::equals_ci(s, "CONTINUE")) {
         Block* target = nullptr;
-        for (int i = (int) bs.items.size() - 1; i >= 0; i--) {
+        for (int i = static_cast<int>(bs.items.size()) - 1; i >= 0; i--) {
             if (bs.items[i].kind == BLOCK_WHILE || bs.items[i].kind == BLOCK_FOR) {
                 target = &bs.items[i];
                 break;
             }
         }
         if (!target) {
-            fprintf(stderr, "Error line %d: CONTINUE outside WHILE or FOR loop\n", lineno);
+            std::println(stderr, "Error line {}: CONTINUE outside WHILE or FOR loop", lineno);
             return 1;
         }
         if (target->kind == BLOCK_WHILE) {
             EMIT_CODE(this, "    JMP %s", target->loop_label + 1);
             if (debug) {
-                printf("[BASIC] CONTINUE (WHILE)\n");
+                std::println("[BASIC] CONTINUE (WHILE)");
             }
         } else {
             RegGuard var_r(&ra), step_r(&ra);
             if (!var_r.ok() || !step_r.ok()) {
-                fprintf(stderr, "Out of scratch registers\n");
+                std::println(stderr, "Out of scratch registers");
                 return 1;
             }
             char vrn[4], srn[4];
@@ -2619,7 +2608,7 @@ int CompilerState::compile_line(char* s) {
                            target->for_var_slot);
             EMIT_CODE(this, "    JMP %s", target->loop_label + 1);
             if (debug) {
-                printf("[BASIC] CONTINUE (FOR %s)\n", target->for_var_name);
+                std::println("[BASIC] CONTINUE (FOR {})", target->for_var_name);
             }
         }
         return 0;
@@ -2629,12 +2618,12 @@ int CompilerState::compile_line(char* s) {
     if (blackbox::tools::equals_ci(s, "CLRSCR")) {
         EMIT_CODE(this, "    CLRSCR");
         if (debug) {
-            printf("[BASIC] CLRSCR\n");
+            std::println("[BASIC] CLRSCR");
         }
         return 0;
     }
 
-    fprintf(stderr, "Unknown statement on line %d: %s\n", lineno, s);
+    std::println(stderr, "Unknown statement on line {}: {}", lineno, s);
     return 1;
 }
 
@@ -2672,7 +2661,7 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
         if (blackbox::tools::starts_with_ci(s, "FUNC ")) {
             if (current_func) {
-                fprintf(stderr, "Error line %d: nested FUNC is not allowed\n", cs.lineno);
+                std::println(stderr, "Error line {}: nested FUNC is not allowed", cs.lineno);
                 result = 1;
                 break;
             }
@@ -2680,21 +2669,21 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             const char* p = skip_ws(s + 5);
             const char* colon = strchr(p, ':');
             if (!colon) {
-                fprintf(stderr, "Syntax error line %d: expected FUNC <name>: ...\n", cs.lineno);
+                std::println(stderr, "Syntax error line {}: expected FUNC <name>: ...", cs.lineno);
                 result = 1;
                 break;
             }
-            std::string func_name = trim_copy(std::string(p, (size_t) (colon - p)));
+            std::string func_name = trim_copy(std::string(p, static_cast<size_t>(colon - p)));
             if (func_name.empty()) {
-                fprintf(stderr, "Syntax error line %d: expected FUNC <name>: ...\n", cs.lineno);
+                std::println(stderr, "Syntax error line {}: expected FUNC <name>: ...", cs.lineno);
                 result = 1;
                 break;
             }
 
             for (auto& f : funcs) {
                 if (f.name == func_name) {
-                    fprintf(stderr, "Error line %d: function '%s' already defined\n", cs.lineno,
-                            func_name.data());
+                    std::println(stderr, "Error line {}: function '{}' already defined", cs.lineno,
+                                 func_name);
                     result = 1;
                     break;
                 }
@@ -2721,23 +2710,23 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                     is_ref = 1;
                     p = skip_ws(p + 1);
                 } else if (blackbox::tools::starts_with_ci(p, "VAR") &&
-                           !(isalnum((unsigned char) p[3]) || p[3] == '_')) {
+                           !(isalnum(static_cast<unsigned char>(p[3])) || p[3] == '_')) {
                     p = skip_ws(p + 3);
                 } else if (blackbox::tools::starts_with_ci(p, "STR") &&
-                           !(isalnum((unsigned char) p[3]) || p[3] == '_')) {
+                           !(isalnum(static_cast<unsigned char>(p[3])) || p[3] == '_')) {
                     is_str = 1;
                     p = skip_ws(p + 3);
                 } else {
-                    fprintf(stderr,
-                            "Syntax error line %d: expected VAR, STR, or & before param name\n",
-                            cs.lineno);
+                    std::println(stderr,
+                                 "Syntax error line {}: expected VAR, STR, or & before param name",
+                                 cs.lineno);
                     result = 1;
                     break;
                 }
 
                 std::string param_name;
                 if (!parse_identifier(p, &p, param_name)) {
-                    fprintf(stderr, "Syntax error line %d: expected parameter name\n", cs.lineno);
+                    std::println(stderr, "Syntax error line {}: expected parameter name", cs.lineno);
                     result = 1;
                     break;
                 }
@@ -2763,8 +2752,8 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 if (*p == '\0') {
                     break;
                 }
-                fprintf(stderr, "Syntax error line %d: expected ',' between parameters\n",
-                        cs.lineno);
+                std::println(stderr, "Syntax error line {}: expected ',' between parameters",
+                             cs.lineno);
                 result = 1;
                 break;
             }
@@ -2773,27 +2762,27 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             }
 
             if (debug) {
-                printf("[BASIC] FUNC %s (%zu params)\n", func_name.data(),
-                       current_func->params.size());
+                std::println("[BASIC] FUNC {} ({} params)", func_name,
+                             current_func->params.size());
             }
             continue;
         }
 
         if (blackbox::tools::equals_ci(s, "ENDFUNC")) {
             if (!current_func) {
-                fprintf(stderr, "Error line %d: ENDFUNC without FUNC\n", cs.lineno);
+                std::println(stderr, "Error line {}: ENDFUNC without FUNC", cs.lineno);
                 result = 1;
                 break;
             }
             if (!current_func->state.bs.items.empty()) {
-                fprintf(stderr, "Error line %d: unclosed block inside FUNC '%s'\n", cs.lineno,
-                        current_func->name.data());
+                std::println(stderr, "Error line {}: unclosed block inside FUNC '{}'", cs.lineno,
+                             current_func->name);
                 result = 1;
                 break;
             }
             cs.uid = current_func->state.uid;
             if (debug) {
-                printf("[BASIC] ENDFUNC %s\n", current_func->name.data());
+                std::println("[BASIC] ENDFUNC {}", current_func->name);
             }
             current_func = nullptr;
             continue;
@@ -2831,14 +2820,14 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     fclose(in);
 
     if (current_func && result == 0) {
-        fprintf(stderr, "Error: unterminated FUNC '%s'\n", current_func->name.data());
+        std::println(stderr, "Error: unterminated FUNC '{}'", current_func->name);
         result = 1;
     }
     if (!cs.bs.items.empty() && result == 0) {
-        fprintf(stderr, "Error: unclosed block (%s)\n",
-                cs.bs.items.back().kind == BLOCK_IF      ? "IF"
-                : cs.bs.items.back().kind == BLOCK_WHILE ? "WHILE"
-                                                         : "FOR");
+        std::println(stderr, "Error: unclosed block ({})",
+                     cs.bs.items.back().kind == BLOCK_IF      ? "IF"
+                         : cs.bs.items.back().kind == BLOCK_WHILE ? "WHILE"
+                         : "FOR");
         result = 1;
     }
     if (result != 0) {
@@ -2851,7 +2840,7 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         return 1;
     }
 
-    fprintf(out, "%%asm\n");
+    std::println(out, "%asm");
 
     bool any_data = !cs.ob.data_sec.empty();
     for (auto& f : funcs) {
@@ -2861,75 +2850,75 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         }
     }
     if (any_data) {
-        fprintf(out, "%%data\n");
+        std::println(out, "%data");
         fwrite(cs.ob.data_sec.data(), 1, cs.ob.data_sec.size(), out);
         for (auto& f : funcs) {
             fwrite(f.state.ob.data_sec.data(), 1, f.state.ob.data_sec.size(), out);
         }
     }
 
-    fprintf(out, "%%main\n");
-    fprintf(out, "    CALL __bbx_basic_main\n");
-    fprintf(out, "    HALT OK\n");
+    std::println(out, "%main");
+    std::println(out, "    CALL __bbx_basic_main");
+    std::println(out, "    HALT OK");
 
     if (!cs.entry_point_declared) {
-        fprintf(out, ".__bbx_basic_main:\n");
+        std::println(out, ".__bbx_basic_main:");
         if (cs.st.next_slot > 0) {
-            fprintf(out, "    FRAME %u\n", cs.st.next_slot);
+            std::println(out, "    FRAME {}", cs.st.next_slot);
         }
         fwrite(cs.ob.code_sec.data(), 1, cs.ob.code_sec.size(), out);
-        fprintf(out, "    RET\n");
+        std::println(out, "    RET");
     } else {
         if (cs.st.next_slot > 0) {
             const char* entry_label = ".__bbx_basic_main:\n";
             std::string code(cs.ob.code_sec);
             size_t pos = code.find(entry_label);
             if (pos == std::string::npos) {
-                fprintf(stderr, "Internal error: @ENTRY label missing from code section\n");
+                std::println(stderr, "Internal error: @ENTRY label missing from code section");
                 fclose(out);
                 return 1;
             }
             size_t insert_pos = pos + strlen(entry_label);
             fwrite(code.data(), 1, insert_pos, out);
-            fprintf(out, "    FRAME %u\n", cs.st.next_slot);
+            std::println(out, "    FRAME {}", cs.st.next_slot);
             fwrite(code.data() + insert_pos, 1, code.size() - insert_pos, out);
         } else {
             fwrite(cs.ob.code_sec.data(), 1, cs.ob.code_sec.size(), out);
         }
-        fprintf(out, "    RET\n");
+        std::println(out, "    RET");
     }
 
     for (auto& f : funcs) {
-        fprintf(out, ".__bbx_func_%s:\n", f.name.data());
+        std::println(out, ".__bbx_func_{}:", f.name);
         if (f.state.st.next_slot > 0) {
-            fprintf(out, "    FRAME %u\n", f.state.st.next_slot);
+            std::println(out, "    FRAME {}", f.state.st.next_slot);
         }
-        for (int i = (int) f.params.size() - 1; i >= 0; i--) {
+        for (int i = static_cast<int>(f.params.size()) - 1; i >= 0; i--) {
             Variable* v = f.state.sym_find(f.params[i].data());
             if (!v) {
                 continue; // shouldn't happen
             }
             int reg = f.state.ralloc_acquire();
             if (reg < 0) {
-                fprintf(stderr, "Out of scratch registers in FUNC '%s' prologue\n", f.name.data());
+                std::println(stderr, "Out of scratch registers in FUNC '{}' prologue", f.name);
                 fclose(out);
                 return 1;
             }
             char rn[4];
             reg_name(reg, rn);
-            fprintf(out, "    POP %s\n", rn);
-            fprintf(out, "    STOREVAR %s, %u\n", rn, v->slot);
+            std::println(out, "    POP {}", rn);
+            std::println(out, "    STOREVAR {}, {}", rn, v->slot);
             f.state.ralloc_release(reg);
         }
         fwrite(f.state.ob.code_sec.data(), 1, f.state.ob.code_sec.size(), out);
-        fprintf(out, "    RET\n");
+        std::println(out, "    RET");
     }
 
     fclose(out);
 
     if (debug) {
-        printf("[BASIC] Emitted %zu data bytes, %zu code bytes, %u slots, %zu functions\n",
-               cs.ob.data_sec.size(), cs.ob.code_sec.size(), cs.st.next_slot, funcs.size());
+        std::println("[BASIC] Emitted {} data bytes, {} code bytes, {} slots, {} functions",
+                     cs.ob.data_sec.size(), cs.ob.code_sec.size(), cs.st.next_slot, funcs.size());
     }
     return 0;
 }

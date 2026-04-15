@@ -7,7 +7,7 @@ namespace blackbox {
 namespace tools {
 
 static inline unsigned char ascii_upper(unsigned char c) {
-    return (unsigned char) toupper(c);
+    return static_cast<unsigned char>(toupper(c));
 }
 
 static bool equals_ci_str(const std::string& a, const std::string& b) {
@@ -15,7 +15,7 @@ static bool equals_ci_str(const std::string& a, const std::string& b) {
         return false;
     }
     for (size_t i = 0; i < a.size(); i++) {
-        if (ascii_upper((unsigned char) a[i]) != ascii_upper((unsigned char) b[i])) {
+        if (ascii_upper(static_cast<unsigned char>(a[i])) != ascii_upper(static_cast<unsigned char>(b[i]))) {
             return false;
         }
     }
@@ -27,7 +27,7 @@ static bool starts_with_ci_str(const std::string& s, const std::string& prefix) 
         return false;
     }
     for (size_t i = 0; i < prefix.size(); i++) {
-        if (ascii_upper((unsigned char) s[i]) != ascii_upper((unsigned char) prefix[i])) {
+        if (ascii_upper(static_cast<unsigned char>(s[i])) != ascii_upper(static_cast<unsigned char>(prefix[i]))) {
             return false;
         }
     }
@@ -49,7 +49,7 @@ int starts_with_ci(const char* s, const char* prefix) {
 }
 
 char* trim(char* s) {
-    while (isspace((unsigned char) *s)) {
+    while (isspace(static_cast<unsigned char>(*s))) {
         s++;
     }
     if (*s == '\0') {

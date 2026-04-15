@@ -13,12 +13,12 @@ namespace asm_helpers {
 
 std::string trim_copy(const std::string& s) {
     size_t start = 0;
-    while (start < s.size() && isspace((unsigned char) s[start])) {
+    while (start < s.size() && isspace(static_cast<unsigned char>(s[start]))) {
         start++;
     }
 
     size_t end = s.size();
-    while (end > start && isspace((unsigned char) s[end - 1])) {
+    while (end > start && isspace(static_cast<unsigned char>(s[end - 1]))) {
         end--;
     }
 
@@ -55,7 +55,7 @@ int failf(FILE* in, FILE* out, const char* fmt, ...) {
 
 void append_le_bytes(std::vector<uint8_t>& buf, uint64_t value, size_t width) {
     for (size_t i = 0; i < width; i++) {
-        buf.push_back((uint8_t) ((value >> (i * 8)) & 0xFF));
+        buf.push_back(static_cast<uint8_t>((value >> (i * 8)) & 0xFF));
     }
 }
 
@@ -68,19 +68,19 @@ void append_data_item(std::vector<Data>& data, const char* name, DataType type, 
 
     switch (type) {
         case DATA_BYTE:
-            item.byte = (uint8_t) value;
+            item.byte = static_cast<uint8_t>(value);
             break;
         case DATA_WORD:
-            item.word = (uint16_t) value;
+            item.word = static_cast<uint16_t>(value);
             break;
         case DATA_DWORD:
-            item.dword = (uint32_t) value;
+            item.dword = static_cast<uint32_t>(value);
             break;
         case DATA_QWORD:
             item.qword = value;
             break;
         case DATA_STRING:
-            item.str = NULL;
+            item.str = nullptr;
             break;
     }
 
@@ -91,14 +91,14 @@ std::vector<std::string> split_tokens(const std::string& s) {
     std::vector<std::string> tokens;
     size_t i = 0;
     while (i < s.size()) {
-        while (i < s.size() && (isspace((unsigned char) s[i]) || s[i] == ',')) {
+        while (i < s.size() && (isspace(static_cast<unsigned char>(s[i])) || s[i] == ',')) {
             i++;
         }
         if (i >= s.size()) {
             break;
         }
         size_t start = i;
-        while (i < s.size() && !isspace((unsigned char) s[i]) && s[i] != ',') {
+        while (i < s.size() && !isspace(static_cast<unsigned char>(s[i])) && s[i] != ',') {
             i++;
         }
         tokens.emplace_back(s.substr(start, i - start));
@@ -109,7 +109,7 @@ std::vector<std::string> split_tokens(const std::string& s) {
 char* dup_cstr(const std::string& s) {
     char* p = static_cast<char*>(malloc(s.size() + 1));
     if (!p) {
-        return NULL;
+        return nullptr;
     }
     memcpy(p, s.c_str(), s.size() + 1);
     return p;
@@ -136,15 +136,15 @@ bool build_macro_owned(const std::string& name, const std::vector<std::string>& 
         return false;
     }
 
-    out.paramc = (int) params.size();
+    out.paramc = static_cast<int>(params.size());
     if (out.paramc > 0) {
-        out.params = static_cast<char**>(calloc((size_t) out.paramc, sizeof(char*)));
+        out.params = static_cast<char**>(calloc(static_cast<size_t>(out.paramc), sizeof(char*)));
         if (!out.params) {
             free_macro_owned(out);
             return false;
         }
         for (int i = 0; i < out.paramc; i++) {
-            out.params[i] = dup_cstr(params[(size_t) i]);
+            out.params[i] = dup_cstr(params[static_cast<size_t>(i)]);
             if (!out.params[i]) {
                 free_macro_owned(out);
                 return false;
@@ -152,15 +152,15 @@ bool build_macro_owned(const std::string& name, const std::vector<std::string>& 
         }
     }
 
-    out.bodyc = (int) body.size();
+    out.bodyc = static_cast<int>(body.size());
     if (out.bodyc > 0) {
-        out.body = static_cast<char**>(calloc((size_t) out.bodyc, sizeof(char*)));
+        out.body = static_cast<char**>(calloc(static_cast<size_t>(out.bodyc), sizeof(char*)));
         if (!out.body) {
             free_macro_owned(out);
             return false;
         }
         for (int i = 0; i < out.bodyc; i++) {
-            out.body[i] = dup_cstr(body[(size_t) i]);
+            out.body[i] = dup_cstr(body[static_cast<size_t>(i)]);
             if (!out.body[i]) {
                 free_macro_owned(out);
                 return false;
@@ -175,7 +175,7 @@ int collect_lines_from_buffer(const char* src, std::vector<std::string>& lines) 
     const char* p = src;
     while (*p) {
         const char* nl = strchr(p, '\n');
-        size_t len = nl ? (size_t) (nl - p + 1) : strlen(p);
+        size_t len = nl ? static_cast<size_t>(nl - p + 1) : strlen(p);
         lines.emplace_back(p, len);
 
         if (!nl) {

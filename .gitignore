@@ -47,3 +47,5 @@ test.bbs
 /.vs
 /out
 /build
+Folder.DotSettings.user
+CMakeSettings.json

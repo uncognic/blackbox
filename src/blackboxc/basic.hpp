@@ -7,42 +7,42 @@
 
 int preprocess_basic(const char* input, const char* output, int debug);
 
-typedef enum { VAR_INT, VAR_STR } VarType;
+enum VarType { VAR_INT, VAR_STR };
 
-typedef struct {
+struct Variable {
     char name[128];
     VarType type;
     uint8_t is_const;
     uint32_t slot;
     char data_name[128];
     bool is_ref;
-} Variable;
+};
 
 // the registers we claim
 constexpr int SCRATCH_MIN = 0;
 constexpr int SCRATCH_MAX = 15;
 constexpr int SCRATCH_COUNT = 16;
 
-typedef struct {
+struct RegAlloc {
     uint32_t used;
-} RegAlloc;
+};
 
-typedef struct {
+struct SymbolTable {
     std::vector<Variable> vars;
-    uint32_t next_slot;
-    uint32_t next_data_id;
-} SymbolTable;
+    uint32_t next_slot = 0;
+    uint32_t next_data_id = 0;
+};
 
-typedef struct {
+struct OutBuf {
     std::string data_sec; // for %data
     std::string code_sec;
-} OutBuf;
+};
 
 // nested IF/WHILE tracking
 
-typedef enum { BLOCK_IF, BLOCK_WHILE, BLOCK_FOR } BlockKind;
+enum BlockKind { BLOCK_IF, BLOCK_WHILE, BLOCK_FOR };
 
-typedef struct {
+struct Block {
     BlockKind kind;
     char end_label[64];
     char loop_label[64];
@@ -52,16 +52,16 @@ typedef struct {
     uint32_t for_limit_slot;
     uint32_t for_step_slot;
     char for_var_name[64];
-} Block;
+};
 
-typedef struct {
+struct BlockStack {
     std::vector<Block> items;
-} BlockStack;
+};
 
-typedef struct {
+struct FileHandle {
     std::string name;
-    uint8_t fd;
-} FileHandle;
+    uint8_t fd = 0;
+};
 
 struct FuncDef;
 
@@ -98,7 +98,7 @@ class CompilerState {
     int get_file_handle_fd(const char* name, uint8_t* out_fd);
     int alloc_file_handle_fd(const char* name, uint8_t* out_fd);
 
-    void bstack_push(Block b);
+    void bstack_push(const Block& b);
     Block* bstack_peek();
     Block bstack_pop();
 

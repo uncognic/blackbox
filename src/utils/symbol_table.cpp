@@ -2,31 +2,29 @@
 #include "string_utils.hpp"
 #include <cstdio>
 #include <cstdlib>
-#include <cstring>
+#include <print>
 
 
-namespace blackbox {
-namespace tools {
+namespace blackbox::tools {
 
-uint32_t find_label(const std::string& name, Label* labels, size_t count) {
+uint32_t find_label(const std::string& name, const Label* labels, const size_t count) {
     for (size_t i = 0; i < count; i++) {
         if (name == labels[i].name) {
             return labels[i].addr;
         }
     }
-    fprintf(stderr, "Unknown label %s\n", name.c_str());
+    std::println(stderr, "Unknown label {}", name);
     exit(1);
 }
 
-uint32_t find_data(const std::string& name, Data* data, size_t count) {
+uint32_t find_data(const std::string& name, const Data* data, const size_t count) {
     for (size_t i = 0; i < count; i++) {
         if (equals_ci(data[i].name, name.c_str())) {
             return i;
         }
     }
-    fprintf(stderr, "Error: undefined string constant '%s'\n", name.c_str());
+    std::println(stderr, "Error: undefined string constant '{}'", name);
     exit(1);
 }
 
-} // namespace tools
-} // namespace blackbox
+} 

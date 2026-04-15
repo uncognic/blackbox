@@ -1,6 +1,5 @@
 #include "debug.hpp"
 #include "../define.hpp"
-#include <cstddef>
 #include <cstdint>
 #include <print>
 
@@ -186,6 +185,10 @@ const char* opcode_name(uint8_t op) {
             return "BREAK";
         case Opcode::HALT:
             return "HALT";
+        case Opcode::LOADREF:
+            return "LOADREF";
+        case Opcode::STOREREF:
+            return "STOREREF";
         default:
             return "UNKNOWN";
     }

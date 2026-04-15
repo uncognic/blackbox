@@ -8,7 +8,6 @@
 #include <charconv>
 #include <cstdint>
 #include <cstdio>
-#include <cstdlib>
 #include <fstream>
 
 #include <iostream>
@@ -29,15 +28,15 @@
 #include "debug.hpp"
 
 using size_t = decltype(sizeof(0));
-
-static std::string_view trim_left(std::string_view text) {
+namespace {
+std::string_view trim_left(std::string_view text) {
     while (!text.empty() && (text.front() == ' ' || text.front() == '\t')) {
         text.remove_prefix(1);
     }
     return text;
 }
 
-static bool parse_int(std::string_view text, int& value) {
+bool parse_int(std::string_view text, int& value) {
     int parsed = 0;
     auto result = std::from_chars(text.data(), text.data() + text.size(), parsed);
     if (result.ec != std::errc() || result.ptr != text.data() + text.size()) {
@@ -47,7 +46,7 @@ static bool parse_int(std::string_view text, int& value) {
     return true;
 }
 
-template <typename T> static bool ensure_capacity(std::vector<T>& buf, size_t needed) {
+template <typename T> bool ensure_capacity(std::vector<T>& buf, size_t needed) {
     if (needed <= buf.size()) {
         return false;
     }
@@ -64,9 +63,9 @@ template <typename T> static bool ensure_capacity(std::vector<T>& buf, size_t ne
 
     return false;
 }
-
+} // namespace
 int main(int argc, char* argv[]) {
-    const char* prog_path = NULL;
+    const char* prog_path = nullptr;
     bool debug = false;
     if (argc < 2) {
         std::println("Usage: bbx [--debug|-d] program.bcx");
@@ -85,7 +84,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    int64_t registers[REGISTERS] = {0};
+    int64_t registers[REGISTERS] = {};
     uint8_t ZF = 0;
     uint8_t CF = 0;
     uint8_t SF = 0;
@@ -296,13 +295,13 @@ int main(int argc, char* argv[]) {
                         if (b < 0) {
                             b = 0;
                         }
-                        if ((size_t) a >= sp || (size_t) b >= sp || a > b) {
+                        if (static_cast<size_t>(a) >= sp || static_cast<size_t>(b) >= sp || a > b) {
                             std::println("Invalid stack range {}-{} (stack size={})", a, b, sp);
                             continue;
                         }
                         std::println("Stack entries {}..{}:", a, b);
                         for (int i = a; i <= b; i++) {
-                            std::print(" [{}]={}", i, (long long) stack[i]);
+                            std::print(" [{}]={}", i, static_cast<long long>(stack[i]));
                         }
                         std::println("");
                         continue;
@@ -313,11 +312,11 @@ int main(int argc, char* argv[]) {
                         if (n <= 0) {
                             n = 8;
                         }
-                        size_t show = (size_t) n < sp ? (size_t) n : sp;
+                        size_t show = static_cast<size_t>(n) < sp ? static_cast<size_t>(n) : sp;
                         std::println("Stack size={}, top {} entries:", sp, show);
                         for (size_t i = 0; i < show; i++) {
                             size_t idx = (sp == 0) ? 0 : sp - 1 - i;
-                            std::print(" [{}]={}", idx, (long long) stack[idx]);
+                            std::print(" [{}]={}", idx, static_cast<long long>(stack[idx]));
                         }
                         std::println("");
                         continue;
@@ -325,8 +324,7 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        Opcode opcode = opcode_from_byte(program[pc++]);
-        switch (opcode) {
+        switch (Opcode opcode = opcode_from_byte(program[pc++])) {
             case Opcode::WRITE: {
                 uint8_t fd = program[pc++];
                 uint8_t len = program[pc++];
@@ -443,7 +441,7 @@ int main(int argc, char* argv[]) {
                     SF = 0;
                 }
 
-                if ((uint64_t) a < (uint64_t) b) {
+                if (static_cast<uint64_t>(a) < static_cast<uint64_t>(b)) {
                     CF = 1;
                 } else {
                     CF = 0;
@@ -462,7 +460,7 @@ int main(int argc, char* argv[]) {
                     AF = 0;
                 }
 
-                uint8_t v = (uint8_t) res;
+                uint8_t v = static_cast<uint8_t>(res);
                 v ^= v >> 4;
                 v ^= v >> 2;
                 v ^= v >> 1;
@@ -596,7 +594,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Invalid register");
                     return 1;
                 }
-                std::print("{}", (long long) registers[reg]);
+                std::print("{}", static_cast<long long>(registers[reg]));
                 fflush(stdout);
                 break;
             }
@@ -611,7 +609,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Invalid register");
                     return 1;
                 }
-                std::print(stderr, "{}", (long long) registers[reg]);
+                std::print(stderr, "{}", static_cast<long long>(registers[reg]));
                 fflush(stderr);
                 break;
             }
@@ -718,7 +716,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Invalid register in LOAD at pc=%zu\n", pc);
                     return 1;
                 }
-                if ((size_t) addr >= stack_cap) {
+                if (static_cast<size_t>(addr) >= stack_cap) {
                     RAISE_FAULT(FAULT_OOB, "address out of bounds: %u at pc=%zu", addr, pc);
                     break;
                 }
@@ -749,26 +747,26 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 int64_t idx64 = registers[idxreg];
-                if (idx64 < 0 || (size_t) idx64 >= stack_cap) {
+                if (idx64 < 0 || static_cast<size_t>(idx64) >= stack_cap) {
                     blackbox::fmt::err_fmt("LOAD_REG address out of bounds: %lld at pc=%zu\n",
-                                           (long long) idx64, pc);
+                                           static_cast<long long>(idx64), pc);
                     return 1;
                 }
 
                 if (cur_mode == MODE_PRIVILEGED && !permissions[idx64].priv_read) {
                     RAISE_FAULT(FAULT_PERM_READ, "read permission denied for %s at slot %u pc=%zu",
                                 cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED",
-                                (unsigned int) idx64, pc);
+                                static_cast<unsigned int>(idx64), pc);
                     break;
                 }
                 if (cur_mode == MODE_PROTECTED && !permissions[idx64].prot_read) {
                     RAISE_FAULT(FAULT_PERM_READ, "read permission denied for %s at slot %u pc=%zu",
                                 cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED",
-                                (unsigned int) idx64, pc);
+                                static_cast<unsigned int>(idx64), pc);
                     break;
                 }
 
-                registers[reg] = stack[(size_t) idx64];
+                registers[reg] = stack[static_cast<size_t>(idx64)];
                 break;
             }
             case Opcode::STORE: {
@@ -784,7 +782,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Invalid register in STORE at pc=%zu\n", pc);
                     return 1;
                 }
-                if ((size_t) addr >= stack_cap) {
+                if (static_cast<size_t>(addr) >= stack_cap) {
                     RAISE_FAULT(FAULT_OOB, "address out of bounds: %u at pc=%zu", addr, pc);
                     break;
                 }
@@ -817,9 +815,9 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 int64_t idx64 = registers[idxreg];
-                if (idx64 < 0 || (size_t) idx64 >= stack_cap) {
+                if (idx64 < 0 || static_cast<size_t>(idx64) >= stack_cap) {
                     blackbox::fmt::err_fmt("STORE_REG address out of bounds: %lld at pc=%zu\n",
-                                           (long long) idx64, pc);
+                                           static_cast<long long>(idx64), pc);
                     return 1;
                 }
 
@@ -827,18 +825,18 @@ int main(int argc, char* argv[]) {
                     RAISE_FAULT(FAULT_PERM_WRITE,
                                 "write permission denied for %s at slot %u pc=%zu",
                                 cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED",
-                                (unsigned int) idx64, pc);
+                                static_cast<unsigned int>(idx64), pc);
                     break;
                 }
                 if (cur_mode == MODE_PROTECTED && !permissions[idx64].prot_write) {
                     RAISE_FAULT(FAULT_PERM_WRITE,
                                 "write permission denied for %s at slot %u pc=%zu",
                                 cur_mode == MODE_PRIVILEGED ? "PRIVILEGED" : "PROTECTED",
-                                (unsigned int) idx64, pc);
+                                static_cast<unsigned int>(idx64), pc);
                     break;
                 }
 
-                stack[(size_t) idx64] = registers[reg];
+                stack[static_cast<size_t>(idx64)] = registers[reg];
                 break;
             }
             case Opcode::LOADVAR: {
@@ -855,7 +853,7 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
-                size_t abs_idx = frame_base + (size_t) slot;
+                size_t abs_idx = frame_base + static_cast<size_t>(slot);
                 if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
                     blackbox::fmt::err_fmt("LOADVAR slot out of bounds: %zu at pc=%zu\n", abs_idx,
                                            pc);
@@ -878,11 +876,11 @@ int main(int argc, char* argv[]) {
                 int64_t slot64 = registers[idxreg];
                 if (slot64 < 0) {
                     blackbox::fmt::err_fmt("LOADVAR_REG negative slot: %lld at pc=%zu\n",
-                                           (long long) slot64, pc);
+                                           static_cast<long long>(slot64), pc);
                     return 1;
                 }
                 size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
-                size_t abs_idx = frame_base + (size_t) slot64;
+                size_t abs_idx = frame_base + static_cast<size_t>(slot64);
                 if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
                     blackbox::fmt::err_fmt("LOADVAR_REG slot out of bounds: %zu at pc=%zu\n",
                                            abs_idx, pc);
@@ -905,7 +903,7 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
-                size_t abs_idx = frame_base + (size_t) slot;
+                size_t abs_idx = frame_base + static_cast<size_t>(slot);
                 if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
                     blackbox::fmt::err_fmt("STOREVAR slot out of bounds: %zu at pc=%zu\n", abs_idx,
                                            pc);
@@ -928,11 +926,11 @@ int main(int argc, char* argv[]) {
                 int64_t slot64 = registers[idxreg];
                 if (slot64 < 0) {
                     blackbox::fmt::err_fmt("STOREVAR_REG negative slot: %lld at pc=%zu\n",
-                                           (long long) slot64, pc);
+                                           static_cast<long long>(slot64), pc);
                     return 1;
                 }
                 size_t frame_base = (fsp == 0) ? 0 : frame_base_stack[fsp - 1];
-                size_t abs_idx = frame_base + (size_t) slot64;
+                size_t abs_idx = frame_base + static_cast<size_t>(slot64);
                 if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
                     blackbox::fmt::err_fmt("STOREVAR_REG slot out of bounds: %zu at pc=%zu\n",
                                            abs_idx, pc);
@@ -1144,7 +1142,7 @@ int main(int argc, char* argv[]) {
                         return 1;
                     }
                 } else {
-                    registers[reg] = (int64_t) c;
+                    registers[reg] = static_cast<int64_t>(c);
                 }
                 break;
             }
@@ -1167,7 +1165,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("File descriptor %u not opened at pc=%zu\n", fd, pc);
                     return 1;
                 }
-                int val = (int) registers[reg];
+                int val = static_cast<int>(registers[reg]);
                 fds[fd].out->put(static_cast<char>(val));
                 fds[fd].out->flush();
                 if (!(*fds[fd].out)) {
@@ -1306,7 +1304,7 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
 
-                uint32_t val = (uint32_t) registers[reg];
+                uint32_t val = static_cast<uint32_t>(registers[reg]);
                 if (val & 0x80000000) {
                     size_t offset = (size_t) (val & 0x7FFFFFFF);
                     if (offset >= str_heap_size) {
@@ -1316,7 +1314,7 @@ int main(int argc, char* argv[]) {
                     }
                     size_t i = offset;
                     while (i < str_heap_size) {
-                        char c = (char) str_heap[i];
+                        char c = static_cast<char>(str_heap[i]);
                         if (c == '\0') {
                             break;
                         }
@@ -1345,7 +1343,7 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
 
-                uint32_t val = (uint32_t) registers[reg];
+                uint32_t val = static_cast<uint32_t>(registers[reg]);
                 if (val & 0x80000000) {
                     size_t offset = (size_t) (val & 0x7FFFFFFF);
                     if (offset >= str_heap_size) {
@@ -1355,7 +1353,7 @@ int main(int argc, char* argv[]) {
                     }
                     size_t i = offset;
                     while (i < str_heap_size) {
-                        char c = (char) str_heap[i];
+                        char c = static_cast<char>(str_heap[i]);
                         if (c == '\0') {
                             break;
                         }
@@ -1444,7 +1442,7 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
 
-                uint32_t start_addr = 0x80000000u | (uint32_t) str_heap_size;
+                uint32_t start_addr = 0x80000000u | static_cast<uint32_t>(str_heap_size);
 
                 int c;
                 while ((c = getchar()) != EOF && c != '\n') {
@@ -1452,7 +1450,7 @@ int main(int argc, char* argv[]) {
                         blackbox::fmt::err_errno("realloc");
                         return 1;
                     }
-                    str_heap[str_heap_size++] = (uint8_t) c;
+                    str_heap[str_heap_size++] = static_cast<uint8_t>(c);
                 }
                 if (ensure_capacity(str_heap, str_heap_size + 1)) {
                     blackbox::fmt::err_errno("realloc");
@@ -1492,9 +1490,9 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 int64_t raw = registers[reg];
-                uint64_t ms_val = raw < 0 ? 0 : (uint64_t) raw;
+                uint64_t ms_val = raw < 0 ? 0 : static_cast<uint64_t>(raw);
 #ifdef _WIN32
-                Sleep((DWORD) ms_val);
+                Sleep(static_cast<DWORD>(ms_val));
 #else
                 struct timespec req2;
                 req2.tv_sec = ms_val / 1000;
@@ -1532,19 +1530,19 @@ int main(int argc, char* argv[]) {
                         min = max;
                         max = t;
                     }
-                    uint64_t range;
-                    if ((uint64_t) (max - min) == UINT64_MAX) {
-                        registers[reg] = (int64_t) r;
+                    if (static_cast<uint64_t>(max - min) == UINT64_MAX) {
+                        registers[reg] = static_cast<int64_t>(r);
                     } else {
-                        range = (uint64_t) (max - min) + 1;
+                        uint64_t range;
+                        range = static_cast<uint64_t>(max - min) + 1;
                         if (range == 0) {
-                            registers[reg] = (int64_t) r;
+                            registers[reg] = static_cast<int64_t>(r);
                         } else {
-                            registers[reg] = min + (int64_t) (r % range);
+                            registers[reg] = min + static_cast<int64_t>(r % range);
                         }
                     }
                 } else {
-                    registers[reg] = (int64_t) blackbox::tools::get_true_random();
+                    registers[reg] = static_cast<int64_t>(blackbox::tools::get_true_random());
                 }
                 break;
             }
@@ -1560,7 +1558,7 @@ int main(int argc, char* argv[]) {
                 }
 #ifdef _WIN32
                 if (_kbhit()) {
-                    registers[reg] = (int64_t) _getch();
+                    registers[reg] = static_cast<int64_t>(_getch());
                 } else {
                     registers[reg] = -1;
                 }
@@ -1633,7 +1631,7 @@ int main(int argc, char* argv[]) {
                 if (c == EOF) {
                     registers[reg] = 0;
                 } else {
-                    registers[reg] = (int64_t) (unsigned char) c;
+                    registers[reg] = static_cast<int64_t>(static_cast<unsigned char>(c));
                     int ch;
                     while ((ch = getchar()) != EOF && ch != '\n')
                         ;
@@ -1643,7 +1641,7 @@ int main(int argc, char* argv[]) {
             case Opcode::BREAK: {
                 if (breakpoints_enabled) {
                     std::println("[BREAK] pc={} opcode=0x{:02X} {}", pc - 1,
-                                 (unsigned int) program[pc - 1], opcode_name(program[pc - 1]));
+                                 static_cast<unsigned int>(program[pc - 1]), opcode_name(program[pc - 1]));
                     if (!dbg_instructions_shown) {
                         std::println("Debugger commands:");
                         std::println("Enter - step one instruction");
@@ -1694,13 +1692,13 @@ int main(int argc, char* argv[]) {
                                     if (b < 0) {
                                         b = 0;
                                     }
-                                    if ((size_t) a >= sp || (size_t) b >= sp || a > b) {
+                                    if (static_cast<size_t>(a) >= sp || static_cast<size_t>(b) >= sp || a > b) {
                                         std::println("Invalid stack range {}-{} (stack size={})", a,
                                                      b, sp);
                                     } else {
                                         std::println("Stack entries {}..{}:", a, b);
                                         for (int i = a; i <= b; i++) {
-                                            std::print(" [{}]={}", i, (long long) stack[i]);
+                                            std::print(" [{}]={}", i, static_cast<long long>(stack[i]));
                                         }
                                         std::println("");
                                     }
@@ -1710,11 +1708,11 @@ int main(int argc, char* argv[]) {
                                     if (n <= 0) {
                                         n = 8;
                                     }
-                                    size_t show = (size_t) n < sp ? (size_t) n : sp;
+                                    size_t show = static_cast<size_t>(n) < sp ? static_cast<size_t>(n) : sp;
                                     std::println("Stack size={}, top {} entries:", sp, show);
                                     for (size_t i = 0; i < show; i++) {
                                         size_t idx = (sp == 0) ? 0 : sp - 1 - i;
-                                        std::print(" [{}]={}", idx, (long long) stack[idx]);
+                                        std::print(" [{}]={}", idx, static_cast<long long>(stack[idx]));
                                     }
                                     std::println("");
                                 }
@@ -1833,16 +1831,16 @@ int main(int argc, char* argv[]) {
                 call_stack[csp++] = pc;
                 frame_base_stack[fsp++] = vars_sp;
 
-                if (vars_sp + (size_t) frame_size > vars_cap) {
+                if (vars_sp + static_cast<size_t>(frame_size) > vars_cap) {
                     size_t new_cap = vars_cap + vars_cap / 2;
-                    if (new_cap <= vars_sp + (size_t) frame_size) {
-                        new_cap = vars_sp + (size_t) frame_size;
+                    if (new_cap <= vars_sp + static_cast<size_t>(frame_size)) {
+                        new_cap = vars_sp + static_cast<size_t>(frame_size);
                     }
                     vars.resize(new_cap);
                     vars_cap = new_cap;
                 }
 
-                vars_sp += (size_t) frame_size;
+                vars_sp += static_cast<size_t>(frame_size);
                 pc = addr;
                 break;
             }
@@ -1878,7 +1876,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Data offset out of bounds: %u\n", offset);
                     exit(1);
                 }
-                registers[reg] = (int64_t) data_table[offset];
+                registers[reg] = static_cast<int64_t>(data_table[offset]);
                 break;
             }
             case Opcode::LOADWORD: {
@@ -1902,7 +1900,7 @@ int main(int argc, char* argv[]) {
                     exit(1);
                 }
                 int16_t val = data_table[offset] | (data_table[offset + 1] << 8);
-                registers[reg] = (int64_t) val;
+                registers[reg] = static_cast<int64_t>(val);
 
                 break;
             }
@@ -1928,7 +1926,7 @@ int main(int argc, char* argv[]) {
                 }
                 int32_t val = data_table[offset] | (data_table[offset + 1] << 8) |
                               (data_table[offset + 2] << 16) | (data_table[offset + 3] << 24);
-                registers[reg] = (int64_t) val;
+                registers[reg] = static_cast<int64_t>(val);
 
                 break;
             }
@@ -1954,7 +1952,7 @@ int main(int argc, char* argv[]) {
                 }
                 int64_t val = 0;
                 for (int i = 0; i < 8; i++) {
-                    val |= ((uint64_t) data_table[offset + i]) << (8 * i);
+                    val |= static_cast<uint64_t>(data_table[offset + i]) << (8 * i);
                 }
                 registers[reg] = val;
 
@@ -2027,7 +2025,7 @@ int main(int argc, char* argv[]) {
                     }
 
                     int ret = std::system(cmd);
-                    registers[dest] = (int64_t) ret;
+                    registers[dest] = static_cast<int64_t>(ret);
                     break;
                 }
 
@@ -2161,7 +2159,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Invalid register in GETFAULT at pc=%zu\n", pc);
                     goto fault_exit;
                 }
-                registers[reg] = (int64_t) current_fault;
+                registers[reg] = static_cast<int64_t>(current_fault);
                 break;
             }
 
@@ -2176,7 +2174,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Invalid register in PRINTCHAR at pc=%zu\n", pc);
                     goto fault_exit;
                 }
-                putchar((char) registers[reg]);
+                putchar(static_cast<char>(registers[reg]));
                 fflush(stdout);
                 break;
             }
@@ -2186,7 +2184,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Invalid register in EPRINTCHAR at pc=%zu\n", pc);
                     goto fault_exit;
                 }
-                fputc((char) registers[reg], stderr);
+                fputc(static_cast<char>(registers[reg]), stderr);
                 fflush(stderr);
                 break;
             }
@@ -2264,7 +2262,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Invalid register in GETARGC at pc=%zu\n", pc);
                     goto fault_exit;
                 }
-                registers[reg] = (int64_t) argc;
+                registers[reg] = static_cast<int64_t>(argc);
                 break;
             }
             case Opcode::GETARG: {
@@ -2278,7 +2276,7 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_fmt("Invalid register in GETARG at pc=%zu\n", pc);
                     goto fault_exit;
                 }
-                if ((size_t) idx >= (size_t) argc) {
+                if (static_cast<size_t>(idx) >= static_cast<size_t>(argc)) {
                     blackbox::fmt::err_fmt("GETARG index out of bounds: %u at pc=%zu\n", idx, pc);
                     goto fault_exit;
                 }
@@ -2296,11 +2294,11 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_errno("realloc");
                     goto fault_exit;
                 }
-                uint32_t start_addr = 0x80000000u | (uint32_t) str_heap_size;
+                uint32_t start_addr = 0x80000000u | static_cast<uint32_t>(str_heap_size);
                 std::copy_n(arg, len, &str_heap[str_heap_size]);
                 str_heap_size += len;
                 str_heap[str_heap_size++] = 0;
-                registers[reg] = (int64_t) start_addr;
+                registers[reg] = static_cast<int64_t>(start_addr);
                 break;
             }
             case Opcode::GETENV: {
@@ -2345,11 +2343,11 @@ int main(int argc, char* argv[]) {
                     blackbox::fmt::err_errno("realloc");
                     goto fault_exit;
                 }
-                uint32_t start_addr = 0x80000000u | (uint32_t) str_heap_size;
+                uint32_t start_addr = 0x80000000u | static_cast<uint32_t>(str_heap_size);
                 std::copy_n(env_value, value_len, &str_heap[str_heap_size]);
                 str_heap_size += value_len;
                 str_heap[str_heap_size++] = 0;
-                registers[reg] = (int64_t) start_addr;
+                registers[reg] = static_cast<int64_t>(start_addr);
                 break;
             }
             case Opcode::LOADREF: {
@@ -2369,7 +2367,7 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 size_t caller_base = frame_base_stack[fsp - 2];
-                size_t abs_idx = caller_base + (size_t) slot64;
+                size_t abs_idx = caller_base + static_cast<size_t>(slot64);
                 if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
                     blackbox::fmt::err_fmt("LOADREF slot out of bounds: %zu at pc=%zu\n", abs_idx,
                                            pc);
@@ -2395,7 +2393,7 @@ int main(int argc, char* argv[]) {
                     return 1;
                 }
                 size_t caller_base = frame_base_stack[fsp - 2];
-                size_t abs_idx = caller_base + (size_t) slot64;
+                size_t abs_idx = caller_base + static_cast<size_t>(slot64);
                 if (abs_idx >= vars_cap || abs_idx >= vars_sp) {
                     blackbox::fmt::err_fmt("STOREREF slot out of bounds: %zu at pc=%zu\n", abs_idx,
                                            pc);

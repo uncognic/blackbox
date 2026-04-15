@@ -6,24 +6,25 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <print>
 #include <string>
 
 namespace blackbox {
 namespace tools {
 
 static inline unsigned char ascii_upper(unsigned char c) {
-    return (unsigned char) toupper(c);
+    return static_cast<unsigned char>(toupper(c));
 }
 
 static std::string trim_copy(const std::string& s) {
     size_t start = 0;
-    while (start < s.size() && isspace((unsigned char) s[start])) {
+    while (start < s.size() && isspace(static_cast<unsigned char>(s[start]))) {
         start++;
     }
 
     size_t end = s.size();
     while (end > start &&
-           (isspace((unsigned char) s[end - 1]) || s[end - 1] == '\r' || s[end - 1] == '\n')) {
+           (isspace(static_cast<unsigned char>(s[end - 1])) || s[end - 1] == '\r' || s[end - 1] == '\n')) {
         end--;
     }
 
@@ -39,13 +40,13 @@ static bool second_operand_is_reg(const std::string& line, size_t op_len) {
         return false;
     }
     size_t q = comma + 1;
-    while (q < line.size() && isspace((unsigned char) line[q])) {
+    while (q < line.size() && isspace(static_cast<unsigned char>(line[q]))) {
         q++;
     }
     if (q >= line.size()) {
         return false;
     }
-    return ascii_upper((unsigned char) line[q]) == 'R';
+    return ascii_upper(static_cast<unsigned char>(line[q])) == 'R';
 }
 
 static size_t quoted_payload_size_or(const std::string& line, size_t fallback) {
@@ -79,7 +80,7 @@ size_t instr_size(const char* line) {
         }
 
         std::string src = trim_copy(rest.substr(comma + 1));
-        if (!src.empty() && ascii_upper((unsigned char) src[0]) == 'R') {
+        if (!src.empty() && ascii_upper(static_cast<unsigned char>(src[0])) == 'R') {
             return 3;
         } else {
             return 6;
@@ -231,7 +232,7 @@ size_t instr_size(const char* line) {
         return 2;
     } else if (starts_with_ci(line, "SLEEP")) {
         std::string operand = operand_after_opcode(line_sv, 5);
-        if (!operand.empty() && ascii_upper((unsigned char) operand[0]) == 'R') {
+        if (!operand.empty() && ascii_upper(static_cast<unsigned char>(operand[0])) == 'R') {
             return 2; // opcode + register
         }
         return 5; // opcode + u32 immediate
@@ -315,7 +316,7 @@ size_t instr_size(const char* line) {
             len = end - 1;
         } else {
             while (len < operand.size() && operand[len] != '\r' && operand[len] != '\n' &&
-                   !isspace((unsigned char) operand[len])) {
+                   !isspace(static_cast<unsigned char>(operand[len]))) {
                 len++;
             }
         }
@@ -328,19 +329,19 @@ size_t instr_size(const char* line) {
     } else if (starts_with_ci(line, "STOREREF")) {
         return 3;
     }
-    fprintf(stderr, "Unknown instruction for size calculation: %s\n", line);
+    std::println(stderr, "Unknown instruction for size calculation: {}", line);
     exit(1);
 }
 
 uint8_t parse_register(const std::string& r, int lineno) {
-    if (r.empty() || ascii_upper((unsigned char) r[0]) != 'R') {
-        fprintf(stderr, "Invalid register on line %d\n", lineno);
+    if (r.empty() || ascii_upper(static_cast<unsigned char>(r[0])) != 'R') {
+        std::println(stderr, "Invalid register on line {}", lineno);
         exit(1);
     }
 
     std::string digits = r.substr(1);
     if (digits.empty()) {
-        fprintf(stderr, "Invalid register on line %d\n", lineno);
+        std::println(stderr, "Invalid register on line {}", lineno);
         exit(1);
     }
 
@@ -348,7 +349,7 @@ uint8_t parse_register(const std::string& r, int lineno) {
     auto [ptr, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
     if (ec != std::errc() || ptr != digits.data() + digits.size() || value < 0 ||
         value >= REGISTERS) {
-        fprintf(stderr, "Invalid register on line %d\n", lineno);
+        std::println(stderr, "Invalid register on line {}", lineno);
         exit(1);
     }
 
@@ -356,14 +357,14 @@ uint8_t parse_register(const std::string& r, int lineno) {
 }
 
 uint8_t parse_file(const std::string& r, int lineno) {
-    if (r.empty() || ascii_upper((unsigned char) r[0]) != 'F') {
-        fprintf(stderr, "Invalid file descriptor on line %d\n", lineno);
+    if (r.empty() || ascii_upper(static_cast<unsigned char>(r[0])) != 'F') {
+        std::println(stderr, "Invalid file descriptor on line {}", lineno);
         exit(1);
     }
 
     std::string digits = r.substr(1);
     if (digits.empty()) {
-        fprintf(stderr, "Invalid file descriptor on line %d\n", lineno);
+        std::println(stderr, "Invalid file descriptor on line {}", lineno);
         exit(1);
     }
 
@@ -371,7 +372,7 @@ uint8_t parse_file(const std::string& r, int lineno) {
     auto [ptr, ec] = std::from_chars(digits.data(), digits.data() + digits.size(), value);
     if (ec != std::errc() || ptr != digits.data() + digits.size() || value < 0 ||
         value >= FILE_DESCRIPTORS) {
-        fprintf(stderr, "Invalid file descriptor on line %d\n", lineno);
+        std::println(stderr, "Invalid file descriptor on line {}", lineno);
         exit(1);
     }
 

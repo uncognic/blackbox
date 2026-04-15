@@ -1,6 +1,7 @@
 #include "random_utils.hpp"
 #include <cstdint>
 #include <cstdio>
+#include <print>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -16,9 +17,9 @@ namespace tools {
 uint64_t get_true_random() {
 #ifdef _WIN32
     uint64_t num;
-    if (!BCRYPT_SUCCESS(BCryptGenRandom(NULL, (PUCHAR) &num, (ULONG) sizeof(num),
+    if (!BCRYPT_SUCCESS(BCryptGenRandom(NULL, reinterpret_cast<PUCHAR>(&num), (ULONG) sizeof(num),
                                         BCRYPT_USE_SYSTEM_PREFERRED_RNG))) {
-        fprintf(stderr, "Random generation failed\n");
+        std::println(stderr, "Random generation failed");
         return 0;
     }
     return num;

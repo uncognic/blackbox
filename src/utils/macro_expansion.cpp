@@ -14,14 +14,14 @@ static std::vector<std::string> split_tokens(const std::string& s) {
     std::vector<std::string> tokens;
     size_t i = 0;
     while (i < s.size()) {
-        while (i < s.size() && (isspace((unsigned char) s[i]) || s[i] == ',')) {
+        while (i < s.size() && (isspace(static_cast<unsigned char>(s[i])) || s[i] == ',')) {
             i++;
         }
         if (i >= s.size()) {
             break;
         }
         size_t start = i;
-        while (i < s.size() && !isspace((unsigned char) s[i]) && s[i] != ',') {
+        while (i < s.size() && !isspace(static_cast<unsigned char>(s[i])) && s[i] != ',') {
             i++;
         }
         tokens.emplace_back(s.substr(start, i - start));
@@ -50,7 +50,7 @@ Macro* find_macro(Macro* macros, size_t macro_count, const char* name) {
             return &macros[m];
         }
     }
-    return NULL;
+    return nullptr;
 }
 
 int expand_invocation(const char* invocation_line, FILE* dest, int depth, Macro* macros,
@@ -88,7 +88,7 @@ int expand_invocation(const char* invocation_line, FILE* dest, int depth, Macro*
         std::string line = m->body[bi];
         for (int pi = 0; pi < m->paramc; pi++) {
             std::string find = "$" + std::string(m->params[pi]);
-            const std::string repl = (pi < (int) args.size()) ? args[(size_t) pi] : std::string();
+            const std::string repl = (pi < static_cast<int>(args.size())) ? args[static_cast<size_t>(pi)] : std::string();
             line = replace_all_cpp(std::move(line), find, repl);
         }
         for (size_t pi = 0; pi < args.size(); pi++) {
@@ -105,16 +105,16 @@ int expand_invocation(const char* invocation_line, FILE* dest, int depth, Macro*
                 out += pcur;
                 break;
             }
-            size_t prefixlen = (size_t) (atpos - pcur);
+            size_t prefixlen = static_cast<size_t>(atpos - pcur);
             out.append(pcur, prefixlen);
             const char* ident = atpos + 2;
             int il = 0;
-            while (ident[il] && (isalnum((unsigned char) ident[il]) || ident[il] == '_')) {
+            while (ident[il] && (isalnum(static_cast<unsigned char>(ident[il])) || ident[il] == '_')) {
                 il++;
             }
             out += id_prefix;
             out += "_";
-            out.append(ident, (size_t) il);
+            out.append(ident, static_cast<size_t>(il));
             pcur = ident + il;
         }
 

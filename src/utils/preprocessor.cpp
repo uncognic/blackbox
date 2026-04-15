@@ -3,6 +3,7 @@
 #include <cctype>
 #include <cstdio>
 #include <cstring>
+#include <print>
 #include <string>
 
 namespace blackbox {
@@ -10,13 +11,13 @@ namespace tools {
 
 static std::string trim_copy(const std::string& s) {
     size_t start = 0;
-    while (start < s.size() && isspace((unsigned char) s[start])) {
+    while (start < s.size() && isspace(static_cast<unsigned char>(s[start]))) {
         start++;
     }
 
     size_t end = s.size();
     while (end > start &&
-           (isspace((unsigned char) s[end - 1]) || s[end - 1] == '\r' || s[end - 1] == '\n')) {
+           (isspace(static_cast<unsigned char>(s[end - 1])) || s[end - 1] == '\r' || s[end - 1] == '\n')) {
         end--;
     }
 
@@ -25,7 +26,7 @@ static std::string trim_copy(const std::string& s) {
 
 static bool preprocess_includes_impl(const char* input, int depth, std::string& out) {
     if (depth > 32) {
-        fprintf(stderr, "Error: include nesting too deep\n");
+        std::println(stderr, "Error: include nesting too deep");
         return false;
     }
 
@@ -56,24 +57,24 @@ static bool preprocess_includes_impl(const char* input, int depth, std::string& 
 
         if (starts_with_ci(s, "%include")) {
             const char* p = s + 8;
-            while (*p && isspace((unsigned char) *p)) {
+            while (*p && isspace(static_cast<unsigned char>(*p))) {
                 p++;
             }
 
             if (*p != '"') {
-                fprintf(stderr, "Error: malformed %%include directive\n");
+                std::println(stderr, "Error: malformed %include directive");
                 fclose(in);
                 return false;
             }
 
             const char* end = strchr(p + 1, '"');
             if (!end) {
-                fprintf(stderr, "Error: malformed %%include directive\n");
+                std::println(stderr, "Error: malformed %include directive");
                 fclose(in);
                 return false;
             }
 
-            std::string include_target(p + 1, (size_t) (end - (p + 1)));
+            std::string include_target(p + 1, static_cast<size_t>(end - (p + 1)));
 
             std::string include_path;
             if (!base_dir.empty()) {

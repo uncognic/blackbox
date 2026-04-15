@@ -150,7 +150,7 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             j += 2 + static_cast<size_t>(slen);
             break;
         }
-        case Opcode::NEWLINE: // the reason all of the following opcodes are grouped together is
+        case Opcode::NEWLINE: // the reason all the following opcodes are grouped together is
                               // that they have the same operand format
         case Opcode::CLRSCR:
         case Opcode::CONTINUE:
@@ -413,7 +413,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
     }
 
     const uint32_t abs_offset = static_cast<uint32_t>(code_start + i);
-    if (ctx.jump_targets.find(abs_offset) != ctx.jump_targets.end()) {
+    if (ctx.jump_targets.contains(abs_offset)) {
         os << "." << label_name(abs_offset) << ":\n";
         auto frame_it = ctx.call_frames.find(abs_offset);
         if (frame_it != ctx.call_frames.end() && frame_it->second > 0) {
@@ -1754,8 +1754,8 @@ void run_dump(const ParsedImage& image, std::ostream& os) {
 
     std::vector<uint8_t> code_with_offset;
     code_with_offset.resize(image.code_start + image.code.size());
-    std::copy(image.code.begin(), image.code.end(),
-              code_with_offset.begin() + static_cast<std::ptrdiff_t>(image.code_start));
+    std::ranges::copy(image.code,
+                      code_with_offset.begin() + static_cast<std::ptrdiff_t>(image.code_start));
 
     size_t i = image.code_start;
     while (i < code_with_offset.size()) {

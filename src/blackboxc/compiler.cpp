@@ -12,12 +12,12 @@
 
 static std::string trim_copy(const std::string& text) {
     size_t start = 0;
-    while (start < text.size() && std::isspace((unsigned char) text[start])) {
+    while (start < text.size() && std::isspace(static_cast<unsigned char>(text[start]))) {
         start++;
     }
 
     size_t end = text.size();
-    while (end > start && std::isspace((unsigned char) text[end - 1])) {
+    while (end > start && std::isspace(static_cast<unsigned char>(text[end - 1]))) {
         end--;
     }
 
@@ -59,7 +59,7 @@ int main(int argc, char* argv[]) {
         } else if (output_file.empty()) {
             output_file = argument;
         } else {
-            std::fprintf(stderr, "Unexpected argument: %s\n", argv[i]);
+            std::println(stderr, "Unexpected argument: {}", argv[i]);
             return 1;
         }
     }
@@ -70,9 +70,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    std::string asm_output;
-
     if (assembly) {
+        std::string asm_output;
         size_t separator = input_file.find_last_of("\\/");
         std::string filename =
             (separator == std::string::npos) ? input_file : input_file.substr(separator + 1);
@@ -115,7 +114,7 @@ int main(int argc, char* argv[]) {
         }
         result = assemble_file(input_file.c_str(), output_file.c_str(), debug ? 1 : 0);
         if (result == 0) {
-            std::printf("Assembly successful.\n");
+            std::println("Assembly successful.");
         }
     } else {
         if (debug) {
@@ -138,7 +137,7 @@ int main(int argc, char* argv[]) {
 
         result = assemble_file(output_file.c_str(), output_file.c_str(), debug ? 1 : 0);
         if (result == 0) {
-            std::printf("Assembly successful.\n");
+            std::println("Assembly successful.");
         }
     }
 

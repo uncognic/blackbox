@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../define.hpp"
-#include <cstddef>
 #include <cstdio>
 
 namespace blackbox {
