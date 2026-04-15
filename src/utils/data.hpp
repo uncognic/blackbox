@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <cstdio>
 
 namespace blackbox {
 namespace data {
