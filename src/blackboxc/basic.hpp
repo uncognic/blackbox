@@ -81,6 +81,8 @@ class CompilerState {
     bool in_func = false;
     bool entry_point_declared = false;
 
+    std::string current_namespace;
+
     CompilerState();
 
     Variable* sym_find(const char* name);
@@ -118,5 +120,11 @@ struct FuncDef {
     std::string name;
     std::vector<std::string> params;
     std::vector<bool> param_is_ref;
+    CompilerState state;
+};
+
+struct NamespaceDef {
+    std::string name;
+    std::vector<FuncDef> funcs;
     CompilerState state;
 };

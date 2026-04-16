@@ -10,6 +10,9 @@
 #include <print>
 #include <string>
 namespace {
+std::string mangle(const std::string& ns, const char* name) {
+    return ns.empty() ? std::string(name) : (ns + "::" + name);
+}
 void copy_cstr(char* dst, size_t dst_size, const char* src) {
     if (dst_size == 0) {
         return;
@@ -190,8 +193,7 @@ struct RegGuard {
             return 1;                                                                              \
     } while (0)
 
-CompilerState::CompilerState()
-    : ra() {
+CompilerState::CompilerState() : ra() {
     st.next_slot = 0;
     st.next_data_id = 0;
     ra.used = 0;
@@ -199,6 +201,14 @@ CompilerState::CompilerState()
 }
 
 Variable* CompilerState::sym_find(const char* name) {
+    if (!current_namespace.empty()) {
+        std::string mangled = current_namespace + "::" + name;
+        for (auto& v : st.vars) {
+            if (std::strcmp(v.name, mangled.c_str()) == 0) { 
+                return &v;
+            }
+        }
+    }
     for (auto& v : st.vars) {
         if (std::strcmp(v.name, name) == 0) {
             return &v;
@@ -208,11 +218,12 @@ Variable* CompilerState::sym_find(const char* name) {
 }
 
 Variable* CompilerState::sym_add_int(const char* name) {
-    if (Variable* existing = sym_find(name)) {
+    std::string name_mangled = mangle(current_namespace, name);
+    if (Variable* existing = sym_find(name_mangled.c_str())) {
         return existing;
     }
     Variable v;
-    copy_cstr(v.name, sizeof(v.name), name);
+    copy_cstr(v.name, sizeof(v.name), name_mangled.c_str());
     v.type = VAR_INT;
     v.is_const = 0;
     v.is_ref = false;
@@ -223,11 +234,12 @@ Variable* CompilerState::sym_add_int(const char* name) {
 }
 
 Variable* CompilerState::sym_add_str(const char* name, const char* data_name, int is_const) {
-    if (Variable* existing = sym_find(name)) {
+    std::string name_mangled = mangle(current_namespace, name);
+    if (Variable* existing = sym_find(name_mangled.c_str())) {
         return existing;
     }
     Variable v;
-    copy_cstr(v.name, sizeof(v.name), name);
+    copy_cstr(v.name, sizeof(v.name), name_mangled.c_str());
     v.type = VAR_STR;
     v.is_const = is_const ? 1 : 0;
     v.is_ref = false;
@@ -237,10 +249,14 @@ Variable* CompilerState::sym_add_str(const char* name, const char* data_name, in
     return &st.vars.back();
 }
 Variable* CompilerState::sym_add_ref(const char* name) {
+    std::string name_mangled = mangle(current_namespace, name);
+    if (Variable* existing = sym_find(name_mangled.c_str())) {
+        return existing;
+    }
     st.vars.emplace_back();
     Variable* var = &st.vars.back();
     std::memset(var, 0, sizeof(*var));
-    copy_cstr(var->name, sizeof(var->name), name);
+    copy_cstr(var->name, sizeof(var->name), name_mangled.c_str());
     var->type = VAR_INT;
     var->is_ref = true;
     var->slot = st.next_slot++;
@@ -406,17 +422,30 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
                     break;
                 }
             }
+            // make the name unique by replacing namespace dots with __
+            while (*skip_ws(next) == '.') {
+                next = skip_ws(next) + 1;
+                std::string part;
+                if (!parse_identifier(next, &next, part)) {
+                    std::println(stderr, "Expression error line {}: expected identifier after '.'",
+                                 lineno);
+                    return 1;
+                }
+                name += "__" + part;
+            }
 
             if (fd) {
                 const char* p = skip_ws(after_name + 1);
                 int arg_index = 0;
                 while (*p && *p != ')') {
-                    if (arg_index < static_cast<int>(fd->param_is_ref.size()) && fd->param_is_ref[arg_index]) {
+                    if (arg_index < static_cast<int>(fd->param_is_ref.size()) &&
+                        fd->param_is_ref[arg_index]) {
                         // ref param - push caller's slot number
                         std::string refname;
                         const char* ref_end = p;
                         if (!parse_identifier(p, &ref_end, refname)) {
-                            std::println(stderr, "Error line {}: ref param requires a variable name",
+                            std::println(stderr,
+                                         "Error line {}: ref param requires a variable name",
                                          lineno);
                             return 1;
                         }
@@ -856,8 +885,8 @@ int CompilerState::emit_write_values(const char* arg, const char* stmt_name, int
             }
             char data_name[64];
             snprintf(data_name, sizeof(data_name), "_p%lu", uid++);
-            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name, static_cast<int>(str_end - str_start),
-                      str_start);
+            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name,
+                      static_cast<int>(str_end - str_start), str_start);
             RegGuard rg(&ra);
             if (!rg.ok()) {
                 std::println(stderr, "Out of scratch registers");
@@ -929,7 +958,8 @@ int CompilerState::compile_line(char* s) {
             return 1;
         }
         if (entry_point_declared) {
-            std::println(stderr, "Error line {}: multiple @ENTRY directives are not allowed", lineno);
+            std::println(stderr, "Error line {}: multiple @ENTRY directives are not allowed",
+                         lineno);
             return 1;
         }
         EMIT_CODE(this, ".__bbx_basic_main:");
@@ -966,8 +996,8 @@ int CompilerState::compile_line(char* s) {
             }
             char data_name[64];
             snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name.data());
-            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name, static_cast<int>(str_end - str_start),
-                      str_start);
+            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name,
+                      static_cast<int>(str_end - str_start), str_start);
             sym_add_str(name.data(), data_name, 1);
             if (debug) {
                 std::println("[BASIC] CONST string {} -> ${}", name, data_name);
@@ -1012,8 +1042,8 @@ int CompilerState::compile_line(char* s) {
             }
             char data_name[64];
             snprintf(data_name, sizeof(data_name), "_s%lu_%s", uid++, name.data());
-            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name, static_cast<int>(str_end - str_start),
-                      str_start);
+            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name,
+                      static_cast<int>(str_end - str_start), str_start);
             Variable* v = sym_add_str(name.data(), data_name, 0);
             RegGuard rg(&ra);
             if (!rg.ok()) {
@@ -1029,8 +1059,7 @@ int CompilerState::compile_line(char* s) {
             }
         } else {
             if (sym_find(name.data())) {
-                std::println(stderr, "Error line {}: variable '{}' already defined", lineno,
-                             name);
+                std::println(stderr, "Error line {}: variable '{}' already defined", lineno, name);
                 return 1;
             }
             Variable* v = sym_add_int(name.data());
@@ -1081,7 +1110,8 @@ int CompilerState::compile_line(char* s) {
                         const char* str_start = rhs.data() + 1;
                         const char* str_end = strchr(str_start, '"');
                         if (!str_end) {
-                            std::println(stderr, "Syntax error line {}: unterminated string", lineno);
+                            std::println(stderr, "Syntax error line {}: unterminated string",
+                                         lineno);
                             return 1;
                         }
                         if (*skip_ws(str_end + 1) != '\0') {
@@ -1466,92 +1496,110 @@ int CompilerState::compile_line(char* s) {
             std::println(stderr, "Syntax error line {}: expected CALL <name>", lineno);
             return 1;
         }
+
+        // handle dotted names for function calls
+        // like:
+        // CALL MyModule.MyFunc()
+        while (*skip_ws(p) == '.') {
+            p = skip_ws(p) + 1;
+            std::string part;
+            if (!parse_identifier(p, &p, part)) {
+                std::println(stderr, "Syntax error line {}: expected identifier after '.' in CALL",
+                             lineno);
+                return 1;
+            }
+            name += "__" + part;
+        }
+
         p = skip_ws(p);
 
-        if (*p == '(' && funcs) {
-            const FuncDef* fd = nullptr;
-            for (auto& f : *funcs) {
-                if (f.name == name) {
-                    fd = &f;
-                    break;
+        if (*p == '(') {
+            const FuncDef* func_def = nullptr;
+            if (funcs) {
+                for (auto& f : *funcs) {
+                    if (f.name == name) {
+                        func_def = &f;
+                        break;
+                    }
                 }
             }
 
-            if (fd) {
-                p = skip_ws(p + 1);
-                int arg_index = 0;
-                while (*p && *p != ')') {
-                    if (arg_index < static_cast<int>(fd->param_is_ref.size()) && fd->param_is_ref[arg_index]) {
-                        // ref param
-                        std::string refname;
-                        const char* ref_end = p;
-                        if (!parse_identifier(p, &ref_end, refname)) {
-                            std::println(stderr, "Error line {}: ref param requires a variable name",
-                                         lineno);
-                            return 1;
-                        }
-                        Variable* rv = sym_find(refname.data());
-                        if (!rv) {
-                            std::println(stderr, "Undefined variable '{}' on line {}", refname,
-                                         lineno);
-                            return 1;
-                        }
-                        p = ref_end;
-                        RegGuard rg(&ra);
-                        if (!rg.ok()) {
-                            std::println(stderr, "Out of scratch registers");
-                            return 1;
-                        }
-                        char rn[4];
-                        reg_name(rg, rn);
-                        EMIT_CODE(this, "    MOVI %s, %u ; ref slot for %s", rn, rv->slot,
-                                  refname.data());
-                        EMIT_CODE(this, "    PUSH %s ; ref arg for call to %s", rn, name.data());
-                    } else {
-                        // value param
-                        int areg;
-                        if (emit_expr_p(p, &p, &areg)) {
-                            return 1;
-                        }
-                        char arn[4];
-                        reg_name(areg, arn);
-                        EMIT_CODE(this, "    PUSH %s ; argument for call to %s", arn, name.data());
-                        ralloc_release(areg);
+            p = skip_ws(p + 1);
+            int arg_index = 0;
+            while (*p && *p != ')') {
+                if (func_def && arg_index < static_cast<int>(func_def->param_is_ref.size()) &&
+                    func_def->param_is_ref[arg_index]) {
+                    // ref param
+                    std::string refname;
+                    const char* ref_end = p;
+                    if (!parse_identifier(p, &ref_end, refname)) {
+                        std::println(stderr,
+                                     "Error line {}: ref param requires a variable name",
+                                     lineno);
+                        return 1;
                     }
-                    arg_index++;
-                    p = skip_ws(p);
-                    if (*p == ',') {
-                        p = skip_ws(p + 1);
-                        continue;
+                    Variable* rv = sym_find(refname.data());
+                    if (!rv) {
+                        std::println(stderr, "Undefined variable '{}' on line {}", refname,
+                                     lineno);
+                        return 1;
                     }
-                    if (*p == ')') {
-                        break;
+                    p = ref_end;
+                    RegGuard rg(&ra);
+                    if (!rg.ok()) {
+                        std::println(stderr, "Out of scratch registers");
+                        return 1;
                     }
-                    std::println(stderr, "Syntax error line {}: expected ',' or ')' in CALL '{}'",
-                                 lineno, name);
-                    return 1;
+                    char rn[4];
+                    reg_name(rg, rn);
+                    EMIT_CODE(this, "    MOVI %s, %u ; ref slot for %s", rn, rv->slot,
+                              refname.data());
+                    EMIT_CODE(this, "    PUSH %s ; ref arg for call to %s", rn, name.data());
+                } else {
+                    // value param
+                    int areg;
+                    if (emit_expr_p(p, &p, &areg)) {
+                        return 1;
+                    }
+                    char arn[4];
+                    reg_name(areg, arn);
+                    EMIT_CODE(this, "    PUSH %s ; argument for call to %s", arn, name.data());
+                    ralloc_release(areg);
                 }
-                if (*p != ')') {
-                    std::println(stderr, "Syntax error line {}: missing ')' in CALL '{}'", lineno,
-                                 name);
-                    return 1;
+                arg_index++;
+                p = skip_ws(p);
+                if (*p == ',') {
+                    p = skip_ws(p + 1);
+                    continue;
                 }
-                p = skip_ws(p + 1);
-                if (*p != '\0') {
-                    std::println(stderr, "Syntax error line {}: unexpected tokens after CALL", lineno);
-                    return 1;
+                if (*p == ')') {
+                    break;
                 }
-                EMIT_CODE(this, "    CALL __bbx_func_%s", name.data());
-                if (debug) {
-                    std::println("[BASIC] CALL {}(...)", name);
-                }
-                return 0;
+                std::println(stderr, "Syntax error line {}: expected ',' or ')' in CALL '{}'", lineno, name);
+                return 1;
             }
+            if (*p != ')') {
+                std::println(stderr, "Syntax error line {}: missing ')' in CALL '{}'", lineno,
+                             name);
+                return 1;
+            }
+            p = skip_ws(p + 1);
+            if (*p != '\0') {
+                std::println(stderr, "Syntax error line {}: unexpected tokens after CALL",
+                             lineno);
+                return 1;
+            }
+            EMIT_CODE(this, "    CALL __bbx_func_%s", name.data());
+            if (debug) {
+                std::println("[BASIC] CALL {}(...)", name);
+            }
+            return 0;
         }
 
         // plain CALL
         if (*p != '\0') {
-            std::println(stderr, "Syntax error line {}: unexpected tokens after CALL target", lineno);
+            std::println(stderr, "Syntax error line {}: unexpected tokens after CALL target",
+                         lineno);
             return 1;
         }
         EMIT_CODE(this, "    CALL %s", name.data());
@@ -1577,7 +1625,8 @@ int CompilerState::compile_line(char* s) {
             }
             if (*skip_ws(expr_end) != '\0') {
                 ralloc_release(reg);
-                std::println(stderr, "Syntax error line {}: unexpected tokens after RETURN expression",
+                std::println(stderr,
+                             "Syntax error line {}: unexpected tokens after RETURN expression",
                              lineno);
                 return 1;
             }
@@ -1634,7 +1683,8 @@ int CompilerState::compile_line(char* s) {
             }
             after = skip_ws(var_end);
             if (*after != '\0') {
-                std::println(stderr, "Syntax error line {}: unexpected tokens after EXEC destination",
+                std::println(stderr,
+                             "Syntax error line {}: unexpected tokens after EXEC destination",
                              lineno);
                 return 1;
             }
@@ -1644,8 +1694,7 @@ int CompilerState::compile_line(char* s) {
                 return 1;
             }
             if (dv->is_const) {
-                std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno,
-                             varname);
+                std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno, varname);
                 return 1;
             }
             if (dv->type != VAR_INT) {
@@ -1682,39 +1731,45 @@ int CompilerState::compile_line(char* s) {
         size_t pos = 0;
         std::string mode;
         if (!parse_file_mode(arg, pos, mode)) {
-            std::println(stderr, "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
+            std::println(stderr,
+                         "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
                          lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos >= arg.size() || arg[pos] != ',') {
-            std::println(stderr, "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
+            std::println(stderr,
+                         "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
                          lineno);
             return 1;
         }
         pos = skip_ws(arg, pos + 1);
         std::string handle_name;
         if (!parse_identifier(arg, pos, handle_name)) {
-            std::println(stderr, "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
+            std::println(stderr,
+                         "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
                          lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos >= arg.size() || arg[pos] != ',') {
-            std::println(stderr, "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
+            std::println(stderr,
+                         "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
                          lineno);
             return 1;
         }
         pos = skip_ws(arg, pos + 1);
         std::string filename;
         if (!parse_quoted_string(arg, pos, filename)) {
-            std::println(stderr, "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
+            std::println(stderr,
+                         "Syntax error line {}: expected FOPEN <mode>, <handle>, \"<file>\"",
                          lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos != arg.size()) {
-            std::println(stderr, "Syntax error line {}: unexpected trailing tokens in FOPEN", lineno);
+            std::println(stderr, "Syntax error line {}: unexpected trailing tokens in FOPEN",
+                         lineno);
             return 1;
         }
         Variable* v = sym_find(handle_name.data());
@@ -1783,18 +1838,21 @@ int CompilerState::compile_line(char* s) {
         size_t pos = 0;
         std::string handle_name;
         if (!parse_identifier(arg, pos, handle_name)) {
-            std::println(stderr, "Syntax error line {}: expected FREAD <handle>, <variable>", lineno);
+            std::println(stderr, "Syntax error line {}: expected FREAD <handle>, <variable>",
+                         lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
         if (pos >= arg.size() || arg[pos] != ',') {
-            std::println(stderr, "Syntax error line {}: expected FREAD <handle>, <variable>", lineno);
+            std::println(stderr, "Syntax error line {}: expected FREAD <handle>, <variable>",
+                         lineno);
             return 1;
         }
         pos = skip_ws(arg, pos + 1);
         std::string target_name;
         if (!parse_identifier(arg, pos, target_name)) {
-            std::println(stderr, "Syntax error line {}: expected FREAD <handle>, <variable>", lineno);
+            std::println(stderr, "Syntax error line {}: expected FREAD <handle>, <variable>",
+                         lineno);
             return 1;
         }
         pos = skip_ws(arg, pos);
@@ -1808,8 +1866,7 @@ int CompilerState::compile_line(char* s) {
             return 1;
         }
         if (dest->is_const) {
-            std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno,
-                         target_name);
+            std::println(stderr, "Error line {}: cannot assign to CONST '{}'", lineno, target_name);
             return 1;
         }
         if (dest->type != VAR_INT) {
@@ -1969,7 +2026,8 @@ int CompilerState::compile_line(char* s) {
             }
             if (*skip_ws(expr_end) != '\0') {
                 ralloc_release(reg);
-                std::println(stderr, "Syntax error line {}: FPRINT takes a single expression", lineno);
+                std::println(stderr, "Syntax error line {}: FPRINT takes a single expression",
+                             lineno);
                 return 1;
             }
             char rn[4];
@@ -2000,7 +2058,8 @@ int CompilerState::compile_line(char* s) {
             }
             name = skip_ws(str_end + 1);
             if (*name != ',') {
-                std::println(stderr, "Syntax error line {}: expected ',' after INPUT prompt", lineno);
+                std::println(stderr, "Syntax error line {}: expected ',' after INPUT prompt",
+                             lineno);
                 return 1;
             }
             name = skip_ws(name + 1);
@@ -2195,8 +2254,10 @@ int CompilerState::compile_line(char* s) {
         } else {
             const char* next = p;
             if (!parse_identifier(p, &next, envname)) {
-                std::println(stderr, "Syntax error line {}: expected GETENV <identifier>, <varname>",
-                             lineno);
+                std::println(
+                    stderr,
+                    "Syntax error line {}: expected GETENV <identifier>, <varname>",
+                    lineno);
                 return 1;
             }
             p = skip_ws(next);
@@ -2325,13 +2386,15 @@ int CompilerState::compile_line(char* s) {
         const char* to_rhs = skip_ws(to_kw + 2);
         const char* step_kw = find_keyword_token(to_rhs, "STEP");
 
-        std::string init_expr = trim_copy(std::string(init_start, static_cast<size_t>(to_kw - init_start)));
-        std::string limit_expr = trim_copy(
-            std::string(to_rhs, static_cast<size_t>((step_kw ? step_kw : to_rhs + strlen(to_rhs)) - to_rhs)));
+        std::string init_expr =
+            trim_copy(std::string(init_start, static_cast<size_t>(to_kw - init_start)));
+        std::string limit_expr = trim_copy(std::string(
+            to_rhs, static_cast<size_t>((step_kw ? step_kw : to_rhs + strlen(to_rhs)) - to_rhs)));
         std::string step_expr =
-            step_kw ? trim_copy(std::string(step_kw + 4,
-                                            static_cast<size_t>((to_rhs + strlen(to_rhs)) - (step_kw + 4))))
-                    : std::string("1");
+            step_kw
+                ? trim_copy(std::string(
+                      step_kw + 4, static_cast<size_t>((to_rhs + strlen(to_rhs)) - (step_kw + 4))))
+                : std::string("1");
 
         if (init_expr.empty() || limit_expr.empty() || step_expr.empty()) {
             std::println(stderr, "Syntax error line {}: FOR requires init, TO, and STEP", lineno);
@@ -2442,8 +2505,8 @@ int CompilerState::compile_line(char* s) {
 
         bstack_push(b);
         if (debug) {
-            std::println("[BASIC] FOR {} = ({}) TO ({}) STEP ({})", var_name, init_expr,
-                         limit_expr, step_expr);
+            std::println("[BASIC] FOR {} = ({}) TO ({}) STEP ({})", var_name, init_expr, limit_expr,
+                         step_expr);
         }
         return 0;
     }
@@ -2641,6 +2704,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     cs.funcs = &funcs;
     FuncDef* current_func = nullptr;
 
+    std::vector<NamespaceDef> namespaces;
+    NamespaceDef* current_ns = nullptr;
+
     bool in_asm_block = false;
     int result = 0;
     char line[8192];
@@ -2658,7 +2724,66 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         }
 
         char* s = &stmt[0];
+        if (blackbox::tools::starts_with_ci(s, "NAMESPACE ")) {
+            if (current_func || current_ns) {
+                std::println(stderr, "Error line {}: NAMESPACE cannot be nested", cs.lineno);
+                result = 1;
+                break;
+            }
 
+            std::string ns_name = trim_copy(std::string(s + 10));
+            if (ns_name.empty()) {
+                std::println(stderr, "Syntax error on line {}: expected NAMESPACE <name>", cs.lineno);
+                std::println(stderr, "Got: {}", line);
+                result = 1;
+                break;
+            }
+
+            for (auto& ns : namespaces) {
+                if (ns.name == ns_name) {
+                    std::println(stderr, "Error line {}: namespace '{}' already defined", cs.lineno,
+                                 ns_name);
+                    result = 1;
+                    break;
+                }
+            }
+
+            if (result) {
+                break;
+            }
+
+            namespaces.emplace_back();
+            current_ns = &namespaces.back();
+            current_ns->name = ns_name;
+            current_ns->state.debug = debug;
+            current_ns->state.uid = cs.uid;
+            current_ns->state.funcs = &current_ns->funcs;
+            current_ns->state.current_namespace = ns_name;
+
+            if (debug) {
+                std::println("[BASIC] NAMESPACE {}", ns_name);
+            }
+            continue;
+        }
+        if (blackbox::tools::equals_ci(s, "ENDNAMESPACE")) {
+            if (!current_ns) {
+                std::println(stderr, "Error line {}: ENDNAMESPACE without NAMESPACE", cs.lineno);
+                result = 1;
+                break;
+            }
+            if (!current_ns->state.bs.items.empty()) {
+                std::println(stderr, "Error line {}: unclosed block inside NAMESPACE '{}'",
+                             cs.lineno, current_ns->name);
+                result = 1;
+                break;
+            }
+            cs.uid = current_ns->state.uid;
+            if (debug) {
+                std::println("[BASIC] ENDNAMESPACE {}", current_ns->name);
+            }
+            current_ns = nullptr;
+            continue;
+        }
         if (blackbox::tools::starts_with_ci(s, "FUNC ")) {
             if (current_func) {
                 std::println(stderr, "Error line {}: nested FUNC is not allowed", cs.lineno);
@@ -2688,18 +2813,35 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                     break;
                 }
             }
+            if (current_ns) {
+                for (auto& f : current_ns->funcs) {
+                    if (f.name == current_ns->name + "__" + func_name) {
+                        std::println(
+                            stderr,
+                            "Error line {}: function '{}' already defined in namespace '{}'",
+                            cs.lineno, func_name, current_ns->name);
+                        result = 1;
+                        break;
+                    }
+                }
+                if (result) {
+                    break;
+                }
+            }
             if (result) {
                 break;
             }
 
             // push a new FuncDef
-            funcs.emplace_back();
-            current_func = &funcs.back();
-            current_func->name = func_name;
+            std::vector<FuncDef>& target_funcs = current_ns ? current_ns->funcs : funcs;
+            target_funcs.emplace_back();
+            current_func = &target_funcs.back();
+            current_func->name = current_ns ? (current_ns->name + "__" + func_name) : func_name;
             current_func->state.debug = debug;
             current_func->state.uid = cs.uid;
-            current_func->state.funcs = &funcs;
+            current_func->state.funcs = current_ns ? &current_ns->funcs : &funcs;
             current_func->state.in_func = true;
+            current_func->state.current_namespace = current_ns ? current_ns->name : "";
 
             p = skip_ws(colon + 1);
             while (*p) {
@@ -2726,7 +2868,8 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
                 std::string param_name;
                 if (!parse_identifier(p, &p, param_name)) {
-                    std::println(stderr, "Syntax error line {}: expected parameter name", cs.lineno);
+                    std::println(stderr, "Syntax error line {}: expected parameter name",
+                                 cs.lineno);
                     result = 1;
                     break;
                 }
@@ -2762,8 +2905,7 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             }
 
             if (debug) {
-                std::println("[BASIC] FUNC {} ({} params)", func_name,
-                             current_func->params.size());
+                std::println("[BASIC] FUNC {} ({} params)", func_name, current_func->params.size());
             }
             continue;
         }
@@ -2788,7 +2930,9 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             continue;
         }
 
-        CompilerState* active = current_func ? &current_func->state : &cs;
+        CompilerState* active = current_func ? &current_func->state
+                                : current_ns ? &current_ns->state
+                                             : &cs;
         active->lineno = cs.lineno;
         active->set_emit_context(s);
 
@@ -2823,11 +2967,15 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         std::println(stderr, "Error: unterminated FUNC '{}'", current_func->name);
         result = 1;
     }
+    if (current_ns && result == 0) {
+        std::println(stderr, "Error: unterminated NAMESPACE '{}'", current_ns->name);
+        result = 1;
+    }
     if (!cs.bs.items.empty() && result == 0) {
         std::println(stderr, "Error: unclosed block ({})",
                      cs.bs.items.back().kind == BLOCK_IF      ? "IF"
-                         : cs.bs.items.back().kind == BLOCK_WHILE ? "WHILE"
-                         : "FOR");
+                     : cs.bs.items.back().kind == BLOCK_WHILE ? "WHILE"
+                                                              : "FOR");
         result = 1;
     }
     if (result != 0) {
@@ -2843,6 +2991,18 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     std::println(out, "%asm");
 
     bool any_data = !cs.ob.data_sec.empty();
+    for (auto& ns : namespaces) {
+        if (!ns.state.ob.data_sec.empty()) {
+            any_data = true;
+            break;
+        }
+        for (auto& f : ns.funcs) {
+            if (!f.state.ob.data_sec.empty()) {
+                any_data = true;
+                break;
+            }
+        }
+    }
     for (auto& f : funcs) {
         if (!f.state.ob.data_sec.empty()) {
             any_data = true;
@@ -2850,8 +3010,15 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         }
     }
     if (any_data) {
+
         std::println(out, "%data");
         fwrite(cs.ob.data_sec.data(), 1, cs.ob.data_sec.size(), out);
+        for (auto& ns : namespaces) {
+            fwrite(ns.state.ob.data_sec.data(), 1, ns.state.ob.data_sec.size(), out);
+            for (auto& f : ns.funcs) {
+                fwrite(f.state.ob.data_sec.data(), 1, f.state.ob.data_sec.size(), out);
+            }
+        }
         for (auto& f : funcs) {
             fwrite(f.state.ob.data_sec.data(), 1, f.state.ob.data_sec.size(), out);
         }
@@ -2912,6 +3079,34 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         }
         fwrite(f.state.ob.code_sec.data(), 1, f.state.ob.code_sec.size(), out);
         std::println(out, "    RET");
+    }
+    for (auto& ns : namespaces) {
+        for (auto& f : ns.funcs) {
+            std::println(out, ".__bbx_func_{}:", f.name); // already mangled
+            if (f.state.st.next_slot > 0) {
+                std::println(out, "    FRAME {}", f.state.st.next_slot);
+            }
+            for (int i = static_cast<int>(f.params.size()) - 1; i >= 0; i--) {
+                Variable* v = f.state.sym_find(f.params[i].data());
+                if (!v) {
+                    continue;
+                }
+                int reg = f.state.ralloc_acquire();
+                if (reg < 0) {
+                    std::println(stderr, "Out of scratch registers in NAMESPACE FUNC '{}' prologue",
+                                 f.name);
+                    fclose(out);
+                    return 1;
+                }
+                char rn[4];
+                reg_name(reg, rn);
+                std::println(out, "    POP {}", rn);
+                std::println(out, "    STOREVAR {}, {}", rn, v->slot);
+                f.state.ralloc_release(reg);
+            }
+            fwrite(f.state.ob.code_sec.data(), 1, f.state.ob.code_sec.size(), out);
+            std::println(out, "    RET");
+        }
     }
 
     fclose(out);

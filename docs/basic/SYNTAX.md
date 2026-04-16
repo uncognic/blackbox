@@ -370,6 +370,22 @@ ENDASM
 ```
 BASIC code can continue after the ASM block in protected mode.
 
+### Namespaces
+You can also use namespaces to organize your code and avoid name collisions.
+```basic
+NAMESPACE namespace
+	FUNC print: STR msg
+		// This should print "Hello, World!"
+		PRINT msg
+	ENDFUNC
+ENDNAMESPACE
+
+@ENTRY
+
+VAR hello = "Hello, World!"
+CALL namespace.print(hello)
+```
+
 ## Notes:
 - Registers 0-15 are used by the BASIC compiler as scratch storage. Nothing is stopping you from using them, but be aware that BASIC statements may overwrite them.
 - ASM block lines are passed to the assembler.

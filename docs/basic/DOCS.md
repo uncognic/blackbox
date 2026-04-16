@@ -53,6 +53,8 @@ Data model:
 - Integers (64-bit VM register/slot model)
 - Strings (stored in `%data`, loaded/printed as string pointers)
 
+Code strcutre:
+- Namespacing with NAMESPACE blocks.
 ## Not full parity with assembly
 BASIC is currently not fully featured compared to the assembly pathway. It will be at some point, but for now you may find that some things are easier to do in assembly. 
 
