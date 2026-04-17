@@ -1,11 +1,10 @@
 NAMESPACE namespace
 	FUNC print: STR msg
-		// This should print "Hello, World!"
 		PRINT msg
 	ENDFUNC
 ENDNAMESPACE
 
 @ENTRY
 
-VAR hello = "Hello, World!"
-CALL namespace.print(hello)
+// This should print Hello, World!
+CALL namespace.print("Hello, World!")

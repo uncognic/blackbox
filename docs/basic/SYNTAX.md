@@ -244,6 +244,19 @@ PRINT sum
 - A function can also be called inside expressions: `VAR result = add(x, y) * 2`
 - Function return values are provided through `RETURN <expr>`.
 
+You can also pass a string directly as a parameter:
+```basic
+NAMESPACE namespace
+	FUNC print: STR msg
+		PRINT msg
+	ENDFUNC
+ENDNAMESPACE
+
+@ENTRY
+
+// This should print Hello, World!
+CALL namespace.print("Hello, World!")
+```
 ### RETURN
 ```basic
 RETURN value

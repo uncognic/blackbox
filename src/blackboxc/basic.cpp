@@ -204,7 +204,7 @@ Variable* CompilerState::sym_find(const char* name) {
     if (!current_namespace.empty()) {
         std::string mangled = current_namespace + "::" + name;
         for (auto& v : st.vars) {
-            if (std::strcmp(v.name, mangled.c_str()) == 0) { 
+            if (std::strcmp(v.name, mangled.c_str()) == 0) {
                 return &v;
             }
         }
@@ -468,14 +468,42 @@ int CompilerState::emit_atom(const char* s, const char** end, int* out_reg) {
                         EMIT_CODE(this, "    PUSH %s ; ref arg for call to %s", rn, name.data());
                     } else {
                         // regular parameter
-                        int arg_reg;
-                        if (emit_expr_p(p, &p, &arg_reg)) {
-                            return 1;
+                        p = skip_ws(p);
+                        if (*p == '"') {
+                            const char* str_end = strchr(p + 1, '"');
+                            if (!str_end) {
+                                std::println(
+                                    stderr,
+                                    "Expression error line {}: unterminated string in call to '{}'",
+                                    lineno, name);
+                                return 1;
+                            }
+                            char data_name[64];
+                            snprintf(data_name, sizeof(data_name), "_p%lu", uid++);
+                            EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name,
+                                      static_cast<int>(str_end - p - 1), p + 1);
+                            RegGuard rg(&ra);
+                            if (!rg.ok()) {
+                                std::println(stderr, "Out of scratch registers");
+                                return 1;
+                            }
+                            char rn[4];
+                            reg_name(rg, rn);
+                            EMIT_CODE(this, "    LOADSTR $%s, %s", data_name, rn);
+                            EMIT_CODE(this, "    PUSH %s ; string argument for call to %s", rn,
+                                      name.data());
+                            p = str_end + 1;
+                        } else {
+                            int arg_reg;
+                            if (emit_expr_p(p, &p, &arg_reg)) {
+                                return 1;
+                            }
+                            char arn[4];
+                            reg_name(arg_reg, arn);
+                            EMIT_CODE(this, "    PUSH %s ; argument for call to %s", arn,
+                                      name.data());
+                            ralloc_release(arg_reg);
                         }
-                        char arn[4];
-                        reg_name(arg_reg, arn);
-                        EMIT_CODE(this, "    PUSH %s ; argument for call to %s", arn, name.data());
-                        ralloc_release(arg_reg);
                     }
                     arg_index++;
                     p = skip_ws(p);
@@ -1533,15 +1561,13 @@ int CompilerState::compile_line(char* s) {
                     std::string refname;
                     const char* ref_end = p;
                     if (!parse_identifier(p, &ref_end, refname)) {
-                        std::println(stderr,
-                                     "Error line {}: ref param requires a variable name",
+                        std::println(stderr, "Error line {}: ref param requires a variable name",
                                      lineno);
                         return 1;
                     }
                     Variable* rv = sym_find(refname.data());
                     if (!rv) {
-                        std::println(stderr, "Undefined variable '{}' on line {}", refname,
-                                     lineno);
+                        std::println(stderr, "Undefined variable '{}' on line {}", refname, lineno);
                         return 1;
                     }
                     p = ref_end;
@@ -1557,14 +1583,41 @@ int CompilerState::compile_line(char* s) {
                     EMIT_CODE(this, "    PUSH %s ; ref arg for call to %s", rn, name.data());
                 } else {
                     // value param
-                    int areg;
-                    if (emit_expr_p(p, &p, &areg)) {
-                        return 1;
+                    p = skip_ws(p);
+                    // if the string parameter is passed directly
+                    if (*p == '"') {
+                        const char* str_end = strchr(p + 1, '"');
+                        if (!str_end) {
+                            std::println(stderr,
+                                         "Syntax error line {}: unterminated string in CALL '{}'",
+                                         lineno, name);
+                            return 1;
+                        }
+                        char data_name[64];
+                        snprintf(data_name, sizeof(data_name), "_p%lu", uid++);
+                        EMIT_DATA(this, "    STR $%s, \"%.*s\"", data_name,
+                                  static_cast<int>(str_end - p - 1), p + 1);
+                        RegGuard rg(&ra);
+                        if (!rg.ok()) {
+                            std::println(stderr, "Out of scratch registers");
+                            return 1;
+                        }
+                        char rn[4];
+                        reg_name(rg, rn);
+                        EMIT_CODE(this, "    LOADSTR $%s, %s", data_name, rn);
+                        EMIT_CODE(this, "    PUSH %s ; string argument for call to %s", rn,
+                                  name.data());
+                        p = str_end + 1;
+                    } else {
+                        int areg;
+                        if (emit_expr_p(p, &p, &areg)) {
+                            return 1;
+                        }
+                        char arn[4];
+                        reg_name(areg, arn);
+                        EMIT_CODE(this, "    PUSH %s ; argument for call to %s", arn, name.data());
+                        ralloc_release(areg);
                     }
-                    char arn[4];
-                    reg_name(areg, arn);
-                    EMIT_CODE(this, "    PUSH %s ; argument for call to %s", arn, name.data());
-                    ralloc_release(areg);
                 }
                 arg_index++;
                 p = skip_ws(p);
@@ -1575,7 +1628,8 @@ int CompilerState::compile_line(char* s) {
                 if (*p == ')') {
                     break;
                 }
-                std::println(stderr, "Syntax error line {}: expected ',' or ')' in CALL '{}'", lineno, name);
+                std::println(stderr, "Syntax error line {}: expected ',' or ')' in CALL '{}'",
+                             lineno, name);
                 return 1;
             }
             if (*p != ')') {
@@ -1585,8 +1639,7 @@ int CompilerState::compile_line(char* s) {
             }
             p = skip_ws(p + 1);
             if (*p != '\0') {
-                std::println(stderr, "Syntax error line {}: unexpected tokens after CALL",
-                             lineno);
+                std::println(stderr, "Syntax error line {}: unexpected tokens after CALL", lineno);
                 return 1;
             }
             EMIT_CODE(this, "    CALL __bbx_func_%s", name.data());
@@ -2254,10 +2307,9 @@ int CompilerState::compile_line(char* s) {
         } else {
             const char* next = p;
             if (!parse_identifier(p, &next, envname)) {
-                std::println(
-                    stderr,
-                    "Syntax error line {}: expected GETENV <identifier>, <varname>",
-                    lineno);
+                std::println(stderr,
+                             "Syntax error line {}: expected GETENV <identifier>, <varname>",
+                             lineno);
                 return 1;
             }
             p = skip_ws(next);
@@ -2733,7 +2785,8 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
             std::string ns_name = trim_copy(std::string(s + 10));
             if (ns_name.empty()) {
-                std::println(stderr, "Syntax error on line {}: expected NAMESPACE <name>", cs.lineno);
+                std::println(stderr, "Syntax error on line {}: expected NAMESPACE <name>",
+                             cs.lineno);
                 std::println(stderr, "Got: {}", line);
                 result = 1;
                 break;
