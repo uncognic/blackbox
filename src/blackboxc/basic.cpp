@@ -194,8 +194,8 @@ struct RegGuard {
     } while (0)
 
 CompilerState::CompilerState() : ra() {
-    st.next_slot = 0;
-    st.next_data_id = 0;
+    symbol_table.next_slot = 0;
+    symbol_table.next_data_id = 0;
     ra.used = 0;
     emit_ctx[0] = '\0';
 }
@@ -203,16 +203,19 @@ CompilerState::CompilerState() : ra() {
 Variable* CompilerState::sym_find(const char* name) {
     if (!current_namespace.empty()) {
         std::string mangled = current_namespace + "::" + name;
-        for (auto& v : st.vars) {
+        for (auto& v : symbol_table.vars) {
             if (std::strcmp(v.name, mangled.c_str()) == 0) {
                 return &v;
             }
         }
     }
-    for (auto& v : st.vars) {
+    for (auto& v : symbol_table.vars) {
         if (std::strcmp(v.name, name) == 0) {
             return &v;
         }
+    }
+    if (parent_ns_state) {
+        return parent_ns_state->sym_find(name);
     }
     return nullptr;
 }
@@ -227,10 +230,10 @@ Variable* CompilerState::sym_add_int(const char* name) {
     v.type = VAR_INT;
     v.is_const = 0;
     v.is_ref = false;
-    v.slot = st.next_slot++;
+    v.slot = symbol_table.next_slot++;
     v.data_name[0] = '\0';
-    st.vars.push_back(v);
-    return &st.vars.back();
+    symbol_table.vars.push_back(v);
+    return &symbol_table.vars.back();
 }
 
 Variable* CompilerState::sym_add_str(const char* name, const char* data_name, int is_const) {
@@ -243,23 +246,23 @@ Variable* CompilerState::sym_add_str(const char* name, const char* data_name, in
     v.type = VAR_STR;
     v.is_const = is_const ? 1 : 0;
     v.is_ref = false;
-    v.slot = st.next_slot++;
+    v.slot = symbol_table.next_slot++;
     copy_cstr(v.data_name, sizeof(v.data_name), data_name);
-    st.vars.push_back(v);
-    return &st.vars.back();
+    symbol_table.vars.push_back(v);
+    return &symbol_table.vars.back();
 }
 Variable* CompilerState::sym_add_ref(const char* name) {
     std::string name_mangled = mangle(current_namespace, name);
     if (Variable* existing = sym_find(name_mangled.c_str())) {
         return existing;
     }
-    st.vars.emplace_back();
-    Variable* var = &st.vars.back();
+    symbol_table.vars.emplace_back();
+    Variable* var = &symbol_table.vars.back();
     std::memset(var, 0, sizeof(*var));
     copy_cstr(var->name, sizeof(var->name), name_mangled.c_str());
     var->type = VAR_INT;
     var->is_ref = true;
-    var->slot = st.next_slot++;
+    var->slot = symbol_table.next_slot++;
     return var;
 }
 
@@ -351,22 +354,22 @@ int CompilerState::alloc_file_handle_fd(const char* name, uint8_t* out_fd) {
 }
 
 void CompilerState::bstack_push(const Block& b) {
-    bs.items.push_back(b);
+    block_stack.items.push_back(b);
 }
 
 Block* CompilerState::bstack_peek() {
-    if (bs.items.empty()) {
+    if (block_stack.items.empty()) {
         return nullptr;
     }
-    return &bs.items.back();
+    return &block_stack.items.back();
 }
 
 Block CompilerState::bstack_pop() {
-    if (bs.items.empty()) {
+    if (block_stack.items.empty()) {
         return Block{};
     }
-    Block b = bs.items.back();
-    bs.items.pop_back();
+    Block b = block_stack.items.back();
+    block_stack.items.pop_back();
     return b;
 }
 
@@ -2476,8 +2479,8 @@ int CompilerState::compile_line(char* s) {
             return 1;
         }
 
-        uint32_t limit_slot = st.next_slot++;
-        uint32_t step_slot = st.next_slot++;
+        uint32_t limit_slot = symbol_table.next_slot++;
+        uint32_t step_slot = symbol_table.next_slot++;
 
         {
             int ireg;
@@ -2671,9 +2674,10 @@ int CompilerState::compile_line(char* s) {
     // BREAK
     if (blackbox::tools::equals_ci(s, "BREAK")) {
         Block* target = nullptr;
-        for (int i = static_cast<int>(bs.items.size()) - 1; i >= 0; i--) {
-            if (bs.items[i].kind == BLOCK_WHILE || bs.items[i].kind == BLOCK_FOR) {
-                target = &bs.items[i];
+        for (int i = static_cast<int>(block_stack.items.size()) - 1; i >= 0; i--) {
+            if (block_stack.items[i].kind == BLOCK_WHILE ||
+                block_stack.items[i].kind == BLOCK_FOR) {
+                target = &block_stack.items[i];
                 break;
             }
         }
@@ -2691,9 +2695,10 @@ int CompilerState::compile_line(char* s) {
     // CONTINUE
     if (blackbox::tools::equals_ci(s, "CONTINUE")) {
         Block* target = nullptr;
-        for (int i = static_cast<int>(bs.items.size()) - 1; i >= 0; i--) {
-            if (bs.items[i].kind == BLOCK_WHILE || bs.items[i].kind == BLOCK_FOR) {
-                target = &bs.items[i];
+        for (int i = static_cast<int>(block_stack.items.size()) - 1; i >= 0; i--) {
+            if (block_stack.items[i].kind == BLOCK_WHILE ||
+                block_stack.items[i].kind == BLOCK_FOR) {
+                target = &block_stack.items[i];
                 break;
             }
         }
@@ -2749,22 +2754,22 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         return 1;
     }
 
-    CompilerState cs;
-    cs.debug = debug;
+    CompilerState compiler_state;
+    compiler_state.debug = debug;
 
     std::vector<FuncDef> funcs;
-    cs.funcs = &funcs;
+    compiler_state.funcs = &funcs;
     FuncDef* current_func = nullptr;
 
     std::vector<NamespaceDef> namespaces;
-    NamespaceDef* current_ns = nullptr;
+    NamespaceDef* current_namespace = nullptr;
 
     bool in_asm_block = false;
     int result = 0;
     char line[8192];
 
     while (fgets(line, sizeof(line), in)) {
-        cs.lineno++;
+        compiler_state.lineno++;
         std::string stmt = trim_copy(line);
         size_t comment_pos = stmt.find("//");
         if (comment_pos != std::string::npos) {
@@ -2777,25 +2782,26 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
         char* s = &stmt[0];
         if (blackbox::tools::starts_with_ci(s, "NAMESPACE ")) {
-            if (current_func || current_ns) {
-                std::println(stderr, "Error line {}: NAMESPACE cannot be nested", cs.lineno);
+            if (current_func || current_namespace) {
+                std::println(stderr, "Error line {}: NAMESPACE cannot be nested",
+                             compiler_state.lineno);
                 result = 1;
                 break;
             }
 
-            std::string ns_name = trim_copy(std::string(s + 10));
-            if (ns_name.empty()) {
+            std::string namespace_name = trim_copy(std::string(s + 10));
+            if (namespace_name.empty()) {
                 std::println(stderr, "Syntax error on line {}: expected NAMESPACE <name>",
-                             cs.lineno);
+                             compiler_state.lineno);
                 std::println(stderr, "Got: {}", line);
                 result = 1;
                 break;
             }
 
             for (auto& ns : namespaces) {
-                if (ns.name == ns_name) {
-                    std::println(stderr, "Error line {}: namespace '{}' already defined", cs.lineno,
-                                 ns_name);
+                if (ns.name == namespace_name) {
+                    std::println(stderr, "Error line {}: namespace '{}' already defined",
+                                 compiler_state.lineno, namespace_name);
                     result = 1;
                     break;
                 }
@@ -2806,40 +2812,44 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             }
 
             namespaces.emplace_back();
-            current_ns = &namespaces.back();
-            current_ns->name = ns_name;
-            current_ns->state.debug = debug;
-            current_ns->state.uid = cs.uid;
-            current_ns->state.funcs = &current_ns->funcs;
-            current_ns->state.current_namespace = ns_name;
+            current_namespace = &namespaces.back();
+            current_namespace->name = namespace_name;
+            current_namespace->state.debug = debug;
+            current_namespace->state.uid = compiler_state.uid;
+            current_namespace->state.funcs = &current_namespace->funcs;
+            current_namespace->state.current_namespace = namespace_name;
+            current_namespace->state.symbol_table.next_slot = compiler_state.symbol_table.next_slot;
 
             if (debug) {
-                std::println("[BASIC] NAMESPACE {}", ns_name);
+                std::println("[BASIC] NAMESPACE {}", namespace_name);
             }
             continue;
         }
         if (blackbox::tools::equals_ci(s, "ENDNAMESPACE")) {
-            if (!current_ns) {
-                std::println(stderr, "Error line {}: ENDNAMESPACE without NAMESPACE", cs.lineno);
+            if (!current_namespace) {
+                std::println(stderr, "Error line {}: ENDNAMESPACE without NAMESPACE",
+                             compiler_state.lineno);
                 result = 1;
                 break;
             }
-            if (!current_ns->state.bs.items.empty()) {
+            if (!current_namespace->state.block_stack.items.empty()) {
                 std::println(stderr, "Error line {}: unclosed block inside NAMESPACE '{}'",
-                             cs.lineno, current_ns->name);
+                             compiler_state.lineno, current_namespace->name);
                 result = 1;
                 break;
             }
-            cs.uid = current_ns->state.uid;
+            compiler_state.uid = current_namespace->state.uid;
+            compiler_state.symbol_table.next_slot = current_namespace->state.symbol_table.next_slot;
             if (debug) {
-                std::println("[BASIC] ENDNAMESPACE {}", current_ns->name);
+                std::println("[BASIC] ENDNAMESPACE {}", current_namespace->name);
             }
-            current_ns = nullptr;
+            current_namespace = nullptr;
             continue;
         }
         if (blackbox::tools::starts_with_ci(s, "FUNC ")) {
             if (current_func) {
-                std::println(stderr, "Error line {}: nested FUNC is not allowed", cs.lineno);
+                std::println(stderr, "Error line {}: nested FUNC is not allowed",
+                             compiler_state.lineno);
                 result = 1;
                 break;
             }
@@ -2847,32 +2857,34 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             const char* p = skip_ws(s + 5);
             const char* colon = strchr(p, ':');
             if (!colon) {
-                std::println(stderr, "Syntax error line {}: expected FUNC <name>: ...", cs.lineno);
+                std::println(stderr, "Syntax error line {}: expected FUNC <name>: ...",
+                             compiler_state.lineno);
                 result = 1;
                 break;
             }
             std::string func_name = trim_copy(std::string(p, static_cast<size_t>(colon - p)));
             if (func_name.empty()) {
-                std::println(stderr, "Syntax error line {}: expected FUNC <name>: ...", cs.lineno);
+                std::println(stderr, "Syntax error line {}: expected FUNC <name>: ...",
+                             compiler_state.lineno);
                 result = 1;
                 break;
             }
 
             for (auto& f : funcs) {
                 if (f.name == func_name) {
-                    std::println(stderr, "Error line {}: function '{}' already defined", cs.lineno,
-                                 func_name);
+                    std::println(stderr, "Error line {}: function '{}' already defined",
+                                 compiler_state.lineno, func_name);
                     result = 1;
                     break;
                 }
             }
-            if (current_ns) {
-                for (auto& f : current_ns->funcs) {
-                    if (f.name == current_ns->name + "__" + func_name) {
+            if (current_namespace) {
+                for (auto& f : current_namespace->funcs) {
+                    if (f.name == current_namespace->name + "__" + func_name) {
                         std::println(
                             stderr,
                             "Error line {}: function '{}' already defined in namespace '{}'",
-                            cs.lineno, func_name, current_ns->name);
+                            compiler_state.lineno, func_name, current_namespace->name);
                         result = 1;
                         break;
                     }
@@ -2886,15 +2898,20 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             }
 
             // push a new FuncDef
-            std::vector<FuncDef>& target_funcs = current_ns ? current_ns->funcs : funcs;
+            std::vector<FuncDef>& target_funcs =
+                current_namespace ? current_namespace->funcs : funcs;
             target_funcs.emplace_back();
             current_func = &target_funcs.back();
-            current_func->name = current_ns ? (current_ns->name + "__" + func_name) : func_name;
+            current_func->name =
+                current_namespace ? (current_namespace->name + "__" + func_name) : func_name;
             current_func->state.debug = debug;
-            current_func->state.uid = cs.uid;
-            current_func->state.funcs = current_ns ? &current_ns->funcs : &funcs;
+            current_func->state.uid = compiler_state.uid;
+            current_func->state.funcs = current_namespace ? &current_namespace->funcs : &funcs;
             current_func->state.in_func = true;
-            current_func->state.current_namespace = current_ns ? current_ns->name : "";
+            current_func->state.current_namespace =
+                current_namespace ? current_namespace->name : "";
+            current_func->state.parent_ns_state =
+                current_namespace ? &current_namespace->state : nullptr;
 
             p = skip_ws(colon + 1);
             while (*p) {
@@ -2914,7 +2931,7 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 } else {
                     std::println(stderr,
                                  "Syntax error line {}: expected VAR, STR, or & before param name",
-                                 cs.lineno);
+                                 compiler_state.lineno);
                     result = 1;
                     break;
                 }
@@ -2922,7 +2939,7 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                 std::string param_name;
                 if (!parse_identifier(p, &p, param_name)) {
                     std::println(stderr, "Syntax error line {}: expected parameter name",
-                                 cs.lineno);
+                                 compiler_state.lineno);
                     result = 1;
                     break;
                 }
@@ -2949,7 +2966,7 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
                     break;
                 }
                 std::println(stderr, "Syntax error line {}: expected ',' between parameters",
-                             cs.lineno);
+                             compiler_state.lineno);
                 result = 1;
                 break;
             }
@@ -2965,17 +2982,17 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
         if (blackbox::tools::equals_ci(s, "ENDFUNC")) {
             if (!current_func) {
-                std::println(stderr, "Error line {}: ENDFUNC without FUNC", cs.lineno);
+                std::println(stderr, "Error line {}: ENDFUNC without FUNC", compiler_state.lineno);
                 result = 1;
                 break;
             }
-            if (!current_func->state.bs.items.empty()) {
-                std::println(stderr, "Error line {}: unclosed block inside FUNC '{}'", cs.lineno,
-                             current_func->name);
+            if (!current_func->state.block_stack.items.empty()) {
+                std::println(stderr, "Error line {}: unclosed block inside FUNC '{}'",
+                             compiler_state.lineno, current_func->name);
                 result = 1;
                 break;
             }
-            cs.uid = current_func->state.uid;
+            compiler_state.uid = current_func->state.uid;
             if (debug) {
                 std::println("[BASIC] ENDFUNC {}", current_func->name);
             }
@@ -2983,10 +3000,10 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             continue;
         }
 
-        CompilerState* active = current_func ? &current_func->state
-                                : current_ns ? &current_ns->state
-                                             : &cs;
-        active->lineno = cs.lineno;
+        CompilerState* active = current_func        ? &current_func->state
+                                : current_namespace ? &current_namespace->state
+                                                    : &compiler_state;
+        active->lineno = compiler_state.lineno;
         active->set_emit_context(s);
 
         if (blackbox::tools::equals_ci(s, "ASM:")) {
@@ -3009,7 +3026,7 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         }
 
         if (current_func) {
-            cs.uid = current_func->state.uid;
+            compiler_state.uid = current_func->state.uid;
         } else {
         }
     }
@@ -3020,15 +3037,15 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
         std::println(stderr, "Error: unterminated FUNC '{}'", current_func->name);
         result = 1;
     }
-    if (current_ns && result == 0) {
-        std::println(stderr, "Error: unterminated NAMESPACE '{}'", current_ns->name);
+    if (current_namespace && result == 0) {
+        std::println(stderr, "Error: unterminated NAMESPACE '{}'", current_namespace->name);
         result = 1;
     }
-    if (!cs.bs.items.empty() && result == 0) {
+    if (!compiler_state.block_stack.items.empty() && result == 0) {
         std::println(stderr, "Error: unclosed block ({})",
-                     cs.bs.items.back().kind == BLOCK_IF      ? "IF"
-                     : cs.bs.items.back().kind == BLOCK_WHILE ? "WHILE"
-                                                              : "FOR");
+                     compiler_state.block_stack.items.back().kind == BLOCK_IF      ? "IF"
+                     : compiler_state.block_stack.items.back().kind == BLOCK_WHILE ? "WHILE"
+                                                                                   : "FOR");
         result = 1;
     }
     if (result != 0) {
@@ -3043,7 +3060,7 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
     std::println(out, "%asm");
 
-    bool any_data = !cs.ob.data_sec.empty();
+    bool any_data = !compiler_state.ob.data_sec.empty();
     for (auto& ns : namespaces) {
         if (!ns.state.ob.data_sec.empty()) {
             any_data = true;
@@ -3065,7 +3082,7 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     if (any_data) {
 
         std::println(out, "%data");
-        fwrite(cs.ob.data_sec.data(), 1, cs.ob.data_sec.size(), out);
+        fwrite(compiler_state.ob.data_sec.data(), 1, compiler_state.ob.data_sec.size(), out);
         for (auto& ns : namespaces) {
             fwrite(ns.state.ob.data_sec.data(), 1, ns.state.ob.data_sec.size(), out);
             for (auto& f : ns.funcs) {
@@ -3081,17 +3098,20 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     std::println(out, "    CALL __bbx_basic_main");
     std::println(out, "    HALT OK");
 
-    if (!cs.entry_point_declared) {
+    if (!compiler_state.entry_point_declared) {
         std::println(out, ".__bbx_basic_main:");
-        if (cs.st.next_slot > 0) {
-            std::println(out, "    FRAME {}", cs.st.next_slot);
+        if (compiler_state.symbol_table.next_slot > 0) {
+            std::println(out, "    FRAME {}", compiler_state.symbol_table.next_slot);
         }
-        fwrite(cs.ob.code_sec.data(), 1, cs.ob.code_sec.size(), out);
+        fwrite(compiler_state.ob.code_sec.data(), 1, compiler_state.ob.code_sec.size(), out);
+        for (auto& ns : namespaces) {
+            fwrite(ns.state.ob.code_sec.data(), 1, ns.state.ob.code_sec.size(), out);
+        }
         std::println(out, "    RET");
     } else {
-        if (cs.st.next_slot > 0) {
+        if (compiler_state.symbol_table.next_slot > 0) {
             const char* entry_label = ".__bbx_basic_main:\n";
-            std::string code(cs.ob.code_sec);
+            std::string code(compiler_state.ob.code_sec);
             size_t pos = code.find(entry_label);
             if (pos == std::string::npos) {
                 std::println(stderr, "Internal error: @ENTRY label missing from code section");
@@ -3100,18 +3120,18 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
             }
             size_t insert_pos = pos + strlen(entry_label);
             fwrite(code.data(), 1, insert_pos, out);
-            std::println(out, "    FRAME {}", cs.st.next_slot);
+            std::println(out, "    FRAME {}", compiler_state.symbol_table.next_slot);
             fwrite(code.data() + insert_pos, 1, code.size() - insert_pos, out);
         } else {
-            fwrite(cs.ob.code_sec.data(), 1, cs.ob.code_sec.size(), out);
+            fwrite(compiler_state.ob.code_sec.data(), 1, compiler_state.ob.code_sec.size(), out);
         }
         std::println(out, "    RET");
     }
 
     for (auto& f : funcs) {
         std::println(out, ".__bbx_func_{}:", f.name);
-        if (f.state.st.next_slot > 0) {
-            std::println(out, "    FRAME {}", f.state.st.next_slot);
+        if (f.state.symbol_table.next_slot > 0) {
+            std::println(out, "    FRAME {}", f.state.symbol_table.next_slot);
         }
         for (int i = static_cast<int>(f.params.size()) - 1; i >= 0; i--) {
             Variable* v = f.state.sym_find(f.params[i].data());
@@ -3136,8 +3156,8 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
     for (auto& ns : namespaces) {
         for (auto& f : ns.funcs) {
             std::println(out, ".__bbx_func_{}:", f.name); // already mangled
-            if (f.state.st.next_slot > 0) {
-                std::println(out, "    FRAME {}", f.state.st.next_slot);
+            if (f.state.symbol_table.next_slot > 0) {
+                std::println(out, "    FRAME {}", f.state.symbol_table.next_slot);
             }
             for (int i = static_cast<int>(f.params.size()) - 1; i >= 0; i--) {
                 Variable* v = f.state.sym_find(f.params[i].data());
@@ -3166,7 +3186,8 @@ int preprocess_basic(const char* input_file, const char* output_file, int debug)
 
     if (debug) {
         std::println("[BASIC] Emitted {} data bytes, {} code bytes, {} slots, {} functions",
-                     cs.ob.data_sec.size(), cs.ob.code_sec.size(), cs.st.next_slot, funcs.size());
+                     compiler_state.ob.data_sec.size(), compiler_state.ob.code_sec.size(),
+                     compiler_state.symbol_table.next_slot, funcs.size());
     }
     return 0;
 }

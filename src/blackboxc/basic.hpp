@@ -67,10 +67,10 @@ struct FuncDef;
 
 class CompilerState {
   public:
-    SymbolTable st;
+    SymbolTable symbol_table;
     OutBuf ob;
     RegAlloc ra;
-    BlockStack bs;
+    BlockStack block_stack;
     unsigned long uid = 0;
     std::vector<FileHandle> file_handles;
     uint8_t next_file_handle = 0;
@@ -80,6 +80,7 @@ class CompilerState {
     const std::vector<FuncDef>* funcs = nullptr;
     bool in_func = false;
     bool entry_point_declared = false;
+    CompilerState* parent_ns_state = nullptr;
 
     std::string current_namespace;
 
