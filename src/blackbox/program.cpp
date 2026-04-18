@@ -1,37 +1,88 @@
-//
-// Created by User on 2026-04-18.
-//
-
 #include "program.hpp"
-#include "../define.hpp"
 #include <format>
 #include <fstream>
 
-std::expected<Program, std::string> Program::load(const std::filesystem::path& path) {
+static bool validate_magic(const std::vector<uint8_t>& raw) {
+    return raw.size() >= MAGIC_SIZE && raw[0] == ((MAGIC >> 16) & 0xFF) &&
+           raw[1] == ((MAGIC >> 8) & 0xFF) && raw[2] == ((MAGIC) & 0xFF);
+}
+
+static uint32_t read_u32(const std::vector<uint8_t>& raw, size_t offset) {
+    return static_cast<uint32_t>(raw[offset]) | (static_cast<uint32_t>(raw[offset + 1]) << 8) |
+           (static_cast<uint32_t>(raw[offset + 2]) << 16) |
+           (static_cast<uint32_t>(raw[offset + 3]) << 24);
+}
+
+static std::expected<std::vector<uint8_t>, std::string>
+read_file(const std::filesystem::path& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file) {
-        return std::unexpected(std::format("Failed to open file: {}", path.string()));
+        return std::unexpected(std::format("Failed to open '{}'", path.string()));
     }
+    return std::vector<uint8_t>(std::istreambuf_iterator<char>(file),
+                                std::istreambuf_iterator<char>{});
+}
 
-    std::vector<uint8_t> raw(std::istreambuf_iterator<char>(file), {});
-
-    // validate magic
-    if (raw.size() < 3) {
-        return std::unexpected("File too small: missing magic");
-    }
-    if (raw[0] != ((MAGIC >> 16) & 0xFF) || raw[1] != ((MAGIC >> 8) & 0xFF) ||
-        raw[2] != ((MAGIC) & 0xFF)) {
+static std::expected<Program, std::string> parse(const std::vector<uint8_t>& raw) {
+    if (!validate_magic(raw)) {
         return std::unexpected("Invalid magic bytes");
     }
 
-    // parse header
-    // magic(3), global_count(4), data_count(1), data_table_size(4)
-    constexpr size_t HEADER_MIN = 3 + 4 + 1 + 4 // avoid having to change it in 99999 places like last time
-    if (raw.size() < HEADER_MIN) {
-        return std::unexpected("File too small: header incomplete");
+    if (raw.size() < HEADER_FIXED_SIZE) {
+        return std::unexpected("File too small: incomplete header");
     }
 
-    size_t cursor = 3; // skip magic
+    // header layout
+    // magic(3), global_count(4), entry_count(4)
+    size_t cursor = MAGIC_SIZE;
+    uint32_t global_count = read_u32(raw, cursor);
+    cursor += 4;
+    uint32_t entry_count = read_u32(raw, cursor);
+    cursor += 4;
 
+    Program prog;
+    prog.global_count = global_count;
 
+    // parse typed data entries
+    // each entry: type(1), length(4), bytes(length)
+    for (uint32_t i = 0; i < entry_count; i++) {
+        if (cursor + 5 > raw.size()) {
+            return std::unexpected(
+                std::format("Entry {} header truncated at offset {}", i, cursor));
+        }
+
+        auto entry_type = static_cast<DataEntryType>(raw[cursor++]);
+        uint32_t length = read_u32(raw, cursor);
+        cursor += 4;
+
+        if (cursor + length > raw.size()) {
+            return std::unexpected(std::format("Entry {} data truncated at offset {}", i, cursor));
+        }
+
+        switch (entry_type) {
+            case DataEntryType::String: {
+                std::string_view s(reinterpret_cast<const char*>(raw.data() + cursor), length);
+                prog.strings.intern(s);
+                break;
+            }
+            default:
+                return std::unexpected(std::format("Unknown data entry type 0x{:02X} at offset {}",
+                                                   static_cast<uint8_t>(entry_type), cursor - 5));
+        }
+
+        cursor += length;
+    }
+
+    prog.code.assign(raw.begin() + static_cast<ptrdiff_t>(cursor), raw.end());
+    prog.entry_point = 0;
+
+    return prog;
+}
+
+std::expected<Program, std::string> Program::load(const std::filesystem::path& path) {
+    auto raw = read_file(path);
+    if (!raw) {
+        return std::unexpected(raw.error());
+    }
+    return parse(*raw);
 }

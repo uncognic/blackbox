@@ -14,7 +14,7 @@ enum class FaultType : uint8_t {
     BadSyscall,
     Priv,
     DivZero,
-    OOB,
+    OutOfBounds,
     EnvVarNotFound,
     Count // not a real fault
 };
@@ -31,8 +31,8 @@ inline std::string_view fault_name(FaultType type) {
             return "PRIV";
         case FaultType::DivZero:
             return "DIV_ZERO";
-        case FaultType::OOB:
-            return "OOB";
+        case FaultType::OutOfBounds:
+            return "OUT_OF_BOUNDS";
         case FaultType::EnvVarNotFound:
             return "ENV_VAR_NOT_FOUND";
         default:
