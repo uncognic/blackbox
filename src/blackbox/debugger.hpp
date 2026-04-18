@@ -1,0 +1,8 @@
+//
+// Created by User on 2026-04-18.
+//
+
+#ifndef BLACKBOX_DEBUGGER_HPP
+#define BLACKBOX_DEBUGGER_HPP
+
+#endif //BLACKBOX_DEBUGGER_HPP

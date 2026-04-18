@@ -50,13 +50,13 @@ target_include_directories(bbxc PRIVATE src/blackboxc)
 target_link_libraries(bbxc PRIVATE bbx_utils)
 
 # interpreter
-add_executable(bbx
-    src/blackbox/blackbox.cpp
-    src/blackbox/debug.cpp
-    src/utils/fmt.cpp
-)
-target_include_directories(bbx PRIVATE src/blackbox src/blackboxc)
-target_link_libraries(bbx PRIVATE bbx_utils)
+#add_executable(bbx
+#    src/blackbox/blackbox.cpp
+#    src/blackbox/debug.cpp
+#    src/utils/fmt.cpp
+#)
+#target_include_directories(bbx PRIVATE src/blackbox src/blackboxc)
+#target_link_libraries(bbx PRIVATE bbx_utils)
 
 # disassembler
 add_executable(bbxd
@@ -68,5 +68,5 @@ target_link_libraries(bbxd PRIVATE bbx_utils)
 # win32 stuff
 if(WIN32)
     target_link_libraries(bbxc PRIVATE bcrypt)
-    target_link_libraries(bbx PRIVATE bcrypt)
+    #target_link_libraries(bbx PRIVATE bcrypt)
 endif()
