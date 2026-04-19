@@ -8,7 +8,7 @@
 #include <print>
 
 void VM::op_break() {
-    // handled by debugger
+    set_hit_breakpoint();
 }
 
 void VM::op_continue() {

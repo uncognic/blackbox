@@ -16,6 +16,7 @@ class VM {
   public:
     explicit VM(Program program, int argc, char** argv);
     int run();
+    bool step();
 
     // debugger
     size_t get_pc() const { return pc; }
@@ -23,12 +24,17 @@ class VM {
     size_t get_mem_top() const { return mem_top; }
     size_t get_call_depth() const { return call_stack.size(); }
     bool is_halted() const { return halted; }
+    int get_exit_code() const { return exit_code; }
+    bool hit_breakpoint() const { return breakpoint; }
+    void set_hit_breakpoint() { breakpoint = true; }
+    void clear_hit_breakpoint() { breakpoint = false; }
 
   private:
     Program prog;
     size_t pc = 0;
     int exit_code = 0;
     bool halted = false;
+    bool breakpoint = false;
 
     std::array<int64_t, REGISTERS> regs{};
 

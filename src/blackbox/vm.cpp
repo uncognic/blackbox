@@ -132,24 +132,7 @@ VM::VM(Program program, int argc, char** argv)
 }
 
 int VM::run() {
-    while (!halted && pc < prog.code.size()) {
-        uint8_t byte = prog.code[pc++];
-        try {
-            (this->*dispatch_table[byte])();
-        } catch (const VMFault& f) {
-            size_t fault_idx = static_cast<size_t>(f.type);
-            if (fault_idx < FAULT_TABLE_SIZE && fault_registered[fault_idx]) {
-                current_fault = f.type;
-                fault_return_pc = pc;
-                cur_mode = Mode::Privileged;
-                pc = fault_table[fault_idx];
-            } else {
-                std::println(stderr, "FAULT [{}] at pc={}: {}", fault_name(f.type), f.program_counter,
-                             f.message);
-                return 1;
-            }
-        }
-    }
+    while (step()) {}
     return exit_code;
 }
 
@@ -308,8 +291,33 @@ std::ostream* VM::FD::writer() {
     }
 }
 
-
 void VM::op_unknown() {
     hard_fault(FaultType::OutOfBounds,
                std::format("unknown opcode 0x{:02X} at pc={}", prog.code[pc - 1], pc - 1));
+}
+
+bool VM::step() {
+    if (halted || pc >= prog.code.size()) {
+        return false;
+    }
+
+    uint8_t byte = prog.code[pc++];
+
+    try {
+        (this->*dispatch_table[byte])();
+    } catch (const VMFault& f) {
+        size_t fault_idx = static_cast<size_t>(f.type);
+        if (fault_idx < FAULT_TABLE_SIZE && fault_registered[fault_idx]) {
+            current_fault = f.type;
+            fault_return_pc = pc;
+            cur_mode = Mode::Privileged;
+            pc = fault_table[fault_idx];
+        }
+        else {
+            std::println(stderr, "FAULT [{}] at pc={}: {}", fault_name(f.type), f.program_counter, f.name);
+            halted = true;
+            exit_code = 1;
+        }
+    }
+    return !halted;
 }
