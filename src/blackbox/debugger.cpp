@@ -3,29 +3,33 @@
 //
 
 #include "debugger.hpp"
+#include <charconv>
 #include <format>
+#include <iostream>
 #include <print>
 #include <string>
-#include <charconv>
-#include <iostream>
 
 namespace {
 bool parse_int(std::string_view s, int& out) {
     auto result = std::from_chars(s.data(), s.data() + s.size(), out);
     return result.ec == std::errc{} && result.ptr == s.data() + s.size();
 }
-std::string_view trim_left(std::string_view s) {
-    while (!s.empty() && (s.front() == ' ' || s.front() == '\t')) {
-        s.remove_prefix(1);
+std::string trim_left(std::string_view s) {
+    size_t i = 0;
+    while (i < s.size() && (s[i] == ' ' || s[i] == '\t')) {
+        i++;
     }
-    return s;
+    return std::string(s.substr(i));
 }
-}
+} // namespace
 
-Debugger::Debugger(VM& vm, Mode mode) : vm(vm) , mode(mode){}
+Debugger::Debugger(VM& vm, Mode mode) : vm(vm), mode(mode) {
+}
 
 void Debugger::print_instructions() {
-    if (instructions_shown) return;
+    if (instructions_shown) {
+        return;
+    }
     std::println("Debugger commands:");
     std::println("  Enter   - step one instruction");
     std::println("  c       - continue (disable debugger)");
@@ -47,28 +51,43 @@ void Debugger::print_regs(int from, int to) {
 
 void Debugger::print_stack(int count) {
     size_t depth = vm.get_call_depth();
-    if (count <= 0) count = 8;
+    if (count <= 0) {
+        count = 8;
+    }
+
+    std::println("call depth: {} (showing top {} entries)", depth, count);
+}
+
+void Debugger::print_reg(size_t reg) {
+    std::println("r{} = {}", reg, vm.get_reg(reg));
+}
+
+void Debugger::print_stack_range(int from, int to) {
+    size_t depth = vm.get_call_depth();
     std::println("call depth: {}", depth);
+    std::println("stack range {}-{}:", from, to);
 }
 
 void Debugger::handle_command(std::string_view raw) {
-    std::string_view cmd = trim_left(raw);
+    std::string cmd = trim_left(raw);
 
     // strip trailing newline
     while (!cmd.empty() && (cmd.back() == '\n' || cmd.back() == '\r')) {
-        cmd.remove_suffix(1);
+        cmd.pop_back();
     }
 
-    if (cmd.empty()) return; // step — caller handles
+    if (cmd.empty()) {
+        return; // step — caller handles
+    }
 
     if (cmd[0] == 'q') {
         std::exit(0);
     }
 
     if (cmd[0] == 'r') {
-        std::string_view rest = trim_left(cmd.substr(1));
+        std::string rest = trim_left(cmd.substr(1));
         if (rest.empty()) {
-            print_regs(0,8);
+            print_regs(0, 8);
             return;
         }
 
@@ -88,7 +107,7 @@ void Debugger::handle_command(std::string_view raw) {
     }
 
     if (cmd[0] == 's') {
-        std::string_view rest = trim_left(cmd.substr(1));
+        std::string rest = trim_left(cmd.substr(1));
         if (rest.empty()) {
             print_stack(8);
             return;
