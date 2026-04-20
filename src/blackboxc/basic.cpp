@@ -1717,9 +1717,6 @@ int CompilerState::compile_line(char* s) {
             return 1;
         }
         std::string cmd(str_start, static_cast<size_t>(str_end - str_start));
-        if (cmd.size() > 255) {
-            cmd.resize(255);
-        }
         const char* after = skip_ws(str_end + 1);
         int have_dest = 0;
         Variable* dv = nullptr;

@@ -1,7 +1,7 @@
 # Blackbox VM Instruction Set Architecture
 - WRITE: Write a string to a stream  
   - Syntax: WRITE <stream> "<string>"  
-  - Encoding: OPCODE_WRITE, 1 byte fd (STDOUT or STDERR), 1 byte length (max 255), then string bytes.  
+  - Encoding: OPCODE_WRITE, 1 byte fd (STDOUT or STDERR), 4 byte length (u32, little-endian), then string bytes.  
 - NEWLINE: Print newline  
   - Syntax: NEWLINE  
   - Encoding: OPCODE_NEWLINE  
@@ -31,8 +31,8 @@
   - Syntax: PRINT_STACKSIZE
   - Encoding: OPCODE_PRINT_STACKSIZE
 - JMP: Unconditional jump  
-  - Syntax: JMP <label>  
-  - Encoding: OPCODE_JMP, 4-byte address (little-endian)  
+  - Syntax: `JMP <register|label|u32>`  
+  - Encoding: register form uses `OPCODE_JMP` + 1-byte register. Label/u32 immediate forms are emitted as JMPI opcode with a 4-byte address (little-endian).
 - JE / JNE: Conditional jumps on register zero/non-zero  
   - Syntax: JE <register>, <label>  and  JNE <register>, <label>  
   - Encoding: OPCODE_JE/OPCODE_JNE, 1 byte register, 4-byte address  
@@ -73,7 +73,7 @@
   - Encoding: OPCODE_HALT
 - FOPEN: Open a file into a descriptor
   - Syntax: FOPEN <mode>, F<fd>, "<filename>"  (mode typically ''r' or 'w'')
-  - Encoding: OPCODE_FOPEN, 1 byte fd, 1 byte name-length, then filename bytes
+  - Encoding: OPCODE_FOPEN, 1 byte fd, 4 byte name-length (u32, little-endian), then filename bytes
   - Behavior: interpreter opens the named file and stores the FILE* in the fds table at index fd. Mode determines fopen flags.
 - FCLOSE: Close an open file
   - Syntax: FCLOSE F<fd>

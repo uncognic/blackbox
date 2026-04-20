@@ -1,145 +1,123 @@
-#include <cctype>
-#include <cerrno>
-#include <cstring>
-#include <fstream>
-#include <iostream>
-#include <print>
-#include <string>
-
-#include "../utils/string_utils.hpp"
-#include "asm.hpp"
+#include "assembler.hpp"
 #include "basic.hpp"
+#include "utils/string_utils.hpp"
+#include <filesystem>
+#include <fstream>
+#include <print>
+#include <string_view>
 
-static std::string trim_copy(const std::string& text) {
-    size_t start = 0;
-    while (start < text.size() && std::isspace(static_cast<unsigned char>(text[start]))) {
-        start++;
-    }
-
-    size_t end = text.size();
-    while (end > start && std::isspace(static_cast<unsigned char>(text[end - 1]))) {
-        end--;
-    }
-
-    return text.substr(start, end - start);
+namespace {
+void print_usage(std::string_view prog) {
+    std::println("Usage: {} [-d|--debug] [-h|--help] [-a|--asm] <input> [output.bcx]", prog);
 }
-
-static bool is_help_argument(const std::string& argument) {
-    return argument == "-h" || argument == "--help";
+bool is_flag(std::string_view arg, std::string_view s, std::string_view l) {
+    return arg == s || arg == l;
 }
+} // namespace
 
-static bool is_debug_argument(const std::string& argument) {
-    return argument == "-d" || argument == "--debug";
-}
-
-static bool is_asm_argument(const std::string& argument) {
-    return argument == "-a" || argument == "--asm";
-}
-
-int main(int argc, char* argv[]) {
-    if (argc > 1 && is_help_argument(argv[1])) {
-        std::println("Usage: {} [-d, --debug] [-h, --help] [-a, --asm] input.bbx/.bbs <output.bcx>",
-                     argv[0]);
-        return 1;
-    }
-
-    std::string input_file;
-    std::string output_file;
+int main(int argc, char** argv) {
+    std::filesystem::path input_path;
+    std::filesystem::path output_path;
     bool debug = false;
-    bool assembly = false;
+    bool asm_only = false;
 
     for (int i = 1; i < argc; i++) {
-        std::string argument = argv[i];
-        if (is_debug_argument(argument)) {
+        std::string_view arg(argv[i]);
+        if (is_flag(arg, "-h", "--help")) {
+            print_usage(argv[0]);
+            return 0;
+        } else if (is_flag(arg, "-d", "--debug")) {
             debug = true;
-        } else if (is_asm_argument(argument)) {
-            assembly = true;
-        } else if (input_file.empty()) {
-            input_file = argument;
-        } else if (output_file.empty()) {
-            output_file = argument;
+        } else if (is_flag(arg, "-a", "--asm")) {
+            asm_only = true;
+        } else if (input_path.empty()) {
+            input_path = arg;
+        } else if (output_path.empty()) {
+            output_path = arg;
         } else {
-            std::println(stderr, "Unexpected argument: {}", argv[i]);
+            std::println(stderr, "Unexpected argument: {}", arg);
+            print_usage(argv[0]);
             return 1;
         }
     }
 
-    if (input_file.empty()) {
-        std::cerr << "Usage: " << argv[0]
-                  << " [-d, --debug] [-h, --help] [-a, --asm] input.bbx/.bbs <output.bcx>\n";
+    if (input_path.empty()) {
+        print_usage(argv[0]);
         return 1;
     }
 
-    if (assembly) {
-        std::string asm_output;
-        size_t separator = input_file.find_last_of("\\/");
-        std::string filename =
-            (separator == std::string::npos) ? input_file : input_file.substr(separator + 1);
-        asm_output = filename + ".bbx";
-        output_file = asm_output;
-    } else if (output_file.empty()) {
-        std::println("Output file not specified, defaulting to 'out.bcx'");
-        output_file = "out.bcx";
+    std::string ext = input_path.extension().string();
+
+    if (output_path.empty()) {
+        if (asm_only) {
+            output_path = input_path.stem();
+            output_path += ".bcx";
+        } else {
+            output_path = "out.bcx";
+            std::println("Output file not specified, defaulting to 'out.bcx'");
+        }
     }
 
-    std::ifstream input_stream(input_file);
-    if (!input_stream) {
-        std::cerr << "fopen input: " << std::strerror(errno) << '\n';
-        return 1;
+    bool is_basic = (ext == ".bbs");
+    bool is_asm = (ext == ".bbx") || asm_only;
+
+    // if is neither
+    if (!is_basic && !is_asm) {
+        std::ifstream f(input_path);
+        std::string line;
+        while (std::getline(f, line)) {
+            size_t c = line.find(';');
+            if (c != std::string::npos) {
+                line.erase(c);
+            }
+            size_t s = line.find_first_not_of(" \t\r\n");
+            if (s == std::string::npos) {
+                continue;
+            }
+            line = line.substr(s);
+            is_asm = blackbox::tools::equals_ci(line.c_str(), "%asm");
+            break;
+        }
+        if (!is_asm) {
+            is_basic = true;
+        }
     }
 
-    std::string line;
-    bool is_asm = false;
-    while (std::getline(input_stream, line)) {
-        std::string trimmed = trim_copy(line);
-        size_t comment = trimmed.find(';');
-        if (comment != std::string::npos) {
-            trimmed.erase(comment);
-        }
-        trimmed = trim_copy(trimmed);
-        if (trimmed.empty()) {
-            continue;
-        }
-        is_asm = blackbox::tools::equals_ci(trimmed.c_str(), "%asm") != 0;
-        break;
+    if (debug) {
+        std::println("[DEBUG] input:  {}", input_path.string());
+        std::println("[DEBUG] output: {}", output_path.string());
+        std::println("[DEBUG] mode:   {}", is_asm ? "assembly" : "basic");
     }
 
-    int result;
-    if (is_asm) {
-        if (debug) {
-            std::println("Debug mode ON");
-            std::println("[DEBUG] Input file:  {}", input_file);
-            std::println("[DEBUG] Output file: {}", output_file);
-            std::println("[DEBUG] Pathway: assembly");
-        }
-        result = assemble_file(input_file.c_str(), output_file.c_str(), debug ? 1 : 0);
-        if (result == 0) {
-            std::println("Assembly successful.");
-        }
-    } else {
-        if (debug) {
-            std::println("Debug mode ON");
-            std::println("[DEBUG] Input file:  {}", input_file);
-            std::println("[DEBUG] Output file: {}", output_file);
-            std::println("[DEBUG] Pathway: basic");
-        }
-        result = preprocess_basic(input_file.c_str(), output_file.c_str(), debug ? 1 : 0);
+    if (is_basic) {
+        std::filesystem::path intermediate = output_path;
+        intermediate.replace_extension(".bbx");
 
-        if (result != 0) {
-            return result;
+        int r = preprocess_basic(input_path.string().c_str(), intermediate.string().c_str(),
+                                 debug ? 1 : 0);
+        if (r != 0) {
+            return r;
         }
-
         std::println("BASIC preprocessing successful.");
 
-        if (assembly) {
-            return result;
+        if (asm_only) {
+            return 0;
         }
 
-        result = assemble_file(output_file.c_str(), output_file.c_str(), debug ? 1 : 0);
-        if (result == 0) {
-            std::println("Assembly successful.");
+        auto result = Assembler::assemble(intermediate, output_path, debug);
+        if (!result) {
+            std::println(stderr, "Assembly error: {}", result.error());
+            return 1;
         }
+        std::println("Assembly successful.");
+        return 0;
     }
 
-    return result;
+    auto result = Assembler::assemble(input_path, output_path, debug);
+    if (!result) {
+        std::println(stderr, "Assembly error: {}", result.error());
+        return 1;
+    }
+    std::println("Assembly successful.");
+    return 0;
 }

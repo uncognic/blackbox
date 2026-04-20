@@ -9,6 +9,7 @@
 #include <format>
 #include <print>
 #include <string>
+#include <limits>
 
 namespace bbxc::encoder {
 
@@ -74,6 +75,16 @@ std::optional<uint8_t> parse_file_descriptor(std::string_view name) {
     }
     while (!name.empty() && isspace(static_cast<unsigned char>(name.back()))) {
         name.remove_suffix(1);
+    }
+
+    if (name == "STDOUT" || name == "stdout") {
+        return 1;
+    }
+    if (name == "STDERR" || name == "stderr") {
+        return 2;
+    }
+    if (name == "STDIN" || name == "stdin") {
+        return 0;
     }
 
     if (name.size() < 2) {
@@ -238,22 +249,22 @@ size_t instr_size(std::string_view line) {
 
     // variable-length instructions
     if (starts_with_keyword(s, "WRITE")) {
-        return 3 + quoted_string_len(s);
+        return 6 + quoted_string_len(s);
     }
     if (starts_with_keyword(s, "FOPEN")) {
-        return 4 + quoted_string_len(s);
+        return 7 + quoted_string_len(s);
     }
     if (starts_with_keyword(s, "EXEC")) {
-        return 3 + quoted_string_len(s);
+        return 6 + quoted_string_len(s);
     }
     if (starts_with_keyword(s, "GETENV")) {
         auto rest = trim(after_keyword(s, 6));
         auto [reg_part, name_part] = split_comma(rest);
         name_part = trim(name_part);
         if (!name_part.empty() && name_part[0] == '"') {
-            return 3 + quoted_string_len(s);
+            return 6 + quoted_string_len(s);
         }
-        return 3 + name_part.size();
+        return 6 + name_part.size();
     }
 
     // fixed-size instructions
@@ -425,9 +436,6 @@ size_t instr_size(std::string_view line) {
     if (starts_with_keyword(s, "PUSHI")) {
         return 5;
     }
-    if (starts_with_keyword(s, "JMPI")) {
-        return 5;
-    }
     if (starts_with_keyword(s, "JE")) {
         return 5;
     }
@@ -463,7 +471,8 @@ size_t instr_size(std::string_view line) {
     }
 
     if (starts_with_keyword(s, "JMP")) {
-        return 2; // reg form
+        auto operand = after_keyword(s, 3);
+        return parse_register(operand).has_value() ? 2 : 5;
     }
     if (starts_with_keyword(s, "MOVI")) {
         return 6;
@@ -761,16 +770,30 @@ std::expected<void, std::string> encode(std::string_view line,
     }
 
     if (starts_with_keyword(s, "JMP")) {
-        TRY_REG(r, after_keyword(s, 3))
-        write_u8(out, opcode_to_byte(Opcode::JMP));
-        write_u8(out, r);
-        return {};
-    }
-    if (starts_with_keyword(s, "JMPI")) {
-        TRY_LABEL(addr, after_keyword(s, 4))
-        write_u8(out, opcode_to_byte(Opcode::JMPI));
-        write_u32(out, addr);
-        return {};
+        auto target = trim(after_keyword(s, 3));
+        if (target.empty()) {
+            return err("missing JMP operand");
+        }
+
+        if (auto reg = parse_register(target)) {
+            write_u8(out, opcode_to_byte(Opcode::JMP));
+            write_u8(out, *reg);
+            return {};
+        }
+
+        if (auto addr = resolve_label(target, labels)) {
+            write_u8(out, opcode_to_byte(Opcode::JMPI));
+            write_u32(out, *addr);
+            return {};
+        }
+
+        if (auto imm = parse_u32(target)) {
+            write_u8(out, opcode_to_byte(Opcode::JMPI));
+            write_u32(out, *imm);
+            return {};
+        }
+
+        return err("invalid JMP operand (expected register, label, or u32 immediate)");
     }
     if (starts_with_keyword(s, "JE")) {
         TRY_LABEL(addr, after_keyword(s, 2))
@@ -1030,19 +1053,24 @@ std::expected<void, std::string> encode(std::string_view line,
 
     if (starts_with_keyword(s, "WRITE")) {
         auto rest = after_keyword(s, 5);
-        auto [fd_tok, rest2] = split_comma(rest);
+        size_t sp = rest.find_first_of(" \t");
+        if (sp == std::string_view::npos) {
+            return err("expected fd and string in WRITE");
+        }
+        auto fd_tok = trim(rest.substr(0, sp));
+        auto str_tok = trim(rest.substr(sp + 1));
         TRY_FD(fd, fd_tok)
         size_t pos = 0;
-        auto str = parse_quoted(rest2, pos);
+        auto str = parse_quoted(str_tok, pos);
         if (!str) {
             return err("expected quoted string in WRITE");
         }
-        if (str->size() > 255) {
+        if (str->size() > static_cast<size_t>(std::numeric_limits<uint32_t>::max())) {
             return err("string too long in WRITE");
         }
         write_u8(out, opcode_to_byte(Opcode::WRITE));
         write_u8(out, fd);
-        write_u8(out, static_cast<uint8_t>(str->size()));
+        write_u32(out, static_cast<uint32_t>(str->size()));
         for (char c : *str) {
             write_u8(out, static_cast<uint8_t>(c));
         }
@@ -1121,7 +1149,7 @@ std::expected<void, std::string> encode(std::string_view line,
         if (!fname) {
             return err("expected quoted filename in FOPEN");
         }
-        if (fname->size() > 255) {
+        if (fname->size() > static_cast<size_t>(std::numeric_limits<uint32_t>::max())) {
             return err("filename too long in FOPEN");
         }
 
@@ -1139,7 +1167,7 @@ std::expected<void, std::string> encode(std::string_view line,
         write_u8(out, opcode_to_byte(Opcode::FOPEN));
         write_u8(out, mode_byte);
         write_u8(out, fd);
-        write_u8(out, static_cast<uint8_t>(fname->size()));
+        write_u32(out, static_cast<uint32_t>(fname->size()));
         for (char c : *fname) {
             write_u8(out, static_cast<uint8_t>(c));
         }
@@ -1210,7 +1238,7 @@ std::expected<void, std::string> encode(std::string_view line,
         if (!cmd) {
             return err("expected quoted command in EXEC");
         }
-        if (cmd->size() > 255) {
+        if (cmd->size() > static_cast<size_t>(std::numeric_limits<uint32_t>::max())) {
             return err("command too long in EXEC");
         }
         auto after = trim(rest.substr(pos));
@@ -1220,7 +1248,7 @@ std::expected<void, std::string> encode(std::string_view line,
         TRY_REG(r, after.substr(1))
         write_u8(out, opcode_to_byte(Opcode::EXEC));
         write_u8(out, r);
-        write_u8(out, static_cast<uint8_t>(cmd->size()));
+        write_u32(out, static_cast<uint32_t>(cmd->size()));
         for (char c : *cmd) {
             write_u8(out, static_cast<uint8_t>(c));
         }
@@ -1304,12 +1332,12 @@ std::expected<void, std::string> encode(std::string_view line,
             }
             name = *q;
         }
-        if (name.size() > 255) {
+        if (name.size() > static_cast<size_t>(std::numeric_limits<uint32_t>::max())) {
             return err("env var name too long in GETENV");
         }
         write_u8(out, opcode_to_byte(Opcode::GETENV));
         write_u8(out, r);
-        write_u8(out, static_cast<uint8_t>(name.size()));
+        write_u32(out, static_cast<uint32_t>(name.size()));
         for (char c : name) {
             write_u8(out, static_cast<uint8_t>(c));
         }

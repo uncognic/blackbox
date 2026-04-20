@@ -70,17 +70,17 @@ void VM::op_eprintstr() {
 
 void VM::op_write() {
     uint8_t fd = fetch_u8();
-    uint8_t len = fetch_u8();
+    uint32_t len = fetch_u32();
 
     if (fd != 1 && fd != 2) {
         hard_fault(FaultType::OutOfBounds, std::format("WRITE invalid fd {} at pc={}", fd, pc));
     }
-    if (pc + len > prog.code.size()) {
+    if (pc + static_cast<size_t>(len) > prog.code.size()) {
         hard_fault(FaultType::OutOfBounds,
                    std::format("WRITE string past end of code at pc={}", pc));
     }
 
-    std::string_view sv(reinterpret_cast<const char*>(prog.code.data() + pc), len);
+    std::string_view sv(reinterpret_cast<const char*>(prog.code.data() + pc), static_cast<size_t>(len));
     if (fd == 1) {
         std::print("{}", sv);
     } else {
@@ -130,18 +130,18 @@ void VM::op_fopen() {
 
     uint8_t mode_byte = fetch_u8();
     uint8_t fd = fetch_u8();
-    uint8_t fname_len = fetch_u8();
+    uint32_t fname_len = fetch_u32();
 
     if (fd >= FILE_DESCRIPTORS) {
         hard_fault(FaultType::OutOfBounds, std::format("FOPEN invalid fd {} at pc={}", fd, pc));
     }
-    if (pc + fname_len > prog.code.size()) {
+    if (pc + static_cast<size_t>(fname_len) > prog.code.size()) {
         hard_fault(FaultType::OutOfBounds,
                    std::format("FOPEN filename past end of code at pc={}", pc));
     }
 
-    std::string fname(reinterpret_cast<const char*>(prog.code.data() + pc), fname_len);
-    pc += fname_len;
+    std::string fname(reinterpret_cast<const char*>(prog.code.data() + pc), static_cast<size_t>(fname_len));
+    pc += static_cast<size_t>(fname_len);
 
     // close existing
     fds[fd].kind = FD::Kind::Closed;

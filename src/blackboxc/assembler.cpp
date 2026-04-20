@@ -3,11 +3,11 @@
 //
 
 #include "assembler.hpp"
-#include "../define.hpp"
-#include "../utils/preprocessor.hpp"
+#include "define.hpp"
 #include "encoder.hpp"
+#include "utils/macro_expansion.hpp"
+#include "utils/preprocessor.hpp"
 #include "utils/string_utils.hpp"
-
 #include <format>
 #include <fstream>
 #include <print>
@@ -40,11 +40,9 @@ std::expected<void, std::string> Assembler::preprocess(const std::filesystem::pa
         return std::unexpected(std::format("Failed to preprocess '{}'", input.string()));
     }
 
-    // get raw lines
     std::vector<std::string> raw;
     collect_lines_from_buffer(preprocessed, raw);
 
-    // collect macros
     std::vector<Macro> macros;
     for (size_t i = 0; i < raw.size(); i++) {
         std::string t = trim_copy(raw[i]);
@@ -73,6 +71,7 @@ std::expected<void, std::string> Assembler::preprocess(const std::filesystem::pa
         i = j;
     }
 
+    unsigned long expand_id = 0;
     for (size_t i = 0; i < raw.size(); i++) {
         std::string t = trim_copy(raw[i]);
 
@@ -81,23 +80,27 @@ std::expected<void, std::string> Assembler::preprocess(const std::filesystem::pa
                 if (trim_copy(raw[i]) == "%endmacro") {
                     break;
                 }
-                continue;
             }
-
-            if (t == "%asm" || t == "%data" || t == "%main" || t == "%entry" || t == "%endmacro") {
-                lines.push_back(std::string(t));
-                continue;
-            }
-
-            if (blackbox::tools::starts_with_ci(t.data(), "%globals")) {
-                lines.push_back(std::string(t));
-                continue;
-            }
-            if (!t.empty() && t[0] == '%') {
-                // TODO: change expand invocation to work with this
-            }
-            lines.push_back(raw[i]);
+            continue;
         }
+
+        if (t == "%asm" || t == "%data" || t == "%main" || t == "%entry" || t == "%endmacro" ||
+            blackbox::tools::starts_with_ci(t.data(), "%globals")) {
+            lines.push_back(std::string(t));
+            continue;
+        }
+
+        if (!t.empty() && t[0] == '%') {
+            std::vector<std::string> expanded;
+            if (blackbox::tools::expand_invocation(t, macros, expanded, expand_id)) {
+                for (auto& el : expanded) {
+                    lines.push_back(el);
+                }
+                continue;
+            }
+        }
+
+        lines.push_back(raw[i]);
     }
     return {};
 }
@@ -128,9 +131,8 @@ std::expected<void, std::string> Assembler::pass1() {
     enum class Section { None, Data, Code };
     Section section = Section::None;
 
-    // header size: magic(3) + global_count(4) + entry_count(4) = 11
-    constexpr uint32_t HEADER = 11;
-    uint32_t pc = HEADER;
+    uint32_t data_size = 0;
+    uint32_t code_pc = 0;
 
     for (auto& raw_line : lines) {
         std::string s = trim_copy(raw_line);
@@ -139,7 +141,7 @@ std::expected<void, std::string> Assembler::pass1() {
         }
 
         size_t comment = s.find(';');
-        if (comment != std::string_view::npos) {
+        if (comment != std::string::npos) {
             s = trim_copy(s.substr(0, comment));
         }
         if (s.empty()) {
@@ -158,7 +160,6 @@ std::expected<void, std::string> Assembler::pass1() {
             continue;
         }
 
-        // %globals N
         if (blackbox::tools::starts_with_ci(s.data(), "%globals")) {
             auto tok = trim_copy(s.substr(8));
             uint32_t n = 0;
@@ -171,10 +172,8 @@ std::expected<void, std::string> Assembler::pass1() {
         }
 
         if (section == Section::Data) {
-            // STR $name, "value"
             if (blackbox::tools::starts_with_ci(s.data(), "STR")) {
                 auto rest = trim_copy(s.substr(3));
-                // parse $name
                 if (rest.empty() || rest[0] != '$') {
                     return std::unexpected(std::format("expected $name in STR: '{}'", s));
                 }
@@ -184,7 +183,6 @@ std::expected<void, std::string> Assembler::pass1() {
                 }
                 std::string name = trim_copy(std::string(rest.substr(1, comma - 1)));
                 auto rest2 = trim_copy(rest.substr(comma + 1));
-
                 size_t q1 = rest2.find('"');
                 if (q1 == std::string_view::npos) {
                     return std::unexpected(std::format("expected quoted string in STR: '{}'", s));
@@ -195,32 +193,34 @@ std::expected<void, std::string> Assembler::pass1() {
                 }
                 std::string value = std::string(rest2.substr(q1 + 1, q2 - q1 - 1));
 
-                data_entries.push_back(DataEntry{name, value, static_cast<uint32_t>(data_entries.size())});
-
+                uint32_t index = static_cast<uint32_t>(data_entries.size());
+                data_entries.push_back(DataEntry{name, value, index});
                 // entry: type(1) + length(4) + bytes
-                pc += 1 + 4 + static_cast<uint32_t>(value.size());
+                data_size += 1 + 4 + static_cast<uint32_t>(value.size());
+                continue;
             }
-
-            // usually here we would handle DWORDs and stuff
-            // but fuck that we are not doing that
-            // the assembler can just MOVI it
+            if (blackbox::tools::starts_with_ci(s.data(), "BYTE") ||
+                blackbox::tools::starts_with_ci(s.data(), "WORD") ||
+                blackbox::tools::starts_with_ci(s.data(), "DWORD") ||
+                blackbox::tools::starts_with_ci(s.data(), "QWORD")) {
+                return std::unexpected(
+                    std::format("numeric data types removed, use MOVI instead: '{}'", s));
+            }
             continue;
         }
 
         if (section == Section::Code) {
-            // label definition .name:
             if (s[0] == '.') {
-                std::string name = std::string(s.substr(1));
+                std::string name = s.substr(1);
                 if (!name.empty() && name.back() == ':') {
                     name.pop_back();
                 }
                 if (find_label(name)) {
                     return std::unexpected(std::format("duplicate label '{}'", name));
                 }
-                labels.push_back(Label{name, pc, 0});
+                labels.push_back(Label{name, code_pc, 0});
                 continue;
             }
-            // FRAME n
             if (blackbox::tools::starts_with_ci(s.data(), "FRAME")) {
                 auto tok = trim_copy(s.substr(5));
                 uint32_t fs = 0;
@@ -233,14 +233,13 @@ std::expected<void, std::string> Assembler::pass1() {
                 }
                 continue;
             }
-
-            pc += static_cast<uint32_t>(instr_size(s));
+            code_pc += static_cast<uint32_t>(instr_size(s));
         }
     }
 
     if (debug) {
-        std::println("[ASM] pass1: {} labels, {} data entries, {} globals", labels.size(),
-                     data_entries.size(), global_count);
+        std::println("[ASM] pass1: {} labels, {} data entries, {} globals, {} code bytes",
+                     labels.size(), data_entries.size(), global_count, code_pc);
     }
 
     return {};
@@ -269,8 +268,9 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
         if (s.empty() || s[0] == ';') {
             continue;
         }
+
         size_t comment = s.find(';');
-        if (comment != std::string_view::npos) {
+        if (comment != std::string::npos) {
             s = trim_copy(s.substr(0, comment));
         }
         if (s.empty()) {

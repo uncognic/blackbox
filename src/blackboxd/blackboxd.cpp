@@ -125,29 +125,35 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
     size_t j = i + 1;
 
     auto read_len_prefixed = [&]() -> bool {
-        uint8_t len = 0;
-        if (!blackbox::data::read_u8(code, j, len)) {
+        uint32_t len = 0;
+        if (!blackbox::data::read_u32_le(code, j, len)) {
             return false;
         }
-        j += 1 + static_cast<size_t>(len);
+        j += 4 + static_cast<size_t>(len);
         return j <= code.size();
     };
 
     switch (opcode) {
         case Opcode::WRITE: {
-            if (j + 2 > code.size()) {
+            if (j + 5 > code.size()) {
                 return std::nullopt;
             }
-            const uint8_t slen = code[j + 1];
-            j += 2 + static_cast<size_t>(slen);
+            uint32_t slen = 0;
+            if (!blackbox::data::read_u32_le(code, j + 1, slen)) {
+                return std::nullopt;
+            }
+            j += 5 + static_cast<size_t>(slen);
             break;
         }
         case Opcode::EXEC: {
-            if (j + 2 > code.size()) {
+            if (j + 5 > code.size()) {
                 return std::nullopt;
             }
-            const uint8_t slen = code[j + 1];
-            j += 2 + static_cast<size_t>(slen);
+            uint32_t slen = 0;
+            if (!blackbox::data::read_u32_le(code, j + 1, slen)) {
+                return std::nullopt;
+            }
+            j += 5 + static_cast<size_t>(slen);
             break;
         }
         case Opcode::NEWLINE: // the reason all the following opcodes are grouped together is
@@ -183,6 +189,7 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
         case Opcode::GETFAULT:
         case Opcode::GETARGC:
         case Opcode::SLEEP_REG:
+        case Opcode::JMP:
             j += 1;
             break;
         case Opcode::PUSHI:
@@ -191,7 +198,6 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
         case Opcode::RESIZE:
         case Opcode::FREE:
         case Opcode::SLEEP:
-        case Opcode::JMP:
         case Opcode::JMPI:
         case Opcode::JE:
         case Opcode::JNE:
@@ -199,8 +205,8 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
         case Opcode::JGE:
         case Opcode::JB:
         case Opcode::JAE:
-            if (opcode == Opcode::JMP || opcode == Opcode::JMPI || opcode == Opcode::JE ||
-                opcode == Opcode::JNE || opcode == Opcode::JL || opcode == Opcode::JGE ||
+            if (opcode == Opcode::JMPI || opcode == Opcode::JE || opcode == Opcode::JNE ||
+                opcode == Opcode::JL || opcode == Opcode::JGE ||
                 opcode == Opcode::JB || opcode == Opcode::JAE) {
                 uint32_t addr = 0;
                 if (blackbox::data::read_u32_le(code, j, addr)) {
@@ -243,29 +249,6 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             j += 1 + 4;
             break;
         case Opcode::LOADSTR:
-        case Opcode::LOADBYTE:
-        case Opcode::LOADWORD:
-        case Opcode::LOADDWORD:
-        case Opcode::LOADQWORD: {
-            if (j + 5 <= code.size()) {
-                uint32_t off = 0;
-                if (blackbox::data::read_u32_le(code, j + 1, off)) {
-                    DataRefKind kind = DataRefKind::Str;
-                    if (opcode == Opcode::LOADBYTE) {
-                        kind = DataRefKind::Byte;
-                    } else if (opcode == Opcode::LOADWORD) {
-                        kind = DataRefKind::Word;
-                    } else if (opcode == Opcode::LOADDWORD) {
-                        kind = DataRefKind::Dword;
-                    } else if (opcode == Opcode::LOADQWORD) {
-                        kind = DataRefKind::Qword;
-                    }
-                    ctx.data_refs.emplace(off, kind);
-                }
-            }
-            j += 1 + 4;
-            break;
-        }
         case Opcode::FOPEN: {
             if (j + 3 > code.size()) {
                 return std::nullopt;
@@ -311,11 +294,14 @@ std::optional<size_t> scan_one(const std::vector<uint8_t>& code, size_t i, size_
             j += 1 + 8;
             break;
         case Opcode::GETENV: {
-            if (j + 2 > code.size()) {
+            if (j + 5 > code.size()) {
                 return std::nullopt;
             }
-            const uint8_t len = code[j + 1];
-            j += 2 + static_cast<size_t>(len);
+            uint32_t len = 0;
+            if (!blackbox::data::read_u32_le(code, j + 1, len)) {
+                return std::nullopt;
+            }
+            j += 5 + static_cast<size_t>(len);
             break;
         }
         default:
@@ -433,12 +419,15 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
 
     switch (opcode) {
         case Opcode::WRITE: {
-            if (j + 2 > code.size()) {
+            if (j + 5 > code.size()) {
                 return std::nullopt;
             }
             const uint8_t fd = code[j];
-            const uint8_t slen = code[j + 1];
-            j += 2;
+            uint32_t slen = 0;
+            if (!blackbox::data::read_u32_le(code, j + 1, slen)) {
+                return std::nullopt;
+            }
+            j += 5;
             const std::string s = quoted_string(code, j, slen);
             j += std::min(static_cast<size_t>(slen), code.size() - j);
             const char* fd_name = "STDOUT";
@@ -449,12 +438,15 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             break;
         }
         case Opcode::EXEC: {
-            if (j + 2 > code.size()) {
+            if (j + 5 > code.size()) {
                 return std::nullopt;
             }
             const uint8_t dest = code[j];
-            const uint8_t slen = code[j + 1];
-            j += 2;
+            uint32_t slen = 0;
+            if (!blackbox::data::read_u32_le(code, j + 1, slen)) {
+                return std::nullopt;
+            }
+            j += 5;
             const std::string s = quoted_string(code, j, slen);
             j += std::min(static_cast<size_t>(slen), code.size() - j);
             os << "    exec \"" << s << "\", " << reg_name(dest) << "\n";
@@ -681,7 +673,15 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             }
             break;
         }
-        case Opcode::JMP:
+        case Opcode::JMP: {
+            uint8_t reg = 0;
+            if (!blackbox::data::read_u8(code, j, reg)) {
+                return std::nullopt;
+            }
+            j += 1;
+            os << "    jmp " << reg_name(reg) << "\n";
+            break;
+        }
         case Opcode::JE:
         case Opcode::JNE:
         case Opcode::JL:
@@ -696,9 +696,6 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             j += 4;
 
             switch (opcode) {
-                case Opcode::JMP:
-                    os << "    jmp " << label_name(addr) << "\n";
-                    break;
                 case Opcode::JE:
                     os << "    je " << label_name(addr) << "\n";
                     break;
@@ -718,7 +715,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
                     os << "    jae " << label_name(addr) << "\n";
                     break;
                 case Opcode::JMPI:
-                    os << "    jmpi " << addr << "\n";
+                    os << "    jmp " << label_name(addr) << "\n";
                     break;
                 default:
                     break;
@@ -762,10 +759,6 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
         case Opcode::LOADVAR:
         case Opcode::STOREVAR:
         case Opcode::LOADSTR:
-        case Opcode::LOADBYTE:
-        case Opcode::LOADWORD:
-        case Opcode::LOADDWORD:
-        case Opcode::LOADQWORD:
         case Opcode::FWRITE_IMM:
         case Opcode::FSEEK_IMM:
         case Opcode::GETARG: {
@@ -794,22 +787,6 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
                     break;
                 case Opcode::LOADSTR:
                     os << "    loadstr " << data_name_for_offset(data_entries, b) << ", "
-                       << reg_name(a) << "\n";
-                    break;
-                case Opcode::LOADBYTE:
-                    os << "    loadbyte " << data_name_for_offset(data_entries, b) << ", "
-                       << reg_name(a) << "\n";
-                    break;
-                case Opcode::LOADWORD:
-                    os << "    loadword " << data_name_for_offset(data_entries, b) << ", "
-                       << reg_name(a) << "\n";
-                    break;
-                case Opcode::LOADDWORD:
-                    os << "    loaddword " << data_name_for_offset(data_entries, b) << ", "
-                       << reg_name(a) << "\n";
-                    break;
-                case Opcode::LOADQWORD:
-                    os << "    loadqword " << data_name_for_offset(data_entries, b) << ", "
                        << reg_name(a) << "\n";
                     break;
                 case Opcode::FWRITE_IMM:
@@ -1021,12 +998,15 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             break;
         }
         case Opcode::GETENV: {
-            if (j + 2 > code.size()) {
+            if (j + 5 > code.size()) {
                 return std::nullopt;
             }
             const uint8_t reg = code[j];
-            const uint8_t len = code[j + 1];
-            j += 2;
+            uint32_t len = 0;
+            if (!blackbox::data::read_u32_le(code, j + 1, len)) {
+                return std::nullopt;
+            }
+            j += 5;
             const std::string name = quoted_string(code, j, len);
             j += std::min(static_cast<size_t>(len), code.size() - j);
             os << "    getenv " << reg_name(reg) << ", \"" << name << "\"\n";
@@ -1065,12 +1045,15 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
 
     switch (opcode) {
         case Opcode::WRITE: {
-            if (j + 2 > bytes.size()) {
+            if (j + 5 > bytes.size()) {
                 return invalid();
             }
             const uint8_t fd = bytes[j];
-            const uint8_t slen = bytes[j + 1];
-            j += 2;
+            uint32_t slen = 0;
+            if (!blackbox::data::read_u32_le(bytes, j + 1, slen)) {
+                return invalid();
+            }
+            j += 5;
             const std::string s = quoted_string(bytes, j, slen);
             j += std::min(static_cast<size_t>(slen), bytes.size() - j);
             std::ostringstream msg;
@@ -1079,12 +1062,15 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             break;
         }
         case Opcode::EXEC: {
-            if (j + 2 > bytes.size()) {
+            if (j + 5 > bytes.size()) {
                 return invalid();
             }
             const uint8_t reg = bytes[j];
-            const uint8_t slen = bytes[j + 1];
-            j += 2;
+            uint32_t slen = 0;
+            if (!blackbox::data::read_u32_le(bytes, j + 1, slen)) {
+                return invalid();
+            }
+            j += 5;
             const std::string s = quoted_string(bytes, j, slen);
             j += std::min(static_cast<size_t>(slen), bytes.size() - j);
             std::ostringstream msg;
@@ -1114,7 +1100,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             j += 4;
             print_offset("pushi " + std::to_string(v));
             break;
-        }
+         }
         case Opcode::PUSH_REG:
         case Opcode::POP:
         case Opcode::PRINTREG:
@@ -1328,7 +1314,15 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             print_offset(msg.str());
             break;
         }
-        case Opcode::JMP:
+        case Opcode::JMP: {
+            uint8_t reg = 0;
+            if (!blackbox::data::read_u8(bytes, j, reg)) {
+                return invalid();
+            }
+            j += 1;
+            print_offset("jmp " + reg_name(reg));
+            break;
+        }
         case Opcode::JMPI:
         case Opcode::JE:
         case Opcode::JNE:
@@ -1344,11 +1338,8 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
 
             std::string op;
             switch (opcode) {
-                case Opcode::JMP:
-                    op = "jmp";
-                    break;
                 case Opcode::JMPI:
-                    op = "jmpi";
+                    op = "jmp";
                     break;
                 case Opcode::JE:
                     op = "je";
@@ -1421,10 +1412,6 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
         case Opcode::LOADVAR:
         case Opcode::STOREVAR:
         case Opcode::LOADSTR:
-        case Opcode::LOADBYTE:
-        case Opcode::LOADWORD:
-        case Opcode::LOADDWORD:
-        case Opcode::LOADQWORD:
         case Opcode::FWRITE_IMM:
         case Opcode::FSEEK_IMM:
         case Opcode::GETARG: {
@@ -1454,18 +1441,6 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
                     break;
                 case Opcode::LOADSTR:
                     op = "loadstr";
-                    break;
-                case Opcode::LOADBYTE:
-                    op = "loadbyte";
-                    break;
-                case Opcode::LOADWORD:
-                    op = "loadword";
-                    break;
-                case Opcode::LOADDWORD:
-                    op = "loaddword";
-                    break;
-                case Opcode::LOADQWORD:
-                    op = "loadqword";
                     break;
                 case Opcode::FWRITE_IMM:
                     op = "fwrite";

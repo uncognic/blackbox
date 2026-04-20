@@ -41,6 +41,8 @@ Instructions are written one per line. Syntax is Intel-style with spaces and com
 MOVI R01, 42
 ADD R00, R01
 JMP some_label
+JMP R10
+JMP 128
 ```
 
 Instruction names are case-insensitive. `MOVI`, `movi`, and `Movi` are all valid.
@@ -64,6 +66,8 @@ Labels are referenced without the period or colon:
 JMP my_label
 JE  my_label
 ```
+
+`JMP` accepts a register (`JMP R10`), label (`JMP my_label`), or absolute u32 immediate (`JMP 128`).
 
 Label names are case-sensitive.
 

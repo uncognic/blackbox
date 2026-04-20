@@ -22,15 +22,15 @@ void VM::op_exec() {
     require_privileged("EXEC");
 
     size_t dst = fetch_reg();
-    uint8_t len = fetch_u8();
+    uint32_t len = fetch_u32();
 
-    if (pc + len > prog.code.size()) {
+    if (pc + static_cast<size_t>(len) > prog.code.size()) {
         hard_fault(FaultType::OutOfBounds,
                    std::format("EXEC command past end of code at pc={}", pc));
     }
 
-    std::string cmd(reinterpret_cast<const char*>(prog.code.data() + pc), len);
-    pc += len;
+    std::string cmd(reinterpret_cast<const char*>(prog.code.data() + pc), static_cast<size_t>(len));
+    pc += static_cast<size_t>(len);
 
     regs[dst] = static_cast<int64_t>(std::system(cmd.c_str()));
 }
@@ -135,15 +135,15 @@ void VM::op_getarg() {
 
 void VM::op_getenv() {
     size_t reg = fetch_reg();
-    uint8_t envlen = fetch_u8();
+    uint32_t envlen = fetch_u32();
 
-    if (pc + envlen > prog.code.size()) {
+    if (pc + static_cast<size_t>(envlen) > prog.code.size()) {
         hard_fault(FaultType::OutOfBounds,
                    std::format("GETENV name past end of code at pc={}", pc));
     }
 
-    std::string_view name(reinterpret_cast<const char*>(prog.code.data() + pc), envlen);
-    pc += envlen;
+    std::string_view name(reinterpret_cast<const char*>(prog.code.data() + pc), static_cast<size_t>(envlen));
+    pc += static_cast<size_t>(envlen);
 
     const char* val = std::getenv(std::string(name).c_str());
     if (!val) {
