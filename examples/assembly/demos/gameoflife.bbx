@@ -29,13 +29,15 @@
     MOVI R05, 0
     CMP $nr, R05
     JL @@skip
-    MOVI R05, 20
+
+    MOVI R05, 19
     CMP R05, $nr
     JL @@skip
     MOVI R05, 0
     CMP $nc, R05
     JL @@skip
-    MOVI R05, 40
+
+    MOVI R05, 39
     CMP R05, $nc
     JL @@skip
     %IDX $nr, $nc, R06
