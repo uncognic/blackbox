@@ -14,14 +14,14 @@
 ; Syscall handlers
     .handler_alloc:
         ALLOC 256
-        WRITE STDOUT, "Allocated "
+        WRITE STDOUT "Allocated "
         PRINT_STACKSIZE
-        WRITE STDOUT, " bytes of memory"
+        WRITE STDOUT " bytes of memory"
         NEWLINE
         SYSRET
     
     .handler_print:
-        WRITE STDOUT, "Hello from syscall 1!"
+        WRITE STDOUT "Hello from syscall 1!"
         NEWLINE
         SYSRET
 

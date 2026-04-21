@@ -10,6 +10,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <unordered_map>
 #include <vector>
 
 class Assembler {
@@ -20,6 +21,7 @@ private:
     std::vector<bbxc::asm_helpers::Label> labels;
     std::vector<bbxc::asm_helpers::DataEntry> data_entries;
     std::vector<std::string> lines;
+    std::unordered_map<std::string, std::string> defines;
     uint32_t global_count = 0;
     bool debug = false;
 

@@ -104,7 +104,7 @@ void VM::op_store() {
     uint32_t addr = fetch_u32();
     if (addr >= op_stack.size()) {
         hard_fault(FaultType::OutOfBounds,
-                   std::format("STORE address {} out of bounds at pc={}", addr, pc));
+                   std::format("STORE address {} out of bounds at pc={} (try ALLOCing more stack)", addr, pc));
     }
     if (cur_mode == Mode::Privileged && !op_stack_perms[addr].priv_write) {
         raise_fault(FaultType::PermWrite,

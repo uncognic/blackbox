@@ -420,11 +420,21 @@ size_t instr_size(std::string_view line) {
     if (starts_with_keyword(s, "FREAD")) {
         return 3;
     }
-    if (starts_with_keyword(s, "FWRITE_REG") || starts_with_keyword(s, "FWRITE")) {
+    if (starts_with_keyword(s, "FWRITE_REG")) {
         return 3;
+    }
+    if (starts_with_keyword(s, "FWRITE")) {
+        auto [fd_tok, value_tok] = split_comma(after_keyword(s, 6));
+        (void)fd_tok;
+        return parse_register(value_tok).has_value() ? 3 : 6;
     }
     if (starts_with_keyword(s, "FSEEK_REG")) {
         return 3;
+    }
+    if (starts_with_keyword(s, "FSEEK")) {
+        auto [fd_tok, value_tok] = split_comma(after_keyword(s, 5));
+        (void)fd_tok;
+        return parse_register(value_tok).has_value() ? 3 : 6;
     }
     if (starts_with_keyword(s, "LOADREF")) {
         return 3;
@@ -478,10 +488,14 @@ size_t instr_size(std::string_view line) {
         return 6;
     }
     if (starts_with_keyword(s, "LOAD")) {
-        return 6;
+        auto [reg_tok, value_tok] = split_comma(after_keyword(s, 4));
+        static_cast<void>(reg_tok);
+        return parse_register(value_tok).has_value() ? 3 : 6;
     }
     if (starts_with_keyword(s, "STORE")) {
-        return 6;
+        auto [reg_tok, value_tok] = split_comma(after_keyword(s, 5));
+        static_cast<void>(reg_tok);
+        return parse_register(value_tok).has_value() ? 3 : 6;
     }
     if (starts_with_keyword(s, "LOADVAR")) {
         return 6;
@@ -958,6 +972,12 @@ std::expected<void, std::string> encode(std::string_view line,
     if (starts_with_keyword(s, "LOAD")) {
         auto [reg_tok, addr_tok] = split_comma(after_keyword(s, 4));
         TRY_REG(r, reg_tok)
+        if (auto idx = parse_register(addr_tok)) {
+            write_u8(out, opcode_to_byte(Opcode::LOAD_REG));
+            write_u8(out, r);
+            write_u8(out, *idx);
+            return {};
+        }
         auto addr = parse_u32(addr_tok);
         if (!addr) {
             return err("invalid address in LOAD");
@@ -970,6 +990,12 @@ std::expected<void, std::string> encode(std::string_view line,
     if (starts_with_keyword(s, "STORE")) {
         auto [reg_tok, addr_tok] = split_comma(after_keyword(s, 5));
         TRY_REG(r, reg_tok)
+        if (auto idx = parse_register(addr_tok)) {
+            write_u8(out, opcode_to_byte(Opcode::STORE_REG));
+            write_u8(out, r);
+            write_u8(out, *idx);
+            return {};
+        }
         auto addr = parse_u32(addr_tok);
         if (!addr) {
             return err("invalid address in STORE");
@@ -1030,9 +1056,9 @@ std::expected<void, std::string> encode(std::string_view line,
         return {};
     }
     if (starts_with_keyword(s, "LOADSTR")) {
-        auto [reg_tok, name_tok] = split_comma(after_keyword(s, 7));
-        TRY_REG(r, reg_tok)
+        auto [name_tok, reg_tok] = split_comma(after_keyword(s, 7));
         TRY_DATA(idx, name_tok)
+        TRY_REG(r, reg_tok)
         write_u8(out, opcode_to_byte(Opcode::LOADSTR));
         write_u8(out, r);
         write_u32(out, idx);
@@ -1186,10 +1212,8 @@ std::expected<void, std::string> encode(std::string_view line,
         write_u8(out, r);
         return {};
     }
-    if (starts_with_keyword(s, "FWRITE_REG") || starts_with_keyword(s, "FWRITE")) {
-        auto rest =
-            starts_with_keyword(s, "FWRITE_REG") ? after_keyword(s, 10) : after_keyword(s, 6);
-        auto [fd_tok, reg_tok] = split_comma(rest);
+    if (starts_with_keyword(s, "FWRITE_REG")) {
+        auto [fd_tok, reg_tok] = split_comma(after_keyword(s, 10));
         TRY_FD(fd, fd_tok) TRY_REG(r, reg_tok) write_u8(out, opcode_to_byte(Opcode::FWRITE_REG));
         write_u8(out, fd);
         write_u8(out, r);
@@ -1207,6 +1231,31 @@ std::expected<void, std::string> encode(std::string_view line,
         write_i32(out, *v);
         return {};
     }
+    if (starts_with_keyword(s, "FWRITE")) {
+        auto [fd_tok, value_tok] = split_comma(after_keyword(s, 6));
+        TRY_FD(fd, fd_tok)
+
+        if (auto reg = parse_register(value_tok)) {
+            write_u8(out, opcode_to_byte(Opcode::FWRITE_REG));
+            write_u8(out, fd);
+            write_u8(out, *reg);
+            return {};
+        }
+
+        auto v = parse_i32(value_tok);
+        if (!v) {
+            auto tok = trim(value_tok);
+            if (!tok.empty() && tok.front() == '"') {
+                return err("invalid FWRITE operand: expected register or numeric immediate (quoted strings are not supported)");
+            }
+            return err("invalid FWRITE operand: expected register or numeric immediate");
+        }
+
+        write_u8(out, opcode_to_byte(Opcode::FWRITE_IMM));
+        write_u8(out, fd);
+        write_i32(out, *v);
+        return {};
+    }
     if (starts_with_keyword(s, "FSEEK_REG")) {
         auto [fd_tok, reg_tok] = split_comma(after_keyword(s, 9));
         TRY_FD(fd, fd_tok) TRY_REG(r, reg_tok) write_u8(out, opcode_to_byte(Opcode::FSEEK_REG));
@@ -1214,9 +1263,8 @@ std::expected<void, std::string> encode(std::string_view line,
         write_u8(out, r);
         return {};
     }
-    if (starts_with_keyword(s, "FSEEK_IMM") || starts_with_keyword(s, "FSEEK")) {
-        auto rest = starts_with_keyword(s, "FSEEK_IMM") ? after_keyword(s, 9) : after_keyword(s, 5);
-        auto [fd_tok, val_tok] = split_comma(rest);
+    if (starts_with_keyword(s, "FSEEK_IMM")) {
+        auto [fd_tok, val_tok] = split_comma(after_keyword(s, 9));
         TRY_FD(fd, fd_tok)
         auto v = parse_i32(val_tok);
         if (!v) {
@@ -1227,10 +1275,28 @@ std::expected<void, std::string> encode(std::string_view line,
         write_i32(out, *v);
         return {};
     }
+    if (starts_with_keyword(s, "FSEEK")) {
+        auto [fd_tok, value_tok] = split_comma(after_keyword(s, 5));
+        TRY_FD(fd, fd_tok)
 
-    // ---------------------------------------------------------------
-    // system
-    // ---------------------------------------------------------------
+        if (auto reg = parse_register(value_tok)) {
+            write_u8(out, opcode_to_byte(Opcode::FSEEK_REG));
+            write_u8(out, fd);
+            write_u8(out, *reg);
+            return {};
+        }
+
+        auto v = parse_i32(value_tok);
+        if (!v) {
+            return err("invalid offset in FSEEK");
+        }
+
+        write_u8(out, opcode_to_byte(Opcode::FSEEK_IMM));
+        write_u8(out, fd);
+        write_i32(out, *v);
+        return {};
+    }
+
     if (starts_with_keyword(s, "EXEC")) {
         auto rest = after_keyword(s, 4);
         size_t pos = 0;

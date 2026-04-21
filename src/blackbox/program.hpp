@@ -11,6 +11,7 @@
 struct Program {
     std::vector<uint8_t> code;
     StringTable strings;
+    std::vector<uint32_t> data_string_handles;
     uint32_t global_count = 0;
     size_t entry_point    = 0;
 

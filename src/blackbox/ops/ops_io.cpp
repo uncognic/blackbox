@@ -39,12 +39,13 @@ void VM::op_eprintchar() {
 
 void VM::op_loadstr() {
     size_t reg = fetch_reg();
-    uint32_t index = fetch_u32();
-    if (!prog.strings.valid(index)) {
+    uint32_t entry_index = fetch_u32();
+    if (entry_index >= prog.data_string_handles.size()) {
         hard_fault(FaultType::OutOfBounds,
-                   std::format("LOADSTR invalid string index {} at pc={}", index, pc));
+                   std::format("LOADSTR invalid data entry index {} at pc={}", entry_index, pc));
     }
-    regs[reg] = static_cast<int64_t>(index);
+    uint32_t handle = prog.data_string_handles[entry_index];
+    regs[reg] = static_cast<int64_t>(handle);
 }
 
 void VM::op_printstr() {

@@ -40,6 +40,10 @@ std::expected<void, std::string> Assembler::preprocess(const std::filesystem::pa
         return std::unexpected(std::format("Failed to preprocess '{}'", input.string()));
     }
 
+    if (!blackbox::tools::preprocess_defines(preprocessed, defines)) {
+        return std::unexpected("Failed to preprocess defines");
+    }
+
     std::vector<std::string> raw;
     collect_lines_from_buffer(preprocessed, raw);
 

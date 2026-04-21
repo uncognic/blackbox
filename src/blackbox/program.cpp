@@ -62,7 +62,8 @@ static std::expected<Program, std::string> parse(const std::vector<uint8_t>& raw
         switch (entry_type) {
             case DataEntryType::String: {
                 std::string_view s(reinterpret_cast<const char*>(raw.data() + cursor), length);
-                prog.strings.intern(s);
+                uint32_t handle = prog.strings.intern(s);
+                prog.data_string_handles.push_back(handle);
                 break;
             }
             default:

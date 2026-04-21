@@ -21,7 +21,7 @@
 
     .handler_fault:
         ; Handle a write permission fault by printing a message and returning
-        WRITE STDOUT, "Caught a write permission fault!"
+        WRITE STDOUT "Caught a write permission fault!"
         NEWLINE
         FAULTRET
     

@@ -116,6 +116,7 @@ bool expand_invocation(std::string_view line, const std::vector<bbxc::asm_helper
                     pos < expanded.size() &&
                     (isalnum(static_cast<unsigned char>(expanded[pos])) || expanded[pos] == '_')) {
                     result += expanded[pos];
+                    pos++;
                 }
             }
             expanded = std::move(result);
