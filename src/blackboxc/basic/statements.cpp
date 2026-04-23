@@ -115,14 +115,13 @@ std::optional<std::string> Parser::stmt_const(const std::string& s) {
             std::println("[BASIC] CONST string {} -> ${}", name, dname);
         }
     } else {
-        // Integer CONST values are shared across scopes, so store them in global slots.
-        Variable* v = active_scope().add_int(name, true);
+        Variable* v = active_scope().add_int(name);
         v->is_const = true;
         int ereg;
         if (auto err = emit_expr(rhs.c_str(), &ereg)) {
             return err;
         }
-        active_cg().emit_store_global(ereg, v->slot, name);
+        active_cg().emit_store_var(ereg, v->slot, name);
         ralloc_release(ereg);
 
         if (debug_) {
