@@ -1,11 +1,11 @@
 %asm
-;tests pushi and pop
+;tests PUSH and pop
 %main
     call test_push_pop
     halt ok
 
 .test_push_pop:
-    pushi 19
+    PUSH 19
     pop r00
     printreg r00
     newline

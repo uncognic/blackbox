@@ -167,12 +167,6 @@ Push a register value onto the operand stack.
 - Syntax: `PUSH <reg>`
 - Encoding: opcode, 1 byte register.
 
-### PUSHI
-
-Push a signed immediate value onto the operand stack.
-
-- Syntax: `PUSHI <value>`
-- Encoding: opcode, 4-byte signed immediate.
 
 ### POP
 

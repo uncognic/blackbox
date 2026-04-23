@@ -470,7 +470,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
                 return std::nullopt;
             }
             j += 4;
-            os << "    pushi " << v << "\n";
+            os << "    PUSH " << v << "\n";
             break;
         }
         case Opcode::PUSH_REG: {
@@ -479,7 +479,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
                 return std::nullopt;
             }
             j += 1;
-            os << "    push " << reg_name(r) << "\n";
+            os << "    PUSH " << reg_name(r) << "\n";
             break;
         }
         case Opcode::POP: {
@@ -488,7 +488,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
                 return std::nullopt;
             }
             j += 1;
-            os << "    pop " << reg_name(r) << "\n";
+            os << "    POP " << reg_name(r) << "\n";
             break;
         }
         case Opcode::MOVI: {

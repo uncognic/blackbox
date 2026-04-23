@@ -7,9 +7,10 @@
 #include <algorithm>
 #include <charconv>
 #include <format>
+#include <limits>
 #include <print>
 #include <string>
-#include <limits>
+
 
 namespace bbxc::encoder {
 
@@ -311,8 +312,13 @@ size_t instr_size(std::string_view line) {
     if (starts_with_keyword(s, "DEC")) {
         return 2;
     }
-    if (starts_with_keyword(s, "PUSH_REG") || starts_with_keyword(s, "PUSH")) {
-        return 2;
+    if (starts_with_keyword(s, "PUSH")) {
+        auto operand = trim(after_keyword(s, 4));
+        if (operand.empty()) {
+            return 0;
+        }
+
+        return parse_register(operand).has_value() ? 2 : 5;
     }
     if (starts_with_keyword(s, "POP")) {
         return 2;
@@ -422,7 +428,7 @@ size_t instr_size(std::string_view line) {
     }
     if (starts_with_keyword(s, "FWRITE")) {
         auto [fd_tok, value_tok] = split_comma(after_keyword(s, 6));
-        (void)fd_tok;
+        (void) fd_tok;
         return parse_register(value_tok).has_value() ? 3 : 6;
     }
     if (starts_with_keyword(s, "FSEEK_REG")) {
@@ -430,7 +436,7 @@ size_t instr_size(std::string_view line) {
     }
     if (starts_with_keyword(s, "FSEEK")) {
         auto [fd_tok, value_tok] = split_comma(after_keyword(s, 5));
-        (void)fd_tok;
+        (void) fd_tok;
         return parse_register(value_tok).has_value() ? 3 : 6;
     }
     if (starts_with_keyword(s, "LOADREF")) {
@@ -753,19 +759,26 @@ std::expected<void, std::string> encode(std::string_view line,
         return {};
     }
     if (starts_with_keyword(s, "PUSH")) {
-        TRY_REG(r, after_keyword(s, 4))
-        write_u8(out, opcode_to_byte(Opcode::PUSH_REG));
-        write_u8(out, r);
-        return {};
-    }
-    if (starts_with_keyword(s, "PUSHI")) {
-        auto v = parse_i32(after_keyword(s, 5));
-        if (!v) {
-            return err("invalid immediate in PUSHI");
+        auto arg = trim(after_keyword(s, 4));
+        if (arg.empty()) {
+            return err("missing operand in PUSH");
         }
-        write_u8(out, opcode_to_byte(Opcode::PUSHI));
-        write_i32(out, *v);
-        return {};
+
+        // if is reg
+        if (auto reg = parse_register(arg)) {
+            write_u8(out, opcode_to_byte(Opcode::PUSH_REG));
+            write_u8(out, *reg);
+            return {};
+        }
+
+        // if imm
+        if (auto imm = parse_i32(arg)) {
+            write_u8(out, opcode_to_byte(Opcode::PUSHI));
+            write_i32(out, *imm);
+            return {};
+        }
+
+        return err("invalid operand in PUSH (expected register or i32 immediate)");
     }
     if (starts_with_keyword(s, "POP")) {
         TRY_REG(r, after_keyword(s, 3))
@@ -1244,7 +1257,8 @@ std::expected<void, std::string> encode(std::string_view line,
         if (!v) {
             auto tok = trim(value_tok);
             if (!tok.empty() && tok.front() == '"') {
-                return err("invalid FWRITE operand: expected register or numeric immediate (quoted strings are not supported)");
+                return err("invalid FWRITE operand: expected register or numeric immediate (quoted "
+                           "strings are not supported)");
             }
             return err("invalid FWRITE operand: expected register or numeric immediate");
         }
