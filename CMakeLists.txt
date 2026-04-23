@@ -46,9 +46,14 @@ add_executable(bbxc
         src/blackboxc/assembler.cpp
         src/blackboxc/encoder.cpp
         src/blackboxc/asm_util.cpp
-        src/blackboxc/basic.cpp
+        src/blackboxc/basic/basic.cpp
+        src/blackboxc/basic/parser.cpp
+        src/blackboxc/basic/expressions.cpp
+        src/blackboxc/basic/statements.cpp
+        src/blackboxc/basic/scope.cpp
+        src/blackboxc/basic/bbx_codegen.cpp
 )
-target_include_directories(bbxc PRIVATE src src/blackboxc)
+target_include_directories(bbxc PRIVATE src src/blackboxc src/blackboxc/basic)
 target_link_libraries(bbxc PRIVATE bbx_utils)
 
 # vm

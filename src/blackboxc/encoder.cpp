@@ -353,9 +353,6 @@ size_t instr_size(std::string_view line) {
     if (starts_with_keyword(s, "GETARGC")) {
         return 2;
     }
-    if (starts_with_keyword(s, "SLEEP_REG")) {
-        return 2;
-    }
     if (starts_with_keyword(s, "FCLOSE")) {
         return 2;
     }
@@ -465,7 +462,8 @@ size_t instr_size(std::string_view line) {
         return 5;
     }
     if (starts_with_keyword(s, "SLEEP")) {
-        return 5;
+        auto operand = trim(after_keyword(s, 5));
+        return parse_register(operand).has_value() ? 2 : 5;
     }
     if (starts_with_keyword(s, "ALLOC")) {
         return 5;
@@ -1320,16 +1318,18 @@ std::expected<void, std::string> encode(std::string_view line,
         }
         return {};
     }
-    if (starts_with_keyword(s, "SLEEP_REG")) {
-        TRY_REG(r, after_keyword(s, 9))
-        write_u8(out, opcode_to_byte(Opcode::SLEEP_REG));
-        write_u8(out, r);
-        return {};
-    }
     if (starts_with_keyword(s, "SLEEP")) {
-        auto v = parse_u32(after_keyword(s, 5));
+        auto operand = trim(after_keyword(s, 5));
+
+        if (auto reg = parse_register(operand)) {
+            write_u8(out, opcode_to_byte(Opcode::SLEEP_REG));
+            write_u8(out, *reg);
+            return {};
+        }
+
+        auto v = parse_u32(operand);
         if (!v) {
-            return err("invalid operand in SLEEP");
+            return err("invalid operand in SLEEP (expected register or u32 immediate)");
         }
         write_u8(out, opcode_to_byte(Opcode::SLEEP));
         write_u32(out, *v);

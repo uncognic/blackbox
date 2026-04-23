@@ -10,7 +10,7 @@ ASM:
     ; Handlers
         .handler_fault:
             ; Handle the environment variable not found fault by printing a message and returning
-            WRITE STDOUT, "Caught an environment variable not found fault!"
+            WRITE STDOUT "Caught an environment variable not found fault!"
             NEWLINE
             FAULTRET
     .protected_start:

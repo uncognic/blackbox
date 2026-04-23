@@ -1,5 +1,5 @@
 #include "assembler.hpp"
-#include "basic.hpp"
+#include "basic/basic.hpp"
 #include "utils/string_utils.hpp"
 #include <filesystem>
 #include <fstream>
@@ -93,11 +93,11 @@ int main(int argc, char** argv) {
         std::filesystem::path intermediate = output_path;
         intermediate.replace_extension(".bbx");
 
-        int r = preprocess_basic(input_path.string().c_str(), intermediate.string().c_str(),
-                                 debug ? 1 : 0);
-        if (r != 0) {
-            return r;
+        if (auto err = preprocess_basic(input_path, intermediate, debug)) {
+            std::println(stderr, "BASIC error: {}", *err);
+            return 1;
         }
+
         std::println("BASIC preprocessing successful.");
 
         if (asm_only) {

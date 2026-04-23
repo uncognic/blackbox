@@ -1,0 +1,21 @@
+%asm
+%globals 1
+%main
+    MOVI R02, 5
+    STOREGLOBAL R02, 0
+    LOADGLOBAL R01, 0
+    PRINTREG R01
+    NEWLINE
+
+    CALL label
+    HALT
+
+.label:
+    FRAME 0
+    MOVI R02, 67
+    STOREGLOBAL R02, 0
+    LOADGLOBAL R01, 0
+    PRINTREG R01
+    NEWLINE
+    RET
+
