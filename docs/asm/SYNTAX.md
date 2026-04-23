@@ -1,127 +1,213 @@
 # Blackbox Assembly Syntax
+
 ## File structure
-Every file must follow this order:
-```
+
+Every assembly file must follow this order:
+```asm
 %asm
-
+; optional: macro definitions
+%globals <n>    ; optional: declare N global variable slots
 %data
-    ; data definitions (optional)
-
+; optional: string constant definitions
 %main
-    ; code
+; code
 ```
-
-- `%asm` must be in every assembly file. macro definitions are here.
-- `%data` is optional, must come before `%main`/`%entry`
-- `%main` and `%entry` are interchangeable — both define the program entry point
+- `%asm` must appear at the top of every file.
+- Macro definitions go in the `%asm` section before any other sections.
+- `%globals N` must appear before `%data` or `%main` if used.
+- `%data` is optional and must come before `%main`/`%entry`.
+- `%main` and `%entry` are interchangeable.
 
 ## Includes
-You can inline other source files with:
 
-```
+Inline another source file:
+```asm
 %include "path/to/file.bbx"
 ```
+- Includes are expanded before macro parsing. Included files can define macros.
+- Paths are resolved relative to the including file's directory.
+- Maximum nesting depth: 32.
 
-- Includes are expanded before macro parsing, so included files can provide `%macro` definitions.
-- Relative include paths are resolved from the directory of the file that contains the `%include`.
-- Includes can be nested (maximum depth: 32).
-- `%include` accepts one quoted path and nothing else on the line (aside from whitespace and comments).
+## Defines
+
+Named textual substitutions:
+```asm
+%define $MAX 100
+%define $GREETING "Hello"
+MOVI R00, $MAX
+```
+- By convention, names use `$` (for example `$MAX`).
+- Substitution is purely textual, done before assembly.
+- Works for numbers, strings, register names, or any token.
 
 ## Sections
+
 ### %data
-Holds named constants. Only `STR`, `BYTE`, `WORD`, `DWORD`, and `QWORD` definitions are allowed here.
+
+Holds string constant definitions. Only `STR` is allowed here.
+```asm
+%data
+STR $greeting, "Hello, world!"
+STR $prompt, "Enter a number: "
+```
 
 ### %main / %entry
-Holds executable instructions and labels. Data definitions are not allowed here.
+
+Holds executable instructions and labels. No data definitions allowed here.
 
 ## Instructions
-Instructions are written one per line. Syntax is Intel-style with spaces and commas:
 
-```
-MOVI R01, 42
-ADD R00, R01
+One instruction per line. Intel-style syntax with spaces and commas:
+```asm
+MOVI R01, 100
+ADD  R00, R01
+JMP  R05
 JMP some_label
-JMP R10
-JMP 128
 ```
-
-Instruction names are case-insensitive. `MOVI`, `movi`, and `Movi` are all valid.
+Instruction names are case-insensitive but it is recommended to use uppercase.
 
 ## Registers
-- 99 general-purpose registers: `R00` through `R98`
-- Register names are case-insensitive (`R01` and `r01` are the same)
-- Single-digit registers must be zero-padded: use `R01`, not `R1`
+
+- 99 general-purpose registers: `R00` through `R98`.
+- Register names are case-insensitive (`R01` and `r01` are equivalent).
+- Single-digit registers must be zero-padded: use `R01`, not `R1`.
+- `R00` is the conventional return value register for function calls.
 
 ## Labels
+
 Labels are defined with a leading period and trailing colon:
 
-```
+```asm
 .my_label:
-    MOVI R00, 1
+MOVI R00, 1
 ```
 
-Labels are referenced without the period or colon:
-
-```
+Referenced without the period or colon:
+```asm
 JMP my_label
-JE  my_label
+JE   my_label
 ```
 
-`JMP` accepts a register (`JMP R10`), label (`JMP my_label`), or absolute u32 immediate (`JMP 128`).
+`JMP` accepts a register, a label, or a numeric immediate.
+Label/immediate jump forms are encoded as the VM's `JMPI` opcode internally.
 
 Label names are case-sensitive.
 
-## Macros
-Macros are defined in the `%asm` section (before `%data` or `%main`):
+## Frame sizes
 
+After a label that begins a function, declare the number of local variable slots it needs:
+```asm
+.my_func:
+  FRAME 3
+  ; function body using LOADVAR/STOREVAR slots 0, 1, 2
+  RET
 ```
-%macro NAME param1 param2
-    MOV $dst, $src
-    MOVI R07, 40
+`FRAME` is assembler-only and emits nothing. The assembler records the frame size and encodes it into `CALL` instructions targeting this label.
+
+## Global variables
+
+Declare the global segment size at the top of the file:
+
+```asm
+%globals 10
+```
+
+Access global slots from any function using `LOADGLOBAL`/`STOREGLOBAL`:
+```asm
+MOVI R01, 100   ; load immediate 100 into R01
+STOREGLOBAL R01, 0    ; store R01 into global slot 0
+LOADGLOBAL R02, 0     ; load global slot 0 into R02
+```
+
+Global slots are initialized to zero at program start and shared across all call frames.
+
+## File descriptors
+
+Written as `F<n>`:
+```asm
+FOPEN w, F3, "output.txt"
+FWRITE F3, R00
+FCLOSE F3
+```
+
+Standard streams are also accepted as descriptors: `STDIN`, `STDOUT`, `STDERR`.
+
+## Macros
+
+Defined in the `%asm` section:
+```asm
+%macro SWAP dst, src
+MOV R97, $dst
+MOV $dst, $src
+MOV $src, R97
 %endmacro
 ```
 
-- Parameters are space-separated on the `%macro` line
-- Inside the body, parameters are referenced as `$paramname` or positionally as `$1`, `$2`, etc.
-- Invocation arguments are comma-or-space separated:
-  ```
-  %NAME R00, R01
-  ```
-- Macros can call other macros (nested expansion, max depth 32)
-- Local labels inside macros use `@@name` syntax — each expansion gets a unique prefix to avoid collisions:
-  ```
-  %macro EXAMPLE
-      JL @@done
-  .@@done:
-  %endmacro
-  ```
-  The `.` goes on the label definition; the jump target is written without the `.`:
-  ```
-  JL @@done   ; jump target
-  .@@done:    ; label definition
-  ```
-- Up to 32 parameters per macro
-
-## File descriptors
-File descriptors are written as `F<n>` (e.g. `F0`, `F1`):
-
+Invoked with `%`:
+```asm
+%SWAP R00, R01
 ```
-FOPEN r, F0, "data.bin"
-FREAD F0, R00
-FCLOSE F0
+
+- Parameters are space- or comma-separated on the `%macro` line.
+- Referenced by name as `$name`.
+- Invocation arguments are space or comma separated.
+- Macros can call other macros (max nesting depth: 32).
+- Local labels inside macros use `@@name` to get unique per-expansion names:
+```asm
+%macro ABS reg
+  MOVI R97, 0
+  CMP  $reg, R97
+  JGE  @@done
+  MOVI R97, -1
+  MUL  $reg, R97
+.@@done:
+%endmacro
 ```
+
+The `.` prefix belongs on the label definition only. Jump targets omit it.
 
 ## Numeric literals
-Immediate values support C-style literals:
 
 - Decimal: `42`
-- Hex: `0xFF`
-- Character: `'A'`
 - Negative: `-1`
 
-## Comments
-Comments start with `;`:
+Most instruction immediates currently accept decimal integers. Character literals are supported by `PRINT`.
 
+## Comments
+
+Start with `;` and extend to end of line:
+```asm
+MOVI R00, 0   ; initialize counter
+; this whole line is a comment
 ```
-MOVI R00, 0  ; initialize counter
+
+## Calling convention
+
+There is no enforced calling convention. The common pattern used by the BASIC compiler:
+
+- Arguments are pushed onto the operand stack before `CALL`, in order.
+- The callee pops them with `POP`.
+- Return value goes in `R00`.
+- The callee uses `LOADVAR`/`STOREVAR` for local variables within its frame.
+
+Example:
+```asm
+; caller
+MOVI R01, 10
+PUSH R01
+MOVI R01, 20
+PUSH R01
+CALL add_them
+; callee
+.add_them:
+  FRAME 2
+  POP  R01
+  STOREVAR R01, 0
+  POP  R02
+  STOREVAR R02, 1
+  LOADVAR R01, 0
+  LOADVAR R02, 1
+  ADD  R01, R02
+  MOV  R00, R01
+  RET
 ```

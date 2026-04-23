@@ -1,7 +1,7 @@
 # Blackbox Assembly Documentation
 ## Info
 - Syntax is Intel-assembly like: instructions use spaces and commas (e.g. `MOVI R01, 42`).
-- Labels start with a period and end with a colon (`.label:`), and are referenced without the period (`JMP label`). `JMP` also accepts registers and numeric immediates.
+- Labels start with a period and end with a colon (`.label:`), and are referenced without the period (`JMP label`). `JMP` accepts registers, labels, and numeric immediates (label/immediate forms are encoded as `JMPI`).
 - All files must start with `%asm`.
 - All files must have a `%main` or `%entry` section for the program entry point.
 - Data definitions must be in the `%data` section, before the entry point.
@@ -32,10 +32,10 @@ Protected code requests privileged operations by calling `SYSCALL <id>`. The VM 
 Arguments can be passed to handlers via registers by convention (e.g. `R00`=arg0, `R01`=arg1).
 
 ### Fault handling
-If a protected instruction is attempted in PROTECTED mode, if a memory access violates permissions, or any of the various faults, the VM raises a fault. You can define handlers for faults with `REGFAULT` and the VM will jump to them when faults occur. This allows protected code to handle faults gracefully. See the `Fault` enum in `define.h` for fault types.
+If a protected instruction is attempted in PROTECTED mode, if a memory access violates permissions, or any of the various faults, the VM raises a fault. You can define handlers for faults with `REGFAULT` and the VM will jump to them when faults occur. This allows protected code to handle faults gracefully. See `fault.hpp` for fault types.
 
 ## Instruction set
-See [isa.md](isa.md)
+See [ISA.md](ISA.md)
 
 ## Syntax reference
 See [SYNTAX.md](SYNTAX.md)
