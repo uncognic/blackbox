@@ -8,6 +8,8 @@ You compile them with the same `bbxc` compiler, and they run on the same `bbx` i
 Supported statements and blocks:
 - `CONST name = <expr or "string">`
 - `VAR name = <expr or "string">`
+- `GLOBAL CONST name = <expr or "string">`
+- `GLOBAL VAR name = <expr or "string">`
 - `name = <expr>`
 - `PRINT [value[, value...]]`
 - `WRITE [value[, value...]]`
@@ -23,28 +25,33 @@ Supported statements and blocks:
 - `LABEL, CALL, RETURN, GOTO`
 - `FUNC name: VAR arg1, STR arg2, &ref, ...` ... `ENDFUNC` (define a BASIC function)
 - `CALL name(expr1, expr2, ...)` (call a BASIC function; functions return a value to be used in expressions)
-- `INPUT name` (reads an integer or string from input, stores in variable)
+- `INPUT name` or `INPUT "prompt", name` (reads an integer or string from input, stores in variable)
 - `INC name` (increments variable)
 - `DEC name` (decrements variable)
 - `RANDOM name, min, max` (stores random integer in variable)
-- `SLEEP time` (sleeps for given milliseconds, or if given a register, sleeps for that many milliseconds stored in the register)
-- `EXEC command, result` (executes system command, stores exit code in result variable)
+- `SLEEP <expr>` (sleeps for the evaluated milliseconds value)
+- `EXEC "command"[, result]` (executes a system command; if `result` is provided, stores the exit code there)
 - `GETKEY name` (non-blocking, stores key code of pressed key or -1 if no key is pressed)
 - `GETARGC name` (stores the interpreter argument count in integer variable)
-- `GETARG name, index` (stores argv[index] into string variable)
+- `GETARG name, index` (stores `argv[index]` into a string variable; `index` is currently parsed as an integer literal)
 - `GETENV name, "VAR"` (stores environment variable value into a string variable)
 - `FOPEN mode, handle, "filename"` (opens a file into an integer handle variable)
 - `FCLOSE handle` (closes the opened file)
 - `FREAD handle, var` (reads one byte from the file into an integer variable, returns -1 on EOF)
 - `FWRITE handle, expr` (writes the low byte of an integer expression to the file)
 - `FSEEK handle, offset` (seeks the file position to the given offset)
-- `FPRINT handle, "text"` or `FPRINT handle, expr` (writes a value to the file and appends a newline)
+- `FPRINT handle, "text"` or `FPRINT handle, expr` (writes bytes to the file and appends newline byte `10`)
 - Inline assembly block: `ASM:` ... `ENDASM`
 An optional entry point can be declared with `@ENTRY`. Execution will start from there.
+
+Notes:
+- `GLOBAL VAR` allocates in the VM global segment.
+- `GLOBAL CONST` is currently accepted and behaves like `CONST`.
 
 Expressions:
 - Integer literals and variables
 - Operators: `+`, `-`, `*`, `/`, `%`
+- Shift operators: `<<`, `>>`
 - Parentheses for grouping
 - Comparison operators in conditions: `==`, `!=`, `<`, `<=`, `>`, `>=`
 - Bitwise operators: `&`, `|`, `^`, `~`
@@ -53,7 +60,7 @@ Data model:
 - Integers (64-bit VM register/slot model)
 - Strings (stored in `%data`, loaded/printed as string pointers)
 
-Code strcutre:
+Code structure:
 - Namespacing with NAMESPACE blocks.
 ## Not full parity with assembly
 BASIC is currently not fully featured compared to the assembly pathway. It will be at some point, but for now you may find that some things are easier to do in assembly. 

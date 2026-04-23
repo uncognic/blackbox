@@ -103,5 +103,87 @@ bool preprocess_includes(const std::string& input, std::string& out) {
     return preprocess_includes_impl(input.c_str(), 0, out);
 }
 
+bool preprocess_defines(std::string& input, std::unordered_map<std::string, std::string>& defines) {
+    std::vector<std::string> lines;
+    size_t pos = 0;
+
+    while (pos < input.size()) {
+        size_t line_end = input.find('\n', pos);
+        if (line_end == std::string::npos) {
+            line_end = input.size();
+        }
+
+        std::string line = input.substr(pos, line_end - pos);
+        std::string trimmed = trim_copy(line);
+
+        size_t comment_pos = trimmed.find(';');
+        if (comment_pos != std::string::npos) {
+            trimmed.erase(comment_pos);
+            trimmed = trim_copy(trimmed);
+        }
+
+        if (starts_with_ci(trimmed.data(), "%define")) {
+            const char* p = trimmed.c_str() + 7; // skip "%define"
+            while (*p && isspace(static_cast<unsigned char>(*p))) {
+                p++;
+            }
+
+            const char* sym_start = p;
+            while (*p && !isspace(static_cast<unsigned char>(*p))) {
+                p++;
+            }
+
+            if (sym_start == p) {
+                std::println(stderr, "Error: malformed %define directive (missing symbol)");
+                return false;
+            }
+
+            std::string symbol(sym_start, static_cast<size_t>(p - sym_start));
+
+            while (*p && isspace(static_cast<unsigned char>(*p))) {
+                p++;
+            }
+
+            std::string value = trim_copy(std::string(p));
+
+            defines[symbol] = value;
+
+            pos = line_end + 1;
+            continue;
+        }
+
+        lines.push_back(line);
+        pos = line_end + 1;
+    }
+
+    input.clear();
+    for (size_t i = 0; i < lines.size(); i++) {
+        std::string line = lines[i];
+
+        for (const auto& [symbol, value] : defines) {
+            size_t search_pos = 0;
+            while ((search_pos = line.find(symbol, search_pos)) != std::string::npos) {
+                bool valid_before = (search_pos == 0 || !isalnum(static_cast<unsigned char>(line[search_pos - 1])));
+                bool valid_after = (search_pos + symbol.size() >= line.size() ||
+                                  !isalnum(static_cast<unsigned char>(line[search_pos + symbol.size()])));
+
+                if (valid_before && valid_after) {
+                    line.replace(search_pos, symbol.size(), value);
+                    search_pos += value.size();
+                } else {
+                    search_pos += symbol.size();
+                }
+            }
+        }
+
+        input += line;
+        if (i < lines.size() - 1 || pos <= input.size()) {
+            input += '\n';
+        }
+    }
+
+    return true;
+}
+
 } // namespace tools
 } // namespace blackbox

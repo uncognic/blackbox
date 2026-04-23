@@ -29,6 +29,14 @@ CONST limit = 10
 CONST banner = "Blackbox"
 ```
 
+### Global declarations
+```basic
+GLOBAL VAR counter = 0
+GLOBAL CONST app_name = "Blackbox"
+```
+`GLOBAL VAR` allocates storage in the VM global segment. Name visibility still follows BASIC scope resolution.
+`GLOBAL CONST` is currently accepted and behaves like `CONST`.
+
 ### Assignment
 ```basic
 name = expression
@@ -44,6 +52,10 @@ Supported arithmetic operators:
 - `*`, `/`, `%` (higher precedence)
 - `+`, `-` (lower precedence)
 - `<<`, `>>` (shift operators)
+
+Supported bitwise operators:
+- `&`, `|`, `^`
+- Unary `~`
 
 Example:
 
@@ -128,7 +140,7 @@ FSEEK fh, 0
 ```
 
 ### FPRINT
-Write a value or string to a file and append a newline.
+Write bytes to a file and append a newline byte (`10`).
 
 ```basic
 FPRINT fh, "hello"
@@ -333,6 +345,8 @@ Retrieves the commandline argument at the given zero-based index and stores its 
 - `GETARG 1` returns the program path.
 - `GETARG 2` returns the first user argument.
 
+`index` is currently parsed as an integer literal.
+
 ## GETENV
 ```basic
 VAR env_path = ""
@@ -374,7 +388,7 @@ ASM:
     ; Handlers
         .handler_fault:
             ; Handle the environment variable not found fault by printing a message and returning
-            WRITE STDOUT, "Caught an environment variable not found fault!"
+            WRITE STDOUT "Caught an environment variable not found fault!"
             NEWLINE
             FAULTRET
     .protected_start:
@@ -400,12 +414,11 @@ CALL namespace.print(hello)
 ```
 
 ## Notes:
-- Registers 0-15 are used by the BASIC compiler as scratch storage. Nothing is stopping you from using them, but be aware that BASIC statements may overwrite them.
+- `R01`-`R15` are used by the BASIC compiler as scratch registers (`R00` is used for function return values). Nothing prevents using them manually (such as in ASM blocks) but BASIC statements may overwrite them.
 - ASM block lines are passed to the assembler.
 - Use assembly syntax rules inside the block.
 
 
 ## Current limitations
-- No user-defined functions/procedures in BASIC syntax.
 - No arrays or structured types in BASIC syntax.
 - Advanced VM privilege/syscall/fault flows are assembly-first.

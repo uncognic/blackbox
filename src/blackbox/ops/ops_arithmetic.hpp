@@ -1,0 +1,8 @@
+//
+// Created by User on 2026-04-18.
+//
+
+#ifndef BLACKBOX_OPS_ARITHMETIC_HPP
+#define BLACKBOX_OPS_ARITHMETIC_HPP
+
+#endif //BLACKBOX_OPS_ARITHMETIC_HPP

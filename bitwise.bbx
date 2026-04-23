@@ -1,0 +1,140 @@
+%asm
+%data
+    STR $_p0, "a & b = "
+    STR $_p1, "a | b = "
+    STR $_p2, "a ^ b = "
+    STR $_p3, "~a = "
+    STR $_p4, "flags & mask = "
+    STR $_p7, "mask check passed"
+    STR $_p8, "a & b | 3 = "
+    STR $_p9, "~0 = "
+%main
+    CALL __bbx_basic_main
+    HALT OK
+    FRAME 11
+.__bbx_basic_main:
+    MOVI R01, 0
+    ; a
+    STOREVAR R01, 0
+    MOVI R01, 12
+    ; a
+    STOREVAR R01, 0
+    MOVI R01, 10
+    ; b
+    STOREVAR R01, 1
+    ; a
+    LOADVAR R01, 0
+    ; b
+    LOADVAR R02, 1
+    AND R01, R02
+    ; and_result
+    STOREVAR R01, 2
+    ; a
+    LOADVAR R01, 0
+    ; b
+    LOADVAR R02, 1
+    OR R01, R02
+    ; or_result
+    STOREVAR R01, 3
+    ; a
+    LOADVAR R01, 0
+    ; b
+    LOADVAR R02, 1
+    XOR R01, R02
+    ; xor_result
+    STOREVAR R01, 4
+    ; a
+    LOADVAR R01, 0
+    NOT R01
+    ; not_result
+    STOREVAR R01, 5
+    LOADSTR $_p0, R01
+    PRINTSTR R01
+    ; and_result
+    LOADVAR R01, 2
+    PRINTREG R01
+    MOVI R01, 10
+    PRINTCHAR R01
+    LOADSTR $_p1, R01
+    PRINTSTR R01
+    ; or_result
+    LOADVAR R01, 3
+    PRINTREG R01
+    MOVI R01, 10
+    PRINTCHAR R01
+    LOADSTR $_p2, R01
+    PRINTSTR R01
+    ; xor_result
+    LOADVAR R01, 4
+    PRINTREG R01
+    MOVI R01, 10
+    PRINTCHAR R01
+    LOADSTR $_p3, R01
+    PRINTSTR R01
+    ; not_result
+    LOADVAR R01, 5
+    PRINTREG R01
+    MOVI R01, 10
+    PRINTCHAR R01
+    MOVI R01, 7
+    ; flags
+    STOREVAR R01, 6
+    MOVI R01, 5
+    ; mask
+    STOREVAR R01, 7
+    ; flags
+    LOADVAR R01, 6
+    ; mask
+    LOADVAR R02, 7
+    AND R01, R02
+    ; masked
+    STOREVAR R01, 8
+    LOADSTR $_p4, R01
+    PRINTSTR R01
+    ; masked
+    LOADVAR R01, 8
+    PRINTREG R01
+    MOVI R01, 10
+    PRINTCHAR R01
+    ; flags
+    LOADVAR R01, 6
+    ; mask
+    LOADVAR R02, 7
+    AND R01, R02
+    MOVI R02, 5
+    CMP R01, R02
+    JNE else_6
+    LOADSTR $_p7, R01
+    PRINTSTR R01
+    MOVI R01, 10
+    PRINTCHAR R01
+.else_6:
+.endif_5:
+    ; a
+    LOADVAR R01, 0
+    ; b
+    LOADVAR R02, 1
+    AND R01, R02
+    MOVI R02, 3
+    OR R01, R02
+    ; c
+    STOREVAR R01, 9
+    LOADSTR $_p8, R01
+    PRINTSTR R01
+    ; c
+    LOADVAR R01, 9
+    PRINTREG R01
+    MOVI R01, 10
+    PRINTCHAR R01
+    MOVI R01, 0
+    NOT R01
+    ; d
+    STOREVAR R01, 10
+    LOADSTR $_p9, R01
+    PRINTSTR R01
+    ; d
+    LOADVAR R01, 10
+    PRINTREG R01
+    MOVI R01, 10
+    PRINTCHAR R01
+    RET

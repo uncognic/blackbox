@@ -2,11 +2,11 @@
 %asm
 %main
     fopen w, F1, "test"
-    fwrite F1, "123"
+    fwrite F1, 123
     fseek F1, 10
-    fwrite F1, "123"
+    fwrite F1, 123
     fseek F1, 5
-    fwrite F1, "123"
+    fwrite F1, 123
     fclose F1
     fopen r, F1, "test"
     fseek F1, 0

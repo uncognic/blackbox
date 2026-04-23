@@ -1,326 +1,610 @@
 # Blackbox VM Instruction Set Architecture
-- WRITE: Write a string to a stream  
-  - Syntax: WRITE <stream> "<string>"  
-  - Encoding: OPCODE_WRITE, 1 byte fd (STDOUT or STDERR), 1 byte length (max 255), then string bytes.  
-- NEWLINE: Print newline  
-  - Syntax: NEWLINE  
-  - Encoding: OPCODE_NEWLINE  
-- PRINT: Print single character  
-  - Syntax: PRINT '<char>'  
-  - Encoding: OPCODE_PRINT, 1 byte char  
-- PUSH / PUSHI: Push immediate or register onto the stack  
-  - Syntax: PUSH / PUSHI <value|register>  
-  - Encoding: OPCODE_PUSH_IMM + 4-byte signed immediate OR OPCODE_PUSH_REG + 1 byte register
-- POP: Pop top of stack into a register  
-  - Syntax: POP <register>  
-  - Encoding: OPCODE_POP, 1 byte register  
-- MOV: Move register value into register  
-  - Syntax: MOV <dst>, <src>  (src must be a register)  
-  - Encoding: OPCODE_MOV_REG, 1 byte dst, 1 byte src  
-- MOVI: Move immediate value into register  
-  - Syntax: MOVI <dst>, <value>  (value is an immediate integer or char literal)  
-  - Encoding: OPCODE_MOVI, 1 byte dst, 4-byte immediate  
-- ADD / SUB / MUL / DIV / MOD: Binary register ops  
-  - Syntax: <OP> <dst>, <src>  (first operand = destination)  
-  - Encoding: OPCODE_*, 1 byte dst, 1 byte src  
-  - DIV: division by zero is an error (interpreter checks).  
-- PRINTREG: Print integer value of a register (decimal, no newline)  
-  - Syntax: PRINTREG <register>  
-  - Encoding: OPCODE_PRINTREG, 1 byte register  
-- PRINT_STACKSIZE: Print the current stack capacity (in elements)
-  - Syntax: PRINT_STACKSIZE
-  - Encoding: OPCODE_PRINT_STACKSIZE
-- JMP: Unconditional jump  
-  - Syntax: JMP <label>  
-  - Encoding: OPCODE_JMP, 4-byte address (little-endian)  
-- JE / JNE: Conditional jumps on register zero/non-zero  
-  - Syntax: JE <register>, <label>  and  JNE <register>, <label>  
-  - Encoding: OPCODE_JE/OPCODE_JNE, 1 byte register, 4-byte address  
-- INC / DEC: Increment / decrement register by one  
-  - Syntax: INC <register>  /  DEC <register>  
-  - Encoding: OPCODE_INC / OPCODE_DEC, 1 byte register  
-- CMP: Compare two registers  
-  - Syntax: CMP <reg1>, <reg2>  (computes reg2 - reg1)  
-  - Encoding: OPCODE_CMP, 1 byte reg1, 1 byte reg2  
-  - Behavior: Sets ZF, SF, CF and OF flags based on the result of reg2 - reg1.
-- ALLOC: Ensure stack capacity (elements)  
-  - Syntax: ALLOC <elements>  
-  - Encoding: OPCODE_ALLOC, 4-byte unsigned count  g
-  - Behavior: if requested elements > current capacity, interpreter resizes capacity to exactly that number.  
-- LOAD / STORE: Access stack by element index (int64_t elements)  
-  - Syntax: LOAD <register>, <index>  /  STORE <register>, <index> or LOAD <reg>, <reg> / STORE <reg>, <reg> (register form uses the register value as the index)
-  - Encoding: OPCODE_LOAD / OPCODE_STORE or OPCODE_LOAD_REG / OPCODE_STORE_REG, 1 byte register, 4-byte index or 1 byte register, 1 byte register
-  - Bounds: index must be < stack capacity. LOAD reads an int64_t into the register; STORE writes a register's int64_t to the stack index.  
 
-- LOADVAR / STOREVAR: Access the separate variables region (locals)
-  - Syntax: LOADVAR <dst>, <slot>  /  STOREVAR <src>, <slot>
-    or LOADVAR_REG <dst>, <idx_reg> / STOREVAR_REG <src>, <idx_reg>
-  - Encoding: OPCODE_LOADVAR / OPCODE_STOREVAR: 1 byte reg, 4-byte slot (u32). OPCODE_LOADVAR_REG / OPCODE_STOREVAR_REG: 1 byte reg, 1 byte index-reg.
-- GROW: Increase stack capacity by additional elements  
-  - Syntax: GROW <elements>  
-  - Encoding: OPCODE_GROW, 4-byte unsigned count  
-  - Behavior: increases capacity by the specified count (no-op if count == 0).  
-- RESIZE: Resize stack to specified amount
-  - Syntax: RESIZE <elements>
-  - Encoding: OPCODE_RESIZE, 4-byte unsigned count
-  - Behavior: Resizes stack to specified amount. If SP (stack pointer) is greater than the new capacity, SP will be clamped to the new capacity.
-- FREE: Reduce the stack capacity by specified amount
-  - Syntax: FREE <elements>
-  - Encoding: OPCODE_FREE, 4-byte unsigned count
-  - Behavior: Decreases the stack capacity by the specified amount (interpreter adjusts backing buffer accordingly).
-- HALT: Stop program execution  
-  - Syntax: HALT or HALT <OK|BAD|0...>
-  - Encoding: OPCODE_HALT
-- FOPEN: Open a file into a descriptor
-  - Syntax: FOPEN <mode>, F<fd>, "<filename>"  (mode typically ''r' or 'w'')
-  - Encoding: OPCODE_FOPEN, 1 byte fd, 1 byte name-length, then filename bytes
-  - Behavior: interpreter opens the named file and stores the FILE* in the fds table at index fd. Mode determines fopen flags.
-- FCLOSE: Close an open file
-  - Syntax: FCLOSE F<fd>
-  - Encoding: OPCODE_FCLOSE, 1 byte fd
-  - Behavior: interpreter closes fds[fd] and clears the slot.
-- FREAD: Read from a file into a register
-  - Syntax (assembler): FREAD F<fd>, <reg>
-  - Encoding: OPCODE_FREAD, 1 byte fd, 1 byte register
-  - Behavior: reads up to one element (8 bytes) and stores the result in the specified register; assembler/interpreter validate fd and reg.
-- FWRITE: Write integer/bytes from a register or immediate to a file
-  - Syntax: FWRITE F<fd>, <reg|imm>
-  - Encoding: OPCODE_FWRITE_REG or OPCODE_FWRITE_IMM, 1 byte fd, 1 byte register or 4-byte immediate
-  - Behavior: writes the register's value/bytes to the file associated with fd.
-- FSEEK (register / immediate): Seek file position
-  - Syntax: FSEEK F<fd>, <reg|imm>
-  - Encoding: OPCODE_FSEEK_REG, 1 byte fd, 1 byte reg or OPCODE_FSEEK_IMM, 1 byte fd, 4-byte offset
-  - Behavior: sets file position for fd; interpreter validates fd and range.
-- STR: Define variable with the string datatype. Must be in the %data section.
-  - Syntax: STR $<name>, "<contents>"
-  - Encoding: in the data table
-  - Behavior: Adds a string entry to the data table
-- BYTE: 8-bit unsigned integer constant definition. Must be in the %data section.
-  - Syntax: BYTE $<name>, <value>
-  - Encoding: in the data table
-  - Behavior: Adds a byte entry to the data table
-- WORD: 16-bit unsigned integer constant definition. Must be in the %data section.
-  - Syntax: WORD $<name>, <value>
-  - Encoding: in the data table
-  - Behavior: Adds a word entry to the data table
-- DWORD: 32-bit unsigned integer constant definition. Must be in the %data section.
-  - Syntax: DWORD $<name>, <value>
-  - Encoding: in the data table
-  - Behavior: Adds a dword entry to the data table
-- QWORD: 64-bit unsigned integer constant definition. Must be in the %data section.
-  - Syntax: QWORD $<name>, <value>
-  - Encoding: in the data table
-  - Behavior: Adds a qword entry to the data table
-- LOADBYTE: Load a BYTE constant into a register
-  - Syntax: LOADBYTE $<name>, <register>
-  - Behavior: Writes the value of a BYTE constant to a register
-- LOADWORD: Load a WORD constant into a register
-  - Syntax: LOADWORD $<name>, <register>
-  - Behavior: Writes the value of a WORD constant to a register
-- LOADDWORD: Load a DWORD constant into a register
-  - Syntax: LOADDWORD $<name>, <register>
-  - Behavior: Writes the value of a DWORD constant to a register
-- LOADQWORD: Load a QWORD constant into a register
-  - Syntax: LOADQWORD $<name>, <register>
-  - Behavior: Writes the value of a QWORD constant to a register
-- LOADSTR: Load a string into a register
-  - Syntax: LOADSTR $<name>, <register>
-  - Behavior: Writes the address of a string to a register
-- PRINTSTR: Prints a string
-  - Syntax: PRINTSTR <register>
-  - Behavior: Prints the string at the address the register points to
-- NOT: Bitwise NOT  
-  - Syntax: `NOT <register>`  
-  - Encoding: `OPCODE_NOT`, 1 byte register  
-  - Behavior: logical NOT - flips all bits of the register
-- AND: Bitwise AND  
-  - Syntax: `AND <dst>, <src>`  
-  - Encoding: `OPCODE_AND`, 1 byte dst, 1 byte src  
-  - Behavior: bitwise AND - computes `dst = dst & src`.  
-- OR: Bitwise OR  
-  - Syntax: `OR <dst>, <src>`  
-  - Encoding: `OPCODE_OR`, 1 byte dst, 1 byte src  
-  - Behavior: bitwise OR - computes `dst = dst | src`.  
-- XOR: Bitwise XOR  
-  - Syntax: `XOR <dst>, <src>`  
-  - Encoding: `OPCODE_XOR`, 1 byte dst, 1 byte src  
-  - Behavior: bitwise XOR - computes `dst = dst ^ src`.
-- SHLI: Immediate bitwise shift left  
-  - Syntax: `SHLI <register>, <shift>`  
-  - Encoding: `OPCODE_SHLI`, 1 byte register, 8-byte unsigned shift amount  
-  - Behavior: shifts the register value left by the given count; shift count is encoded as a 64-bit immediate.
-- SHRI: Immediate bitwise shift right  
-  - Syntax: `SHRI <register>, <shift>`  
-  - Encoding: `OPCODE_SHRI`, 1 byte register, 8-byte unsigned shift amount  
-  - Behavior: shifts the register value right by the given count; preserves sign for negative values, and the shift count is encoded as a 64-bit immediate.
-- SHL: Register bitwise shift left
-  - Syntax: `SHL <dst>, <src>`
-  - Encoding: `OPCODE_SHL`, 1 byte dst, 1 byte src
-  - Behavior: shifts the dst register left by the number of bits specified in the src register, src register value is interpreted as an unsigned shift count.
+## Data section
 
-- SHR: Register bitwise shift right
-  - Syntax: `SHR <dst>, <src>`
-  - Encoding: `OPCODE_SHR`, 1 byte dst, 1 byte src
-  - Behavior: shifts the dst register right by the number of bits specified in the src register, preserves sign for negative values, and the src register value is interpreted as an unsigned shift count.
+### STR
 
-- READSTR: Read string from stdin
-  - Syntax: `READSTR <register>`
-  - Encoding: `OPCODE_READSTR`, 1 byte register
-  - Behavior: Reads characters from stdin until newline or EOF, writes each byte into the stack, and stores the stack address to a register. 
-- READ: Read integer from stdin
-  - Syntax: `READ <register>`
-  - Encoding: `OPCODE_READ`, 1 byte register
-  - Behavior: Reads an integer from stdin and stores it in the specified register
+Define a string constant. Must be in the `%data` section.
 
-- SLEEP: Sleep for milliseconds
-  - Syntax: `SLEEP <ms>`
-  - Encoding: `OPCODE_SLEEP`, 4 byte uint32_t ms
-  - Behavior: Sleeps for a specified amount of time
-- CLRSCR: Clear console
-  - Syntax: `CLRSCR`
-  - Encoding: `OPCODE_CLRSCR`
-  - Behavior: Clears the console screen
-- RAND: Generate random number
-  - Syntax: `RAND <reg>`, `RAND <reg>, <max>`, or `RAND <reg>, <min>, <max>`
-  - Encoding: `OPCODE_RAND`, 1 byte register, optionally followed by 4 byte max or 4 byte min and 4 byte max
-  - Behavior: Generates a random number and stores it in the specified register. If only a register is provided, generates an unbounded random number. If a max is provided, generates a number between 0 (inclusive) and max (exclusive). If min and max are provided, generates a number between min (inclusive) and max (exclusive).
-- GETKEY: Non-blocking get key from input
-  - Syntax: `GETKEY <reg>`
-  - Encoding: `OPCODE_GETKEY`, 1 byte register
-  - Behavior: Checks if a key has been pressed. If so, stores the key code in the register; otherwise, stores -1. Does not block program execution.
-- CONTINUE: Do nothing
-  - Syntax: `CONTINUE`
-  - Encoding: `OPCODE_CONTINUE`
-  - Behavior: No operation
-- READCHAR: Read a single character from stdin
-  - Syntax: `READCHAR <reg>`
-  - Encoding: `OPCODE_READCHAR`, 1 byte register
-  - Behavior: Reads a single character from stdin and stores its ASCII code in the specified register
-- JL / JGE: Conditional jumps on signed comparison (less / greater or equal)
-  - Syntax: `JL <label>`, `JGE <label>`
-  - Encoding: `OPCODE_JL` / `OPCODE_JGE`, 4-byte address
-  - Behavior (after CMP reg1, reg2):
-      JL: jump if reg1 < reg2, checks if SF != OF
-      JGE: jump if reg1 >= reg2 checks if SF == OF
+- Syntax: `STR $<name>, "<contents>"`
+- Behavior: Adds a string entry to the data table. Referenced by name with `LOADSTR`.
 
-- JB / JAE: Conditional jumps on unsigned comparison (below / above or equal)
-  - Syntax: `JB <label>`, `JAE <label>`
-  - Encoding: `OPCODE_JB` / `OPCODE_JAE`, 4-byte address
-  - Behavior (after CMP reg1, reg2):
-      JB: jump if reg1 < reg2, checks if CF == 1
-      JAE: jump if reg1 >= reg2, checks if CF == 0
+Numeric data types (`BYTE`, `WORD`, `DWORD`, `QWORD`) have been removed. Use `MOVI` for compile-time numeric constants,
+or `%define` for named numeric constants.
 
- - CALL: Call subroutine
-   - Syntax: `CALL <label>`
-   - Encoding: `OPCODE_CALL`, 4-byte address, 4-byte frame_size (u32)
-   - Behavior: pushes the return address onto the call stack, then the interpreter reads the following `frame_size` and allocates that many slots in the separate `vars` region for the callee. Finally execution jumps to the target address.
- - RET: Return from subroutine
-   - Syntax: `RET`
-   - Encoding: `OPCODE_RET`
-   - Behavior: Pops the return address from the call stack, releases the callee's `vars` frame (restores the previous vars_sp), and jumps back to the return address.
- - FRAME: Assembler-only directive to declare a label's frame size
-   - Syntax: `FRAME <elements>` (placed immediately after a label)
-   - Encoding: none (assembler-only)
-   - Behavior: Records the number of `vars` slots the label requires. The assembler uses this value when emitting `CALL <label>` (if the CALL omits an explicit size) and writes the 4-byte `frame_size` after the CALL instruction in the bytecode. 
- - BREAK: see [debugger.md](../debugger.md)
+## Directives
 
- - EXEC: Execute system command
-  - Syntax: `EXEC "<command>" <register>` (register is optional)
-  - Encoding: `OPCODE_EXEC`, 1 byte dest register, 1 byte len, len bytes of command
-  - Behavior: Executes the specified system command and stores the exit code in the destination register.
+### %globals
 
- - DUMPREGS: Print all register values (for debugging)
-  - Syntax: `DUMPREGS`
-  - Encoding: `OPCODE_DUMPREGS`
-  - Behavior: Prints the current values of all registers to stderr (for debugging purposes)
+Declare the number of global variable slots for the program.
 
- - PRINTCHAR: Print a single character
-  - Syntax: `PRINTCHAR <reg|imm>`
-  - Encoding: `OPCODE_PRINTCHAR`, 1 byte register or 4 byte immediate
-  - Behavior: Prints the ASCII character corresponding to the value in the register or the immediate value.
+- Syntax: `%globals <n>`
+- Placement: Before `%data` or `%main`.
+- Behavior: Allocates `n` slots in the global segment at program startup, initialized to zero. Accessed via
+  `LOADGLOBAL`/`STOREGLOBAL`.
 
- - EPRINTREG: Print register value to stderr (for debugging)
-  - Syntax: `EPRINTREG <reg>`
-  - Encoding: `OPCODE_EPRINTREG`, 1 byte register
-  - Behavior: Prints the value of the specified register to stderr (for debugging purposes)
+### %define
 
- - EPRINTSTR: Print string to stderr (for debugging)
-  - Syntax: `EPRINTSTR <reg>`
-  - Encoding: `OPCODE_EPRINTSTR`, 1 byte register
-  - Behavior: Prints the string pointed to by the specified register to stderr (for debugging purposes)
+Define a named constant that is substituted textually before assembly.
 
- - EPRINTCHAR: Print character to stderr (for debugging)
-  - Syntax: `EPRINTCHAR <reg>`
-  - Encoding: `OPCODE_EPRINTCHAR`, 1 byte register
-  - Behavior: Prints the ASCII character corresponding to the value in the register to stderr (for debugging purposes)
-- GETARGC: Get argument count
-  - Syntax: `GETARGC <reg>`
-  - Encoding: `OPCODE_GETARGC`, 1 byte register
-  - Behavior: Stores the number of command-line arguments passed to the program in the specified register
-- GETARG: Get command-line argument
-  - Syntax: `GETARG <reg>, <index>`
-  - Encoding: `OPCODE_GETARG`, 1 byte register, 4 byte unsigned index
-  - Behavior: Stores the string heap pointer to the command-line argument at the specified index in the specified register
-- GETENV: Get environment variable
-  - Syntax: `GETENV <reg>, "<varname>"`
-  - Encoding: `OPCODE_GETENV`, 1 byte register, 1 byte varname length, then varname bytes
-  - Behavior: Retrieves the value of the specified environment variable and stores it as a string pointer
-## Macros
-- %include: Inline another source file before macro processing
-  - Syntax: `%include "path/to/file.bbx"`
-  - Behavior: Recursively expands the target file into the current source stream (max depth 32). Relative paths are resolved from the current file's directory.
-- %macro / %endmacro: Define compiler macro
-  - Syntax: `%macro <name> [param1 param2 ...]` ... `%endmacro`
-  - Parameters: Up to **32** parameters. Arbitrary limit, can be increased at any time. (space-separated on the `%macro` line). Inside the body, `$paramName` is replaced with the corresponding argument. You can also use parameters based on their position `$1`, `$2`, so definition isn't necessarily needed.
-  - Invocation: `%name [arg1 arg2 ...]`
-  - Local labels: Use `@@label` inside the macro body. Each expansion uniquifies them (e.g. `M1_label`, `M2_label`) to avoid collisions.
-  - Nesting: Macros may invoke other macros. Recursive expansion is capped at a depth of 32.
+- Syntax: `%define $<name> <value>`
+- Behavior: Every occurrence of `$<name>` in the source is replaced with `<value>` before instruction encoding. Works
+  for both numeric and string values.
 
-## Privileges
-- REGSYSCALL: Register a syscall handler
-  - Syntax: `REGSYSCALL <id>, <label>`
-  - Encoding: `OPCODE_REGSYSCALL`, 1 byte id, 4-byte address
-  - Behavior: Registers the address of `label` as the handler for syscall `id`. Must be called in PRIVILEGED mode before dropping to PROTECTED. Up to 256 syscall ids (0-255) are supported.
-  - Privilege: PRIVILEGED only
+```
+%define $MAX 100
+%define $MSG "Hello"
+MOVI R00, $MAX
+```
 
-- SYSCALL: Invoke a syscall handler
-  - Syntax: `SYSCALL <id>`
-  - Encoding: `OPCODE_SYSCALL`, 1 byte id
-  - Behavior: Saves the return address, elevates to PRIVILEGED mode, and jumps to the handler registered for `id`. Execution resumes after the SYSCALL instruction when the handler calls SYSRET. Faults if no handler is registered for `id`.
-  - Privilege: PROTECTED only
+### FRAME
 
-- SYSRET: Return from a syscall handler
-  - Syntax: `SYSRET`
-  - Encoding: `OPCODE_SYSRET`
-  - Behavior: Drops back to PROTECTED mode and resumes execution at the return address saved by the corresponding SYSCALL.
-  - Privilege: PRIVILEGED only
+Assembler-only directive to declare a label's frame size.
 
-- DROPPRIV: Drop to protected mode
-  - Syntax: `DROPPRIV`
-  - Encoding: `OPCODE_DROPPRIV`
-  - Behavior: Switches the VM from PRIVILEGED to PROTECTED mode. One-way — there is no way back to PRIVILEGED mode except through a registered syscall handler.
-  - Privilege: PRIVILEGED only
+- Syntax: `FRAME <n>` (placed immediately after a label definition)
+- Encoding: none (assembler-only)
+- Behavior: Records the number of local variable slots the label's function requires. The assembler uses this when
+  encoding `CALL <label>` to fill the 4-byte frame size field.
 
-- GETMODE: Get current privilege mode
-  - Syntax: `GETMODE <reg>`
-  - Encoding: `OPCODE_GETMODE`, 1 byte register
-  - Behavior: Stores the current mode in the specified register. 1 = PRIVILEGED, 0 = PROTECTED.
-  - Privilege: any
+## Output
 
-- REGFAULT: Register a fault handler
-  - Syntax: `REGFAULT <id>, <label>`
-  - Encoding: `OPCODE_REGFAULT`, 1 byte id, 4-byte address
-  - Behavior: Registers the address of `label` as the handler for fault `id`. When a fault with that id is raised, the VM jumps to the handler. Up to 256 fault ids (0-255) are supported.
-  - Privilege: PRIVILEGED only
+### WRITE
 
-- FAULTRET: Return from a fault handler
-  - Syntax: `FAULTRET`
-  - Encoding: `OPCODE_FAULTRET`
-  - Behavior: Returns from a fault handler back to the point of execution where the fault occurred. Can only be used within a fault handler.
-  - Privilege: PRIVILEGED only
+Write a string literal to a stream.
 
-- GETFAULT: Get current fault id
-  - Syntax: `GETFAULT <reg>`
-  - Encoding: `OPCODE_GETFAULT`, 1 byte register
-  - Behavior: Stores the id of the current fault being handled in the specified register.
-  - Privilege: any
+- Syntax: `WRITE <STDOUT|STDERR> "<string>"`
+- Encoding: opcode, 1 byte fd (1=STDOUT, 2=STDERR), 4-byte length, then string bytes.
+
+### NEWLINE
+
+Print a newline character to stdout.
+
+- Syntax: `NEWLINE`
+- Encoding: opcode only.
+
+### PRINT
+
+Print a single character literal.
+
+- Syntax: `PRINT '<char>'` or `PRINT <u8>`
+- Encoding: opcode, 1 byte char.
+
+### PRINTREG
+
+Print the integer value of a register (decimal, no newline).
+
+- Syntax: `PRINTREG <reg>`
+- Encoding: opcode, 1 byte register.
+
+### PRINTSTR
+
+Print the string referenced by a register (loaded via `LOADSTR` or `READSTR`).
+
+- Syntax: `PRINTSTR <reg>`
+- Encoding: opcode, 1 byte register.
+
+### PRINTCHAR
+
+Print the ASCII character corresponding to the register value.
+
+- Syntax: `PRINTCHAR <reg>`
+- Encoding: opcode, 1 byte register.
+
+### EPRINTREG
+
+Print register value to stderr.
+
+- Syntax: `EPRINTREG <reg>`
+- Encoding: opcode, 1 byte register.
+
+### EPRINTSTR
+
+Print string to stderr.
+
+- Syntax: `EPRINTSTR <reg>`
+- Encoding: opcode, 1 byte register.
+
+### EPRINTCHAR
+
+Print character to stderr.
+
+- Syntax: `EPRINTCHAR <reg>`
+- Encoding: opcode, 1 byte register.
+
+### PRINT_STACKSIZE
+
+Print the current operand stack capacity (in elements).
+
+- Syntax: `PRINT_STACKSIZE`
+- Encoding: opcode only.
+
+## Input
+
+### READ
+
+Read an integer from stdin into a register.
+
+- Syntax: `READ <reg>`
+- Encoding: opcode, 1 byte register.
+
+### READSTR
+
+Read a line from stdin and store a string handle in a register.
+
+- Syntax: `READSTR <reg>`
+- Encoding: opcode, 1 byte register.
+- Behavior: Reads characters until newline or EOF. Stores a handle into the runtime string table in the register. Use
+  `PRINTSTR` to print it.
+
+### READCHAR
+
+Read a single non-whitespace character from stdin.
+
+- Syntax: `READCHAR <reg>`
+- Encoding: opcode, 1 byte register.
+- Behavior: Skips leading whitespace, reads one character, stores its ASCII code in the register. On EOF, stores `0`.
+
+## Registers and stack
+
+### MOVI
+
+Move an immediate integer value into a register.
+
+- Syntax: `MOVI <dst>, <value>`
+- Encoding: opcode, 1 byte dst, 4-byte signed immediate.
+
+### MOV
+
+Copy one register into another.
+
+- Syntax: `MOV <dst>, <src>`
+- Encoding: opcode, 1 byte dst, 1 byte src.
+
+### PUSH
+
+Push a register value onto the operand stack.
+
+- Syntax: `PUSH <reg>`
+- Encoding: opcode, 1 byte register.
+
+### PUSHI
+
+Push a signed immediate value onto the operand stack.
+
+- Syntax: `PUSHI <value>`
+- Encoding: opcode, 4-byte signed immediate.
+
+### POP
+
+Pop the top of the operand stack into a register.
+
+- Syntax: `POP <reg>`
+- Encoding: opcode, 1 byte register.
+
+### CMP
+
+Compare two registers and set flags.
+
+- Syntax: `CMP <reg1>, <reg2>`
+- Encoding: opcode, 1 byte reg1, 1 byte reg2.
+- Behavior: Computes `reg1 - reg2` and sets ZF, SF, CF, OF, AF, PF accordingly.
+
+## Arithmetic
+
+### ADD / SUB / MUL / DIV / MOD
+
+Binary arithmetic on registers.
+
+- Syntax: `<OP> <dst>, <src>`
+- Encoding: opcode, 1 byte dst, 1 byte src.
+- Behavior: `dst = dst OP src`. Division by zero raises a fault.
+
+### INC / DEC
+
+Increment or decrement a register by one.
+
+- Syntax: `INC <reg>` / `DEC <reg>`
+- Encoding: opcode, 1 byte register.
+
+## Bitwise
+
+### NOT
+
+Bitwise NOT (flips all bits).
+
+- Syntax: `NOT <reg>`
+- Encoding: opcode, 1 byte register.
+
+### AND / OR / XOR
+
+Bitwise binary operations.
+
+- Syntax: `<OP> <dst>, <src>`
+- Encoding: opcode, 1 byte dst, 1 byte src.
+- Behavior: `dst = dst OP src`.
+
+### SHL / SHR
+
+Register-count bitwise shift.
+
+- Syntax: `SHL <dst>, <src>` / `SHR <dst>, <src>`
+- Encoding: opcode, 1 byte dst, 1 byte src.
+- Behavior: Shifts `dst` left or right by the value in `src`. SHR preserves sign for negative values.
+
+### SHLI / SHRI
+
+Immediate-count bitwise shift.
+
+- Syntax: `SHLI <reg>, <shift>` / `SHRI <reg>, <shift>`
+- Encoding: opcode, 1 byte register, 8-byte unsigned shift count.
+- Behavior: Shifts the register by the encoded immediate count. SHRI preserves sign for negative values.
+
+## Control flow
+
+### JMP
+
+Unconditional jump using a register, label, or immediate address.
+
+- Syntax: `JMP <reg> | <label> | <u32>`
+- Encoding: register form uses opcode `JMP` + 1 byte register. Label/immediate forms are encoded as opcode `JMPI` + 4-byte address.
+- Behavior: Jumps to the resolved target address.
+
+### JE / JNE
+
+Conditional jump on zero flag.
+
+- Syntax: `JE <label>` / `JNE <label>`
+- Encoding: opcode, 4-byte address.
+- Behavior: JE jumps if ZF=1 (last CMP was equal). JNE jumps if ZF=0.
+
+### JL / JGE
+
+Conditional jump on signed comparison.
+
+- Syntax: `JL <label>` / `JGE <label>`
+- Encoding: opcode, 4-byte address.
+- Behavior (after `CMP reg1, reg2`): JL jumps if SF != OF (reg1 < reg2 signed). JGE jumps if SF == OF.
+
+### JB / JAE
+
+Conditional jump on unsigned comparison.
+
+- Syntax: `JB <label>` / `JAE <label>`
+- Encoding: opcode, 4-byte address.
+- Behavior (after `CMP reg1, reg2`): JB jumps if CF=1 (reg1 < reg2 unsigned). JAE jumps if CF=0.
+
+### CALL
+
+Call a subroutine.
+
+- Syntax: `CALL <label>`
+- Encoding: opcode, 4-byte address, 4-byte frame size.
+- Behavior: Pushes the return address onto the call stack. Allocates `frame_size` slots in the local variable region for
+  the callee. Jumps to the label. Frame size is taken from the `FRAME` directive at the label unless overridden.
+
+### RET
+
+Return from a subroutine.
+
+- Syntax: `RET`
+- Encoding: opcode only.
+- Behavior: Pops the return address, releases the callee frame, resumes execution at the return address.
+
+### HALT
+
+Stop program execution.
+
+- Syntax: `HALT` / `HALT OK` / `HALT BAD` / `HALT <n>`
+- Encoding: opcode, 1 byte exit code.
+- Behavior: `OK` = exit code 0. `BAD` = exit code 1. Numeric form uses the given value.
+
+## Memory
+
+### LOADVAR / STOREVAR
+
+Access frame-local variable slots (relative to the current call frame).
+
+- Syntax: `LOADVAR <dst>, <slot>` / `STOREVAR <src>, <slot>`
+- Encoding: opcode, 1 byte register, 4-byte slot index.
+
+### LOADVAR_REG / STOREVAR_REG
+
+Frame-local access with register-indexed slot.
+
+- Syntax: `LOADVAR_REG <dst>, <idx_reg>` / `STOREVAR_REG <src>, <idx_reg>`
+- Encoding: opcode, 1 byte register, 1 byte index register.
+
+### LOADGLOBAL / STOREGLOBAL
+
+Access the global variable segment (allocated by `%globals`).
+
+- Syntax: `LOADGLOBAL <dst>, <slot>` / `STOREGLOBAL <src>, <slot>`
+- Encoding: opcode, 1 byte register, 4-byte slot index.
+- Behavior: Global slots are shared across all call frames and persist for the lifetime of the program.
+
+### LOADREF / STOREREF
+
+Access a variable slot in the caller's frame (for reference parameters).
+
+- Syntax: `LOADREF <dst>, <src_reg>` / `STOREREF <dst_reg>, <src>`
+- Encoding: opcode, 1 byte dst, 1 byte src.
+- Behavior: The slot index is taken from a register. Accesses the frame one level up the call stack.
+
+### LOADSTR
+
+Load a string handle into a register.
+
+- Syntax: `LOADSTR $<name>, <reg>`
+- Encoding: opcode, 1 byte register, 4-byte string index.
+- Behavior: Loads the index of the named string from the string table into the register. Use `PRINTSTR` to print it.
+
+### LOAD / STORE
+
+Access the raw operand stack by absolute index.
+
+- Syntax: `LOAD <reg>, <index>` / `STORE <reg>, <index>`
+- Encoding: opcode, 1 byte register, 4-byte index.
+- Behavior: Reads or writes a 64-bit slot in the operand stack by absolute position. Index must be within current stack
+  capacity.
+
+### LOAD_REG / STORE_REG
+
+Operand stack access with register-indexed address.
+
+- Syntax: `LOAD_REG <reg>, <idx_reg>` / `STORE_REG <reg>, <idx_reg>`
+- Encoding: opcode, 1 byte register, 1 byte index register.
+
+### ALLOC
+
+Ensure operand stack capacity.
+
+- Syntax: `ALLOC <n>`
+- Encoding: opcode, 4-byte unsigned count.
+- Behavior: If `n` exceeds current capacity, the stack is resized to exactly `n` slots. No-op otherwise.
+- Privilege: PRIVILEGED only.
+
+### GROW
+
+Increase operand stack capacity by additional slots.
+
+- Syntax: `GROW <n>`
+- Encoding: opcode, 4-byte unsigned count.
+- Behavior: Increases capacity by `n`. No-op if `n` is zero.
+- Privilege: PRIVILEGED only.
+
+### RESIZE
+
+Set operand stack capacity to an exact size.
+
+- Syntax: `RESIZE <n>`
+- Encoding: opcode, 4-byte unsigned count.
+- Behavior: Resizes the stack to exactly `n` slots.
+- Privilege: PRIVILEGED only.
+
+### FREE
+
+Reduce operand stack capacity.
+
+- Syntax: `FREE <n>`
+- Encoding: opcode, 4-byte unsigned count.
+- Behavior: Decreases capacity by `n`. Error if `n` exceeds current capacity.
+- Privilege: PRIVILEGED only.
+
+## File I/O
+
+### FOPEN
+
+Open a file into a file descriptor slot.
+
+- Syntax: `FOPEN <mode>, F<fd>, "<filename>"`
+- Encoding: opcode, 1 byte mode, 1 byte fd, 4-byte filename length, then filename bytes.
+- Modes: `r` = read, `w` = write (truncate), `a` = append.
+- Privilege: PRIVILEGED only.
+
+### FCLOSE
+
+Close an open file descriptor.
+
+- Syntax: `FCLOSE F<fd>`
+- Encoding: opcode, 1 byte fd.
+- Privilege: PRIVILEGED only.
+
+### FREAD
+
+Read one byte from a file descriptor into a register.
+
+- Syntax: `FREAD F<fd>, <reg>`
+- Encoding: opcode, 1 byte fd, 1 byte register.
+- Behavior: Reads one byte. Stores -1 on EOF.
+
+### FWRITE
+
+Write a register value as a byte to a file descriptor.
+
+- Syntax: `FWRITE F<fd>, <reg>`
+- Encoding (register form): opcode, 1 byte fd, 1 byte register.
+- Encoding (immediate form): opcode, 1 byte fd, 4-byte immediate.
+
+### FSEEK
+
+Seek the file position of a file descriptor.
+
+- Syntax: `FSEEK F<fd>, <reg>` / `FSEEK F<fd>, <imm>`
+- Encoding (register): opcode, 1 byte fd, 1 byte register.
+- Encoding (immediate): opcode, 1 byte fd, 4-byte signed offset.
+- Behavior: Sets the file position from the beginning of the file.
+
+## System
+
+### EXEC
+
+Execute a system command.
+
+- Syntax: `EXEC "<command>", <reg>`
+- Encoding: opcode, 1 byte dest register, 4-byte command length, then command bytes.
+- Behavior: Runs the command via the system shell. Stores the exit code in the register.
+- Privilege: PRIVILEGED only.
+
+### SLEEP
+
+Sleep for a number of milliseconds.
+
+- Syntax: `SLEEP <ms>` / `SLEEP <reg>`
+- Encoding (immediate): opcode, 4-byte unsigned milliseconds.
+- Encoding (register): opcode, 1 byte register.
+
+### RAND
+
+Generate a random number.
+
+- Syntax: `RAND <reg>` / `RAND <reg>, <min>, <max>`
+- Encoding: opcode, 1 byte register, 8-byte signed min (i64), 8-byte signed max (i64).
+- Behavior: Generates a random 64-bit integer. If min and max are provided, result is in [min, max].
+
+### GETKEY
+
+Non-blocking keyboard check.
+
+- Syntax: `GETKEY <reg>`
+- Encoding: opcode, 1 byte register.
+- Behavior: If a key is available, stores its ASCII code in the register. Otherwise stores -1. Does not block.
+
+### CLRSCR
+
+Clear the console screen.
+
+- Syntax: `CLRSCR`
+- Encoding: opcode only.
+
+### GETARGC
+
+Get the number of command-line arguments.
+
+- Syntax: `GETARGC <reg>`
+- Encoding: opcode, 1 byte register.
+
+### GETARG
+
+Get a command-line argument as a string handle.
+
+- Syntax: `GETARG <reg>, <index>`
+- Encoding: opcode, 1 byte register, 4-byte unsigned index.
+- Behavior: Stores a runtime string handle for the argument at the given index.
+
+### GETENV
+
+Get an environment variable as a string handle.
+
+- Syntax: `GETENV <reg>, "<varname>"` (bare name without quotes is also accepted by the assembler)
+- Encoding: opcode, 1 byte register, 4-byte name length, then name bytes.
+- Behavior: Stores a runtime string handle for the variable's value. Raises a fault if the variable does not exist.
+
+### CONTINUE
+
+No operation.
+
+- Syntax: `CONTINUE`
+- Encoding: opcode only.
+
+## Privilege
+
+### REGSYSCALL
+
+Register a syscall handler.
+
+- Syntax: `REGSYSCALL <id>, <label>`
+- Encoding: opcode, 1 byte id, 4-byte address.
+- Behavior: Registers the label as the handler for syscall `id`. Up to 256 handlers (ids 0-255).
+- Privilege: PRIVILEGED only.
+
+### SYSCALL
+
+Invoke a registered syscall handler from protected code.
+
+- Syntax: `SYSCALL <id>`
+- Encoding: opcode, 1 byte id.
+- Behavior: Saves the return address, elevates to PRIVILEGED, jumps to the registered handler. The handler returns with
+  `SYSRET`.
+- Privilege: PROTECTED only.
+
+### SYSRET
+
+Return from a syscall handler.
+
+- Syntax: `SYSRET`
+- Encoding: opcode only.
+- Behavior: Drops back to PROTECTED and resumes after the `SYSCALL` instruction.
+- Privilege: PRIVILEGED only.
+
+### DROPPRIV
+
+Drop to PROTECTED mode permanently (until a syscall).
+
+- Syntax: `DROPPRIV`
+- Encoding: opcode only.
+- Behavior: Switches from PRIVILEGED to PROTECTED. The only way back is through a registered syscall handler.
+- Privilege: PRIVILEGED only.
+
+### GETMODE
+
+Get the current privilege mode.
+
+- Syntax: `GETMODE <reg>`
+- Encoding: opcode, 1 byte register.
+- Behavior: Stores 1 in the register if PRIVILEGED, 0 if PROTECTED.
+
+### SETPERM
+
+Set read/write permissions on operand stack slots.
+
+- Syntax: `SETPERM <start>, <count>, <priv_perms>/<prot_perms>`
+- Encoding: opcode, 4-byte start, 4-byte count, 1 byte priv_read, 1 byte priv_write, 1 byte prot_read, 1 byte
+  prot_write.
+- Behavior: Sets permissions for `count` slots starting at `start`. Permissions are specified as `RW/RW` (
+  privileged/protected), e.g. `RW/R` means privileged can read and write, protected can only read.
+- Privilege: PRIVILEGED only.
+
+### REGFAULT
+
+Register a fault handler.
+
+- Syntax: `REGFAULT <id>, <label>`
+- Encoding: opcode, 1 byte id, 4-byte address.
+- Behavior: When a fault with the given id occurs, the VM elevates to PRIVILEGED and jumps to the handler. Up to the
+  number of defined fault types are supported.
+- Privilege: PRIVILEGED only.
+
+### FAULTRET
+
+Return from a fault handler.
+
+- Syntax: `FAULTRET`
+- Encoding: opcode only.
+- Behavior: Drops back to PROTECTED and resumes after the instruction that raised the fault.
+- Privilege: PRIVILEGED only.
+
+### GETFAULT
+
+Get the id of the current fault being handled.
+
+- Syntax: `GETFAULT <reg>`
+- Encoding: opcode, 1 byte register.
+- Behavior: Stores the current fault id in the register (`FaultType::Count` when no fault is active).
+
+## Debug
+
+### BREAK
+
+Trigger a debugger breakpoint.
+
+- Syntax: `BREAK`
+- Encoding: opcode only.
+- Behavior: If a debugger is attached, pauses execution and drops into the debug REPL. Otherwise no-op.
+
+### DUMPREGS
+
+Print all register values.
+
+- Syntax: `DUMPREGS`
+- Encoding: opcode only.
+- Behavior: Prints all register values to stdout.

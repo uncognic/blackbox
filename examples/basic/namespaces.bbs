@@ -1,10 +1,18 @@
 NAMESPACE namespace
+    GLOBAL VAR x = 67
 	FUNC print: STR msg
 		PRINT msg
 	ENDFUNC
+
+	FUNC print_x:
+        PRINT "The value of x is: ", x
+    ENDFUNC
 ENDNAMESPACE
 
 @ENTRY
 
 // This should print Hello, World!
 CALL namespace.print("Hello, World!")
+PRINT "Accessing X externally: ", namespace.x
+CALL namespace.print_x()
+HALT OK

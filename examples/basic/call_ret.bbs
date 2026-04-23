@@ -1,5 +1,6 @@
 @ENTRY
 CALL program
+PRINT "Success"
 HALT OK
 
 LABEL program

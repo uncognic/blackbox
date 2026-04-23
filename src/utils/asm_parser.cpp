@@ -59,7 +59,7 @@ static size_t quoted_payload_size_or(const std::string& line, size_t fallback) {
         return fallback;
     }
     size_t len = second - (first + 1);
-    return len > 255 ? 255 : len;
+    return len;
 }
 
 static std::string operand_after_opcode(const std::string& line, size_t op_len) {
@@ -108,12 +108,14 @@ size_t instr_size(const char* line) {
     } else if (starts_with_ci(line, "PRINT")) {
         return 2;
     } else if (starts_with_ci(line, "WRITE")) {
-        return 3 + quoted_payload_size_or(line_sv, 0);
+        return 6 + quoted_payload_size_or(line_sv, 0);
     } else if (starts_with_ci(line, "EXEC")) {
-        return 3 + quoted_payload_size_or(line_sv, 0);
-    } else if (starts_with_ci(line, "JMPI")) {
-        return 5;
+        return 6 + quoted_payload_size_or(line_sv, 0);
     } else if (starts_with_ci(line, "JMP")) {
+        std::string operand = operand_after_opcode(line_sv, 3);
+        if (!operand.empty() && ascii_upper(static_cast<unsigned char>(operand[0])) == 'R') {
+            return 2;
+        }
         return 5;
     } else if (starts_with_ci(line, "ALLOC")) {
         return 5;
@@ -184,7 +186,7 @@ size_t instr_size(const char* line) {
     } else if (starts_with_ci(line, "MOD")) {
         return 3;
     } else if (starts_with_ci(line, "FOPEN")) {
-        return 4 + quoted_payload_size_or(line_sv, 0);
+        return 7 + quoted_payload_size_or(line_sv, 0);
     } else if (starts_with_ci(line, "FCLOSE")) {
         return 2;
     } else if (starts_with_ci(line, "FREAD")) {
@@ -320,10 +322,7 @@ size_t instr_size(const char* line) {
                 len++;
             }
         }
-        if (len > 255) {
-            len = 255;
-        }
-        return 3 + len;
+        return 6 + len;
     } else if (starts_with_ci(line, "LOADREF")) {
         return 3;
     } else if (starts_with_ci(line, "STOREREF")) {

@@ -1,14 +1,17 @@
 #pragma once
 
-#include "../define.hpp"
-#include <cstdio>
+#include "../blackboxc/asm_util.hpp"
+#include <string>
+#include <vector>
 
-namespace blackbox {
-namespace tools {
+namespace blackbox::tools {
 
-Macro* find_macro(Macro* macros, size_t macro_count, const char* name);
-int expand_invocation(const char* invocation_line, FILE* dest, int depth, Macro* macros,
-                      size_t macro_count, unsigned long* expand_id);
+// expands a single macro invocation line into output lines
+bool expand_invocation(
+    std::string_view                              line,
+    const std::vector<bbxc::asm_helpers::Macro>& macros,
+    std::vector<std::string>&                     out,
+    unsigned long&                                expand_id,
+    int                                           depth = 0);
 
-} // namespace tools
-} // namespace blackbox
+} // namespace blackbox::tools

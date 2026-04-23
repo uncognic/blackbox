@@ -125,14 +125,6 @@ const char* opcode_name(uint8_t op) {
             return "CALL";
         case Opcode::RET:
             return "RET";
-        case Opcode::LOADBYTE:
-            return "LOADBYTE";
-        case Opcode::LOADWORD:
-            return "LOADWORD";
-        case Opcode::LOADDWORD:
-            return "LOADDWORD";
-        case Opcode::LOADQWORD:
-            return "LOADQWORD";
         case Opcode::MOD:
             return "MOD";
         case Opcode::JMPI:
