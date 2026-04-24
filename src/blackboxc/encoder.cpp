@@ -4,7 +4,6 @@
 
 #include "encoder.hpp"
 #include "../define.hpp"
-#include <algorithm>
 #include <charconv>
 #include <format>
 #include <limits>

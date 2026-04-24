@@ -1,6 +1,6 @@
 #include "assembler.hpp"
 #include "basic/basic.hpp"
-#include "utils/string_utils.hpp"
+#include "../utils/string_utils.hpp"
 #include <filesystem>
 #include <fstream>
 #include <print>

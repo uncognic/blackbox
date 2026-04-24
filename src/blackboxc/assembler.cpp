@@ -3,11 +3,11 @@
 //
 
 #include "assembler.hpp"
-#include "define.hpp"
+#include "../define.hpp"
 #include "encoder.hpp"
-#include "utils/macro_expansion.hpp"
-#include "utils/preprocessor.hpp"
-#include "utils/string_utils.hpp"
+#include "../utils/macro_expansion.hpp"
+#include "../utils/preprocessor.hpp"
+#include "../utils/string_utils.hpp"
 #include <format>
 #include <fstream>
 #include <print>
