@@ -61,17 +61,11 @@ jobs:
           }
         }
 
-    - name: Delete old continuous release
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      shell: bash
-      run: gh release delete continuous --yes --cleanup-tag || true
-
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: continuous
-        name: Continuous build
+        tag_name: build-${{ github.run_id }}
+        name: Continuous build (${{ github.run_id }})
         body: |
           Built from ${{ github.sha }}
           ${{ github.event.head_commit.message }}
