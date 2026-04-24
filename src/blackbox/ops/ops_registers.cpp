@@ -6,18 +6,6 @@
 #include "../vm.hpp"
 #include <format>
 
-void VM::op_movi() {
-    size_t  dst = fetch_reg();
-    int32_t val = fetch_i32();
-    regs[dst]   = val;
-}
-
-void VM::op_mov_reg() {
-    size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    regs[dst]  = regs[src];
-}
-
 void VM::op_push_reg() {
     size_t reg = fetch_reg();
     operand_push(regs[reg]);

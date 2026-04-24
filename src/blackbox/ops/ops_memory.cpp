@@ -6,53 +6,12 @@
 #include "../vm.hpp"
 #include <format>
 
-void VM::op_loadvar() {
-    size_t reg = fetch_reg();
-    uint32_t slot = fetch_u32();
-    regs[reg] = var(slot);
-}
-
-void VM::op_storevar() {
-    size_t reg = fetch_reg();
-    uint32_t slot = fetch_u32();
-    var(slot) = regs[reg];
-}
-
-void VM::op_loadvar_reg() {
-    size_t reg = fetch_reg();
-    size_t idx_reg = fetch_reg();
-    if (regs[idx_reg] < 0) {
-        hard_fault(FaultType::OutOfBounds, std::format("LOADVAR_REG negative slot at pc={}", pc));
-    }
-    regs[reg] = var(static_cast<uint32_t>(regs[idx_reg]));
-}
-
-void VM::op_storevar_reg() {
-    size_t reg = fetch_reg();
-    size_t idx_reg = fetch_reg();
-    if (regs[idx_reg] < 0) {
-        hard_fault(FaultType::OutOfBounds, std::format("STOREVAR_REG negative slot at pc={}", pc));
-    }
-    var(static_cast<uint32_t>(regs[idx_reg])) = regs[reg];
-}
-
-void VM::op_loadglobal() {
-    size_t reg = fetch_reg();
-    uint32_t slot = fetch_u32();
-    regs[reg] = global_var(slot);
-}
-
-void VM::op_storeglobal() {
-    size_t reg = fetch_reg();
-    uint32_t slot = fetch_u32();
-    global_var(slot) = regs[reg];
-}
-
 void VM::op_loadref() {
     size_t dst = fetch_reg();
     size_t src = fetch_reg();
     if (call_stack.size() < 2) {
-        hard_fault(FaultType::OutOfBounds, std::format("LOADREF requires a caller frame at pc={}", pc));
+        hard_fault(FaultType::OutOfBounds,
+                   std::format("LOADREF requires a caller frame at pc={}", pc));
     }
     if (regs[src] < 0) {
         hard_fault(FaultType::OutOfBounds, std::format("LOADREF negative slot at pc={}", pc));
@@ -60,7 +19,8 @@ void VM::op_loadref() {
     size_t caller_base = call_stack[call_stack.size() - 2].frame_base;
     size_t abs = caller_base + static_cast<size_t>(regs[src]);
     if (abs >= mem_top) {
-        hard_fault(FaultType::OutOfBounds, std::format("LOADREF slot {} out of bounds at pc={}", abs, pc));
+        hard_fault(FaultType::OutOfBounds,
+                   std::format("LOADREF slot {} out of bounds at pc={}", abs, pc));
     }
     regs[dst] = mem[abs];
 }
@@ -69,7 +29,8 @@ void VM::op_storeref() {
     size_t dst = fetch_reg();
     size_t src = fetch_reg();
     if (call_stack.size() < 2) {
-        hard_fault(FaultType::OutOfBounds, std::format("STOREREF requires a caller frame at pc={}", pc));
+        hard_fault(FaultType::OutOfBounds,
+                   std::format("STOREREF requires a caller frame at pc={}", pc));
     }
     if (regs[dst] < 0) {
         hard_fault(FaultType::OutOfBounds, std::format("STOREREF negative slot at pc={}", pc));
@@ -77,7 +38,8 @@ void VM::op_storeref() {
     size_t caller_base = call_stack[call_stack.size() - 2].frame_base;
     size_t abs = caller_base + static_cast<size_t>(regs[dst]);
     if (abs >= mem_top) {
-        hard_fault(FaultType::OutOfBounds, std::format("STOREREF slot {} out of bounds at pc={}", abs, pc));
+        hard_fault(FaultType::OutOfBounds,
+                   std::format("STOREREF slot {} out of bounds at pc={}", abs, pc));
     }
     mem[abs] = regs[src];
 }
@@ -86,7 +48,8 @@ void VM::op_load() {
     size_t reg = fetch_reg();
     uint32_t addr = fetch_u32();
     if (addr >= op_stack.size()) {
-        hard_fault(FaultType::OutOfBounds, std::format("LOAD address {} out of bounds at pc={}", addr, pc));
+        hard_fault(FaultType::OutOfBounds,
+                   std::format("LOAD address {} out of bounds at pc={}", addr, pc));
     }
     if (cur_mode == Mode::Privileged && !op_stack_perms[addr].priv_read) {
         raise_fault(FaultType::PermRead,
@@ -104,7 +67,8 @@ void VM::op_store() {
     uint32_t addr = fetch_u32();
     if (addr >= op_stack.size()) {
         hard_fault(FaultType::OutOfBounds,
-                   std::format("STORE address {} out of bounds at pc={} (try ALLOCing more stack)", addr, pc));
+                   std::format("STORE address {} out of bounds at pc={} (try ALLOCing more stack)",
+                               addr, pc));
     }
     if (cur_mode == Mode::Privileged && !op_stack_perms[addr].priv_write) {
         raise_fault(FaultType::PermWrite,
@@ -176,10 +140,49 @@ void VM::op_free() {
     require_privileged("FREE");
     uint32_t elems = fetch_u32();
     if (elems > op_stack.size()) {
-        hard_fault(FaultType::OutOfBounds, std::format("FREE {} exceeds op_stack size {} at pc={}", elems,
-                                               op_stack.size(), pc));
+        hard_fault(FaultType::OutOfBounds, std::format("FREE {} exceeds op_stack size {} at pc={}",
+                                                       elems, op_stack.size(), pc));
     }
     size_t new_size = op_stack.size() - elems;
     op_stack.resize(new_size);
     op_stack_perms.resize(new_size);
+}
+
+void VM::op_mov() {
+    auto dst_type = static_cast<OperandType>(fetch_u8());
+    size_t dst_reg = 0;
+    uint32_t dst_slot = 0;
+
+    switch (dst_type) {
+        case OperandType::Reg:
+            dst_reg = fetch_reg();
+            break;
+        case OperandType::Bss:
+        case OperandType::Var:
+            dst_slot = fetch_u32();
+            break;
+        default:
+            hard_fault(FaultType::OutOfBounds,
+                       std::format("invalid MOV dst operand type 0x{:02X} at pc={}",
+                                   static_cast<uint8_t>(dst_type), pc));
+    }
+
+    int64_t value = read_operand();
+
+    switch (dst_type) {
+        case OperandType::Reg:
+            regs[dst_reg] = value;
+            break;
+        case OperandType::Bss:
+            global_var(dst_slot) = value;
+            break;
+        case OperandType::Var:
+            var(dst_slot) = value;
+            break;
+
+        default:
+            hard_fault(FaultType::OutOfBounds,
+                       std::format("invalid MOV dst operand type 0x{:02X} at pc={}",
+                                   static_cast<uint8_t>(dst_type), pc));
+    }
 }

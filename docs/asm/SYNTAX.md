@@ -6,16 +6,17 @@ Every assembly file must follow this order:
 ```asm
 %asm
 ; optional: macro definitions
-%globals <n>    ; optional: declare N global variable slots
+%bss
+; optional: named uninitialized global slots
 %data
 ; optional: string constant definitions
-%main
+%entry
 ; code
 ```
 - `%asm` must appear at the top of every file.
 - Macro definitions go in the `%asm` section before any other sections.
-- `%globals N` must appear before `%data` or `%main` if used.
-- `%data` is optional and must come before `%main`/`%entry`.
+- `%bss` declares named global slots, zero-initialized at startup. Must appear before `%data` or `%entry`.
+- `%data` is optional and must come before `%entry`.
 - `%main` and `%entry` are interchangeable.
 
 ## Includes
@@ -42,6 +43,24 @@ MOV R00, $MAX
 
 ## Sections
 
+### %bss
+
+Declares named uninitialized global variable slots. Each name on its own line becomes a slot, assigned indices in order starting from 0.
+
+```asm
+%bss
+    counter
+    total
+    flag
+```
+
+Access with brackets for value, bare name for slot index:
+```asm
+MOV [counter], 42      ; store 42 into counter
+MOV R01, [counter]     ; load counter into R01
+MOV R01, counter       ; load slot index of counter into R01 (address-of)
+```
+
 ### %data
 
 Holds string constant definitions. Only `STR` is allowed here.
@@ -51,52 +70,35 @@ STR $greeting, "Hello, world!"
 STR $prompt, "Enter a number: "
 ```
 
-### %bss
-Holds uninitialized data definitions. 
-```asm
-%asm
-%bss
-    counter
-    something
-
-%macro inc_counter
-    MOV R00, [counter]
-    INC R00
-    MOV [counter], R00
-%endmacro
-
-%entry
-    MOV R0, 67
-    MOV [something], R00
-
-    %inc_counter
-    %inc_counter
-    %inc_counter
-
-    MOV R01, [counter]
-    MOV R02, [something]
-
-    PRINTREG R01
-    PRINTREG R02
-
-    HALT
-
-```
-
 ### %main / %entry
 
 Holds executable instructions and labels. No data definitions allowed here.
+
+## MOV
+
+`MOV` is the universal data movement instruction. The assembler encodes a type byte for each operand into the binary so the VM knows how to interpret each one at runtime.
+
+```asm
+MOV R01, 67          ; register - immediate (i32)
+MOV R01, R02         ; register - register
+MOV R01, [name]      ; register - bss slot value
+MOV [name], R01      ; bss slot - register
+MOV [name], 67       ; bss slot - immediate
+MOV R01, name        ; register - bss slot index (address-of)
+MOV R01, VAR 0       ; register - frame-local slot 0
+MOV VAR 0, R01       ; frame-local slot 0 - register
+```
 
 ## Instructions
 
 One instruction per line. Intel-style syntax with spaces and commas:
 ```asm
 MOV R01, 100
-ADD  R00, R01
-JMP  R05
+ADD R00, R01
+JMP R05
 JMP some_label
 ```
-Instruction names are case-insensitive but it is recommended to use uppercase.
+Instruction names are case-insensitive but uppercase is recommended.
 
 ## Registers
 
@@ -117,11 +119,10 @@ MOV R00, 1
 Referenced without the period or colon:
 ```asm
 JMP my_label
-JE   my_label
+JE  my_label
 ```
 
-`JMP` accepts a register, a label, or a numeric immediate.
-Label/immediate jump forms are encoded as the VM's `JMPI` opcode internally.
+`JMP` accepts a register, a label, or a numeric immediate. Label/immediate forms are encoded as `JMPI` internally.
 
 Label names are case-sensitive.
 
@@ -130,28 +131,11 @@ Label names are case-sensitive.
 After a label that begins a function, declare the number of local variable slots it needs:
 ```asm
 .my_func:
-  FRAME 3
-  ; function body using LOADVAR/STOREVAR slots 0, 1, 2
-  RET
+    FRAME 3
+    ; body using MOV VAR 0, MOV VAR 1, MOV VAR 2
+    RET
 ```
 `FRAME` is assembler-only and emits nothing. The assembler records the frame size and encodes it into `CALL` instructions targeting this label.
-
-## Global variables
-
-Declare the global segment size at the top of the file:
-
-```asm
-%globals 10
-```
-
-Access global slots from any function using `LOADGLOBAL`/`STOREGLOBAL`:
-```asm
-MOV R01, 100   ; load immediate 100 into R01
-STOREGLOBAL R01, 0    ; store R01 into global slot 0
-LOADGLOBAL R02, 0     ; load global slot 0 into R02
-```
-
-Global slots are initialized to zero at program start and shared across all call frames.
 
 ## File descriptors
 
@@ -162,7 +146,7 @@ FWRITE F3, R00
 FCLOSE F3
 ```
 
-Standard streams are also accepted as descriptors: `STDIN`, `STDOUT`, `STDERR`.
+Standard streams: `STDIN`, `STDOUT`, `STDERR`.
 
 ## Macros
 
@@ -185,13 +169,14 @@ Invoked with `%`:
 - Invocation arguments are space or comma separated.
 - Macros can call other macros (max nesting depth: 32).
 - Local labels inside macros use `@@name` to get unique per-expansion names:
+
 ```asm
 %macro ABS reg
   MOV R97, 0
-  CMP  $reg, R97
-  JGE  @@done
+  CMP $reg, R97
+  JGE @@done
   MOV R97, -1
-  MUL  $reg, R97
+  MUL $reg, R97
 .@@done:
 %endmacro
 ```
@@ -202,8 +187,6 @@ The `.` prefix belongs on the label definition only. Jump targets omit it.
 
 - Decimal: `42`
 - Negative: `-1`
-
-Most instruction immediates currently accept decimal integers. Character literals are supported by `PRINT`.
 
 ## Comments
 
@@ -220,7 +203,7 @@ There is no enforced calling convention. The common pattern used by the BASIC co
 - Arguments are pushed onto the operand stack before `CALL`, in order.
 - The callee pops them with `POP`.
 - Return value goes in `R00`.
-- The callee uses `LOADVAR`/`STOREVAR` for local variables within its frame.
+- The callee uses `MOV VAR N` for local variables within its frame.
 
 Example:
 ```asm
@@ -230,16 +213,17 @@ PUSH R01
 MOV R01, 20
 PUSH R01
 CALL add_them
+
 ; callee
 .add_them:
-  FRAME 2
-  POP  R01
-  STOREVAR R01, 0
-  POP  R02
-  STOREVAR R02, 1
-  LOADVAR R01, 0
-  LOADVAR R02, 1
-  ADD  R01, R02
-  MOV  R00, R01
-  RET
+    FRAME 2
+    POP R01
+    MOV VAR 0, R01
+    POP R02
+    MOV VAR 1, R02
+    MOV R01, VAR 0
+    MOV R02, VAR 1
+    ADD R01, R02
+    MOV R00, R01
+    RET
 ```

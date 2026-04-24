@@ -30,8 +30,6 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
     t[opcode_to_byte(Opcode::SHLI)] = &VM::op_shli;
     t[opcode_to_byte(Opcode::SHRI)] = &VM::op_shri;
 
-    t[opcode_to_byte(Opcode::MOVI)] = &VM::op_movi;
-    t[opcode_to_byte(Opcode::MOV_REG)] = &VM::op_mov_reg;
     t[opcode_to_byte(Opcode::PUSH_REG)] = &VM::op_push_reg;
     t[opcode_to_byte(Opcode::PUSHI)] = &VM::op_pushi;
     t[opcode_to_byte(Opcode::POP)] = &VM::op_pop;
@@ -53,12 +51,6 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
     t[opcode_to_byte(Opcode::LOAD_REG)] = &VM::op_load_reg;
     t[opcode_to_byte(Opcode::STORE)] = &VM::op_store;
     t[opcode_to_byte(Opcode::STORE_REG)] = &VM::op_store_reg;
-    t[opcode_to_byte(Opcode::LOADVAR)] = &VM::op_loadvar;
-    t[opcode_to_byte(Opcode::STOREVAR)] = &VM::op_storevar;
-    t[opcode_to_byte(Opcode::LOADVAR_REG)] = &VM::op_loadvar_reg;
-    t[opcode_to_byte(Opcode::STOREVAR_REG)] = &VM::op_storevar_reg;
-    t[opcode_to_byte(Opcode::LOADGLOBAL)] = &VM::op_loadglobal;
-    t[opcode_to_byte(Opcode::STOREGLOBAL)] = &VM::op_storeglobal;
     t[opcode_to_byte(Opcode::LOADREF)] = &VM::op_loadref;
     t[opcode_to_byte(Opcode::STOREREF)] = &VM::op_storeref;
     t[opcode_to_byte(Opcode::ALLOC)] = &VM::op_alloc;
@@ -113,8 +105,46 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
     t[opcode_to_byte(Opcode::DUMPREGS)] = &VM::op_dumpregs;
     t[opcode_to_byte(Opcode::PRINT_STACKSIZE)] = &VM::op_print_stacksize;
 
+    t[opcode_to_byte(Opcode::MOV)] = &VM::op_mov;
+
     return t;
 }();
+
+int64_t VM::read_operand() {
+    auto type = static_cast<OperandType>(fetch_u8());
+    switch (type) {
+        case OperandType::Reg:
+            return regs[fetch_reg()];
+        case OperandType::Imm:
+            return static_cast<int64_t>(fetch_i32());
+        case OperandType::Imm64:
+            return fetch_i64();
+        case OperandType::Bss: {
+            uint32_t slot = fetch_u32();
+            return global_var(slot);
+        }
+        case OperandType::BssRef: {
+            uint32_t slot = fetch_u32();
+            return static_cast<int64_t>(slot);
+        }
+        case OperandType::Var: {
+            uint32_t slot = fetch_u32();
+            return var(slot);
+        }
+        case OperandType::Data: {
+            uint32_t idx = fetch_u32();
+            if (idx >= prog.data_string_handles.size()) {
+                hard_fault(FaultType::OutOfBounds,
+                           std::format("DATA index {} out of bounds at pc={}", idx, pc));
+            }
+            return static_cast<int64_t>(prog.data_string_handles[idx]);
+        }
+        default:
+            hard_fault(FaultType::OutOfBounds, std::format("unknown operand type 0x{:02X} at pc={}",
+                                                           static_cast<uint8_t>(type), pc));
+    }
+}
+
 
 VM::VM(Program program, int argc, char** argv)
     : prog(std::move(program)), host_argc(argc), host_argv(argv) {
@@ -132,7 +162,8 @@ VM::VM(Program program, int argc, char** argv)
 }
 
 int VM::run() {
-    while (step()) {}
+    while (step()) {
+    }
     return exit_code;
 }
 
@@ -312,9 +343,9 @@ bool VM::step() {
             fault_return_pc = pc;
             cur_mode = Mode::Privileged;
             pc = fault_table[fault_idx];
-        }
-        else {
-            std::println(stderr, "FAULT [{}] at pc={}: {}", fault_name(f.type), f.program_counter, f.name);
+        } else {
+            std::println(stderr, "FAULT [{}] at pc={}: {}", fault_name(f.type), f.program_counter,
+                         f.name);
             halted = true;
             exit_code = 1;
         }

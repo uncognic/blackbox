@@ -5,16 +5,8 @@
 
 const char* opcode_name(uint8_t op) {
     switch (opcode_from_byte(op)) {
-        case Opcode::WRITE:
-            return "WRITE";
-        case Opcode::NEWLINE:
-            return "NEWLINE";
-        case Opcode::PRINT:
-            return "PRINT";
-        case Opcode::PUSHI:
-            return "PUSH_IMM";
-        case Opcode::POP:
-            return "POP";
+        case Opcode::MOV:
+            return "MOV";
         case Opcode::ADD:
             return "ADD";
         case Opcode::SUB:
@@ -23,52 +15,104 @@ const char* opcode_name(uint8_t op) {
             return "MUL";
         case Opcode::DIV:
             return "DIV";
-        case Opcode::PRINTREG:
-            return "PRINTREG";
-        case Opcode::MOVI:
-            return "MOVI";
-        case Opcode::MOV_REG:
-            return "MOV_REG";
-        case Opcode::JMP:
-            return "JMP";
-        case Opcode::JE:
-            return "JE";
-        case Opcode::JNE:
-            return "JNE";
+        case Opcode::MOD:
+            return "MOD";
         case Opcode::INC:
             return "INC";
         case Opcode::DEC:
             return "DEC";
-        case Opcode::PUSH_REG:
-            return "PUSH_REG";
+        case Opcode::AND:
+            return "AND";
+        case Opcode::OR:
+            return "OR";
+        case Opcode::XOR:
+            return "XOR";
+        case Opcode::NOT:
+            return "NOT";
+        case Opcode::SHL:
+            return "SHL";
+        case Opcode::SHR:
+            return "SHR";
+        case Opcode::SHLI:
+            return "SHLI";
+        case Opcode::SHRI:
+            return "SHRI";
         case Opcode::CMP:
             return "CMP";
-        case Opcode::ALLOC:
-            return "ALLOC";
+        case Opcode::PUSH_REG:
+            return "PUSH_REG";
+        case Opcode::PUSHI:
+            return "PUSHI";
+        case Opcode::POP:
+            return "POP";
+        case Opcode::JMP:
+            return "JMP";
+        case Opcode::JMPI:
+            return "JMPI";
+        case Opcode::JE:
+            return "JE";
+        case Opcode::JNE:
+            return "JNE";
+        case Opcode::JL:
+            return "JL";
+        case Opcode::JGE:
+            return "JGE";
+        case Opcode::JB:
+            return "JB";
+        case Opcode::JAE:
+            return "JAE";
+        case Opcode::CALL:
+            return "CALL";
+        case Opcode::RET:
+            return "RET";
+        case Opcode::HALT:
+            return "HALT";
         case Opcode::LOAD:
             return "LOAD";
-        case Opcode::STORE:
-            return "STORE";
         case Opcode::LOAD_REG:
             return "LOAD_REG";
+        case Opcode::STORE:
+            return "STORE";
         case Opcode::STORE_REG:
             return "STORE_REG";
-        case Opcode::LOADVAR:
-            return "LOADVAR";
-        case Opcode::STOREVAR:
-            return "STOREVAR";
-        case Opcode::LOADVAR_REG:
-            return "LOADVAR_REG";
-        case Opcode::STOREVAR_REG:
-            return "STOREVAR_REG";
+        case Opcode::LOADREF:
+            return "LOADREF";
+        case Opcode::STOREREF:
+            return "STOREREF";
+        case Opcode::LOADSTR:
+            return "LOADSTR";
+        case Opcode::ALLOC:
+            return "ALLOC";
         case Opcode::GROW:
             return "GROW";
-        case Opcode::PRINT_STACKSIZE:
-            return "PRINT_STACKSIZE";
         case Opcode::RESIZE:
             return "RESIZE";
         case Opcode::FREE:
             return "FREE";
+        case Opcode::WRITE:
+            return "WRITE";
+        case Opcode::PRINT:
+            return "PRINT";
+        case Opcode::NEWLINE:
+            return "NEWLINE";
+        case Opcode::PRINTREG:
+            return "PRINTREG";
+        case Opcode::EPRINTREG:
+            return "EPRINTREG";
+        case Opcode::PRINTSTR:
+            return "PRINTSTR";
+        case Opcode::EPRINTSTR:
+            return "EPRINTSTR";
+        case Opcode::PRINTCHAR:
+            return "PRINTCHAR";
+        case Opcode::EPRINTCHAR:
+            return "EPRINTCHAR";
+        case Opcode::READ:
+            return "READ";
+        case Opcode::READSTR:
+            return "READSTR";
+        case Opcode::READCHAR:
+            return "READCHAR";
         case Opcode::FOPEN:
             return "FOPEN";
         case Opcode::FCLOSE:
@@ -83,54 +127,24 @@ const char* opcode_name(uint8_t op) {
             return "FSEEK_REG";
         case Opcode::FSEEK_IMM:
             return "FSEEK_IMM";
-        case Opcode::LOADSTR:
-            return "LOADSTR";
-        case Opcode::PRINTSTR:
-            return "PRINTSTR";
-        case Opcode::XOR:
-            return "XOR";
-        case Opcode::AND:
-            return "AND";
-        case Opcode::OR:
-            return "OR";
-        case Opcode::NOT:
-            return "NOT";
-        case Opcode::READSTR:
-            return "READSTR";
-        case Opcode::READ:
-            return "READ";
+        case Opcode::EXEC:
+            return "EXEC";
         case Opcode::SLEEP:
             return "SLEEP";
         case Opcode::SLEEP_REG:
             return "SLEEP_REG";
-        case Opcode::CLRSCR:
-            return "CLRSCR";
         case Opcode::RAND:
             return "RAND";
         case Opcode::GETKEY:
             return "GETKEY";
-        case Opcode::CONTINUE:
-            return "CONTINUE";
-        case Opcode::READCHAR:
-            return "READCHAR";
-        case Opcode::JL:
-            return "JL";
-        case Opcode::JGE:
-            return "JGE";
-        case Opcode::JB:
-            return "JB";
-        case Opcode::JAE:
-            return "JAE";
-        case Opcode::CALL:
-            return "CALL";
-        case Opcode::RET:
-            return "RET";
-        case Opcode::MOD:
-            return "MOD";
-        case Opcode::JMPI:
-            return "JMPI";
-        case Opcode::EXEC:
-            return "EXEC";
+        case Opcode::CLRSCR:
+            return "CLRSCR";
+        case Opcode::GETARG:
+            return "GETARG";
+        case Opcode::GETARGC:
+            return "GETARGC";
+        case Opcode::GETENV:
+            return "GETENV";
         case Opcode::SYSCALL:
             return "SYSCALL";
         case Opcode::SYSRET:
@@ -149,43 +163,18 @@ const char* opcode_name(uint8_t op) {
             return "FAULTRET";
         case Opcode::GETFAULT:
             return "GETFAULT";
-        case Opcode::DUMPREGS:
-            return "DUMPREGS";
-        case Opcode::PRINTCHAR:
-            return "PRINTCHAR";
-        case Opcode::EPRINTREG:
-            return "EPRINTREG";
-        case Opcode::EPRINTSTR:
-            return "EPRINTSTR";
-        case Opcode::EPRINTCHAR:
-            return "EPRINTCHAR";
-        case Opcode::SHLI:
-            return "SHLI";
-        case Opcode::SHRI:
-            return "SHRI";
-        case Opcode::SHR:
-            return "SHR";
-        case Opcode::SHL:
-            return "SHL";
-        case Opcode::GETARG:
-            return "GETARG";
-        case Opcode::GETARGC:
-            return "GETARGC";
-        case Opcode::GETENV:
-            return "GETENV";
         case Opcode::BREAK:
             return "BREAK";
-        case Opcode::HALT:
-            return "HALT";
-        case Opcode::LOADREF:
-            return "LOADREF";
-        case Opcode::STOREREF:
-            return "STOREREF";
+        case Opcode::CONTINUE:
+            return "CONTINUE";
+        case Opcode::DUMPREGS:
+            return "DUMPREGS";
+        case Opcode::PRINT_STACKSIZE:
+            return "PRINT_STACKSIZE";
         default:
             return "UNKNOWN";
     }
 }
-
 void print_regs(const int64_t* regs, int count) {
     if (count <= 0) {
         count = 16;

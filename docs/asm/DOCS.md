@@ -1,21 +1,49 @@
 # Blackbox Assembly Documentation
+
 ## Info
 - Syntax is Intel-assembly like: instructions use spaces and commas (e.g. `MOV R01, 42`).
 - Labels start with a period and end with a colon (`.label:`), and are referenced without the period (`JMP label`). `JMP` accepts registers, labels, and numeric immediates (label/immediate forms are encoded as `JMPI`).
 - All files must start with `%asm`.
 - All files must have a `%main` or `%entry` section for the program entry point.
-- Data definitions must be in the `%data` section, before the entry point.
-- Macro definitions must be in the `%asm` section
-- Registers: `R00`-`R98` (99 total). 
+- Data definitions (string constants) must be in the `%data` section, before the entry point.
+- Uninitialized global variable slots are declared in the `%bss` section, before `%data` or `%entry`.
+- Macro definitions must be in the `%asm` section.
+- Registers: `R00`-`R98` (99 total).
 - The assembly is case-insensitive for instructions and register names. Label and macro names are case-sensitive.
+
+## MOV and typed operands
+`MOV` is the universal data movement instruction. The assembler encodes operand types into the binary, so the VM knows at runtime what each operand is. Valid forms:
+
+```asm
+MOV R01, 67          ; register - immediate
+MOV R01, R02         ; register - register
+MOV R01, [counter]   ; register - bss slot (deref)
+MOV [counter], R01   ; bss slot - register
+MOV [counter], 67    ; bss slot - immediate
+MOV R01, counter     ; register - bss slot index (address-of)
+MOV R01, VAR 0       ; register - frame-local slot 0
+MOV VAR 0, R01       ; frame-local slot 0 - register
+```
+
+## BSS section
+Declare named uninitialized global slots:
+
+```asm
+%bss
+    counter
+    total
+```
+
+Slots are zero-initialized at startup. Reference them by name with brackets for value access, or bare for address-of (slot index).
 
 ## Privilege system
 Blackbox has two execution modes:
 
-- PRIVILEGED: Can execute all instructions including memory management (`ALLOC`, `GROW`, `RESIZE`, `FREE`), file operations (`FOPEN`, `FCLOSE`), and system commands (`EXEC`). The VM boots in this mode.
-- PROTECTED: Cannot execute privileged instructions. Can request privileged operations via `SYSCALL`, whose handlers will have been set by the PRIVILEGED code
+- **PRIVILEGED**: Can execute all instructions including memory management (`ALLOC`, `GROW`, `RESIZE`, `FREE`), file operations (`FOPEN`, `FCLOSE`), and system commands (`EXEC`). The VM boots in this mode.
+- **PROTECTED**: Cannot execute privileged instructions. Can request privileged operations via `SYSCALL`, whose handlers will have been registered by privileged code.
 
 See the ISA for privilege instructions (`REGSYSCALL`, `SETPERM`, `DROPPRIV`, `SYSCALL`, `SYSRET`).
+
 ### Startup sequence
 The VM always starts in PRIVILEGED mode. The typical setup pattern is:
 
@@ -24,15 +52,15 @@ The VM always starts in PRIVILEGED mode. The typical setup pattern is:
 3. Drop to PROTECTED mode with `DROPPRIV`
 4. `JMP` to protected code
 
-But you can also just run everything in PRIVILEGED mode if you want.
+You can also run everything in PRIVILEGED mode.
 
 ### Syscall convention
-Protected code requests privileged operations by calling `SYSCALL <id>`. The VM elevates to PRIVILEGED mode and jumps to the handler registered for that id. The handler performs the privileged work and returns control with `SYSRET`, which drops back to PROTECTED mode and resumes execution after the `SYSCALL` instruction.
+Protected code requests privileged operations via `SYSCALL <id>`. The VM elevates to PRIVILEGED and jumps to the registered handler. The handler performs the privileged work and returns with `SYSRET`, dropping back to PROTECTED and resuming after the `SYSCALL`.
 
-Arguments can be passed to handlers via registers by convention (e.g. `R00`=arg0, `R01`=arg1).
+Arguments are passed via registers by convention (e.g. `R00`=arg0, `R01`=arg1).
 
 ### Fault handling
-If a protected instruction is attempted in PROTECTED mode, if a memory access violates permissions, or any of the various faults, the VM raises a fault. You can define handlers for faults with `REGFAULT` and the VM will jump to them when faults occur. This allows protected code to handle faults gracefully. See `fault.hpp` for fault types.
+If a privileged instruction is attempted in PROTECTED mode, a memory access violates permissions, or any other fault condition occurs, the VM raises a fault. Register handlers with `REGFAULT` to handle faults gracefully. See `fault.hpp` for fault types.
 
 ## Instruction set
 See [ISA.md](ISA.md)

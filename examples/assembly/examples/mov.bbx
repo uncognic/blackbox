@@ -1,10 +1,55 @@
-;mov
-;should print 42
 %asm
-%main
-    MOV R00, 42
-    mov R01, R00
-    break
-    printreg R01
-    newline
-    halt ok
+
+%bss
+    a
+    b
+    c
+
+%entry
+    MOV R01, 42
+    PRINTREG R01
+    NEWLINE
+
+    MOV R02, R01
+    PRINTREG R02
+    NEWLINE
+
+    MOV [a], R01
+    MOV R03, [a]
+    PRINTREG R03
+    NEWLINE
+
+    MOV [b], 100
+    MOV R04, [b]
+    PRINTREG R04
+    NEWLINE
+
+    MOV R05, a
+    PRINTREG R05
+    NEWLINE
+
+    MOV R06, b
+    PRINTREG R06
+    NEWLINE
+
+    MOV R07, c
+    PRINTREG R07
+    NEWLINE
+
+    MOV [c], R04
+    MOV R08, [c]
+    PRINTREG R08
+    NEWLINE
+
+    CALL testfunc
+    PRINTREG R00
+    NEWLINE
+
+    HALT OK
+
+.testfunc:
+    FRAME 1
+    MOV R01, 777
+    MOV VAR 0, R01
+    MOV R00, VAR 0
+    RET

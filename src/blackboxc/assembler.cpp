@@ -327,7 +327,8 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
                 continue;
             }
 
-            auto result = encode(s, labels, data_entries, bss_symbols, code_buf, debug);
+            OperandContext ctx{labels, data_entries, bss_symbols};
+            auto result = encode(s, ctx, code_buf, debug);
             if (!result) {
                 return std::unexpected(result.error());
             }

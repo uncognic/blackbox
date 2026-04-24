@@ -12,6 +12,72 @@
 
 namespace bbxc::encoder {
 
+size_t operand_encoded_size(Operand::Kind kind) {
+    switch (kind) {
+        case Operand::Kind::Reg:
+            return 2;
+        case Operand::Kind::Imm:
+            return 5;
+        case Operand::Kind::Imm64:
+            return 9;
+        case Operand::Kind::Bss:
+            return 5;
+        case Operand::Kind::BssRef:
+            return 5;
+        case Operand::Kind::Var:
+            return 5;
+        case Operand::Kind::Data:
+            return 5;
+        case Operand::Kind::Label:
+            return 5;
+        case Operand::Kind::FD:
+            return 2;
+        default:
+            return 0;
+    }
+}
+
+void encode_operand(const Operand& op, std::vector<uint8_t>& out) {
+    switch (op.kind) {
+        case Operand::Kind::Reg:
+            write_u8(out, static_cast<uint8_t>(OperandType::Reg));
+            write_u8(out, op.reg);
+            break;
+        case Operand::Kind::Imm:
+            write_u8(out, static_cast<uint8_t>(OperandType::Imm));
+            write_i32(out, op.imm);
+            break;
+        case Operand::Kind::Imm64:
+            write_u8(out, static_cast<uint8_t>(OperandType::Imm64));
+            write_i64(out, op.imm64);
+            break;
+        case Operand::Kind::Bss:
+            write_u8(out, static_cast<uint8_t>(OperandType::Bss));
+            write_u32(out, op.idx);
+            break;
+        case Operand::Kind::BssRef:
+            write_u8(out, static_cast<uint8_t>(OperandType::BssRef));
+            write_u32(out, op.idx);
+            break;
+        case Operand::Kind::Var:
+            write_u8(out, static_cast<uint8_t>(OperandType::Var));
+            write_u32(out, op.idx);
+            break;
+        case Operand::Kind::Data:
+            write_u8(out, static_cast<uint8_t>(OperandType::Data));
+            write_u32(out, op.idx);
+            break;
+        case Operand::Kind::Label:
+            write_u8(out, static_cast<uint8_t>(OperandType::Imm));
+            write_u32(out, op.idx);
+            break;
+        case Operand::Kind::FD:
+            write_u8(out, static_cast<uint8_t>(OperandType::Reg)); // fd reuses reg slot
+            write_u8(out, op.reg);
+            break;
+    }
+}
+
 // writers
 void write_u8(std::vector<uint8_t>& buf, uint8_t v) {
     buf.push_back(v);
@@ -244,6 +310,107 @@ static std::string_view strip_brackets(std::string_view s) {
     return s;
 }
 } // namespace
+
+std::expected<Operand, std::string> parse_operand(std::string_view tok, const OperandContext& ctx) {
+    tok = trim(tok);
+    if (tok.empty()) {
+        return std::unexpected("empty operand");
+    }
+
+    // BssDeref: [name]
+    if (tok.front() == '[' && tok.back() == ']') {
+        auto name = trim(tok.substr(1, tok.size() - 2));
+        auto it = ctx.bss_symbols.find(std::string(name));
+        if (it == ctx.bss_symbols.end()) {
+            return std::unexpected(std::format("undefined bss symbol '{}'", name));
+        }
+        Operand op;
+        op.kind = Operand::Kind::Bss;
+        op.idx = it->second;
+        op.name = std::string(name);
+        return op;
+    }
+
+    // FD: STDIN/STDOUT/STDERR/Fxx
+    if (auto fd = parse_file_descriptor(tok)) {
+        Operand op;
+        op.kind = Operand::Kind::FD;
+        op.reg = *fd;
+        op.name = std::string(tok);
+        return op;
+    }
+
+    // Reg: Rxx
+    if (auto reg = parse_register(tok)) {
+        Operand op;
+        op.kind = Operand::Kind::Reg;
+        op.reg = *reg;
+        op.name = std::string(tok);
+        return op;
+    }
+
+    // BssDeref w/o brackets (addr of)
+    {
+        auto it = ctx.bss_symbols.find(std::string(tok));
+        if (it != ctx.bss_symbols.end()) {
+            Operand op;
+            op.kind = Operand::Kind::BssRef;
+            op.idx = it->second;
+            op.name = std::string(tok);
+            return op;
+        }
+    }
+
+    // Data: $name
+    if (tok.front() == '$') {
+        auto name = tok.substr(1);
+        auto idx = resolve_data(name, ctx.data_entries);
+        if (!idx) {
+            return std::unexpected(std::format("undefined data entry '{}'", tok));
+        }
+        Operand op;
+        op.kind = Operand::Kind::Data;
+        op.idx = *idx;
+        op.name = std::string(tok);
+        return op;
+    }
+
+    if (starts_with_keyword(tok, "VAR")) {
+        auto rest = trim(tok.substr(3));
+        auto slot = parse_u32(rest);
+        if (!slot) {
+            return std::unexpected(std::format("invalid VAR slot '{}'", rest));
+        }
+        Operand op;
+        op.kind = Operand::Kind::Var;
+        op.idx = *slot;
+        op.name = std::string(tok);
+        return op;
+    }
+
+    {
+        auto addr = resolve_label(tok, ctx.labels);
+        if (addr) {
+            Operand op;
+            op.kind = Operand::Kind::Label;
+            op.idx = *addr;
+            op.name = std::string(tok);
+            return op;
+        }
+    }
+
+    // imm i32
+    if (auto imm = parse_i32(tok)) {
+        Operand op;
+        op.kind = Operand::Kind::Imm;
+        op.imm = *imm;
+        op.name = std::string(tok);
+        return op;
+    }
+
+    return std::unexpected(std::format("unrecognized operand '{}'", tok));
+}
+
 size_t instr_size(std::string_view line) {
     std::string_view s = strip_comment(line);
     if (s.empty()) {
@@ -397,10 +564,22 @@ size_t instr_size(std::string_view line) {
     }
     if (starts_with_keyword(s, "MOV")) {
         auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
-        if (!dst_tok.empty() && dst_tok[0] == '[') {
-            return 6; // deref
-        }
-        return parse_register(src_tok).has_value() ? 3 : 6;
+        auto detect_kind = [](std::string_view tok) -> Operand::Kind {
+            tok = trim(tok);
+            if (!tok.empty() && tok.front() == '[') {
+                return Operand::Kind::Bss;
+            }
+            if (parse_register(tok)) {
+                return Operand::Kind::Reg;
+            }
+            if (starts_with_keyword(tok, "VAR")) {
+                return Operand::Kind::Var;
+            }
+            return Operand::Kind::Imm;
+        };
+        auto dst_kind = detect_kind(dst_tok);
+        auto src_kind = detect_kind(src_tok);
+        return 1 + operand_encoded_size(dst_kind) + operand_encoded_size(src_kind);
     }
     if (starts_with_keyword(s, "CMP")) {
         return 3;
@@ -490,12 +669,6 @@ size_t instr_size(std::string_view line) {
         static_cast<void>(reg_tok);
         return parse_register(value_tok).has_value() ? 3 : 6;
     }
-    if (starts_with_keyword(s, "LOADVAR")) {
-        return 6;
-    }
-    if (starts_with_keyword(s, "STOREVAR")) {
-        return 6;
-    }
     if (starts_with_keyword(s, "LOADSTR")) {
         return 6;
     }
@@ -522,11 +695,8 @@ size_t instr_size(std::string_view line) {
     return 0;
 }
 
-std::expected<void, std::string>
-encode(std::string_view line, const std::vector<asm_helpers::Label>& labels,
-       const std::vector<asm_helpers::DataEntry>& data_entries,
-       const std::unordered_map<std::string, uint32_t>& bss_symbols, std::vector<uint8_t>& out,
-       bool debug) {
+std::expected<void, std::string> encode(std::string_view line, const OperandContext& ctx,
+                                        std::vector<uint8_t>& out, bool debug) {
     std::string_view s = strip_comment(line);
     if (s.empty() || s[0] == '.' || s[0] == '%') {
         return {};
@@ -553,15 +723,14 @@ encode(std::string_view line, const std::vector<asm_helpers::Label>& labels,
     };
 
     auto need_label = [&](std::string_view name) -> std::expected<uint32_t, std::string> {
-        auto addr = resolve_label(name, labels);
+        auto addr = resolve_label(name, ctx.labels);
         if (!addr) {
             return std::unexpected(std::format("undefined label '{}' in '{}'", name, s));
         }
         return *addr;
     };
-
     auto need_data = [&](std::string_view name) -> std::expected<uint32_t, std::string> {
-        auto idx = resolve_data(name, data_entries);
+        auto idx = resolve_data(name, ctx.data_entries);
         if (!idx) {
             return std::unexpected(std::format("undefined data entry '{}' in '{}'", name, s));
         }
@@ -710,67 +879,25 @@ encode(std::string_view line, const std::vector<asm_helpers::Label>& labels,
 
     if (starts_with_keyword(s, "MOV")) {
         auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
-
-        // MOV [name], REG
-        if (!dst_tok.empty() && dst_tok[0] == '[') {
-            auto name = strip_brackets(dst_tok);
-            auto it = bss_symbols.find(std::string(name));
-            if (it == bss_symbols.end()) {
-                return err(std::format("undefined bss symbol '{}'", name));
-            }
-            auto src_reg = parse_register(src_tok);
-            if (!src_reg) {
-                return err("MOV [name], src: source must be a register");
-            }
-            write_u8(out, opcode_to_byte(Opcode::STOREGLOBAL));
-            write_u8(out, *src_reg);
-            write_u32(out, it->second);
-            return {};
+        auto dst = parse_operand(dst_tok, ctx);
+        if (!dst) {
+            return std::unexpected(dst.error());
+        }
+        auto src = parse_operand(src_tok, ctx);
+        if (!src) {
+            return std::unexpected(src.error());
         }
 
-        TRY_REG(d, dst_tok);
-
-        // MOV REG, [name]
-        if (!src_tok.empty() && src_tok[0] == '[') {
-            auto name = strip_brackets(src_tok);
-            auto it = bss_symbols.find(std::string(name));
-            if (it == bss_symbols.end()) {
-                return err(std::format("undefined bss symbol '{}'", name));
-            }
-            write_u8(out, opcode_to_byte(Opcode::LOADGLOBAL));
-            write_u8(out, d);
-            write_u32(out, it->second);
-            return {};
+        // validate: dst must be writable (Reg or Bss)
+        if (dst->kind != Operand::Kind::Reg && dst->kind != Operand::Kind::Bss &&
+            dst->kind != Operand::Kind::Var) {
+            return err("MOV dst must be a register, [bss], or frame var");
         }
 
-        // MOV REG, name (bss index)
-        {
-            auto it = bss_symbols.find(std::string(src_tok));
-            if (it != bss_symbols.end()) {
-                write_u8(out, opcode_to_byte(Opcode::MOVI));
-                write_u8(out, d);
-                write_i32(out, static_cast<int32_t>(it->second));
-                return {};
-            }
-        }
-
-        // MOV REG, REG
-        if (auto reg = parse_register(src_tok)) {
-            write_u8(out, opcode_to_byte(Opcode::MOV_REG));
-            write_u8(out, d);
-            write_u8(out, *reg);
-            return {};
-        }
-
-        // MOV REG, imm
-        if (auto imm = parse_i32(src_tok)) {
-            write_u8(out, opcode_to_byte(Opcode::MOVI));
-            write_u8(out, d);
-            write_i32(out, *imm);
-            return {};
-        }
-
-        return err("invalid source operand in MOV");
+        write_u8(out, opcode_to_byte(Opcode::MOV));
+        encode_operand(*dst, out);
+        encode_operand(*src, out);
+        return {};
     }
     if (starts_with_keyword(s, "PUSH")) {
         auto arg = trim(after_keyword(s, 4));
@@ -820,7 +947,7 @@ encode(std::string_view line, const std::vector<asm_helpers::Label>& labels,
             return {};
         }
 
-        if (auto addr = resolve_label(target, labels)) {
+        if (auto addr = resolve_label(target, ctx.labels)) {
             write_u8(out, opcode_to_byte(Opcode::JMPI));
             write_u32(out, *addr);
             return {};
@@ -882,7 +1009,7 @@ encode(std::string_view line, const std::vector<asm_helpers::Label>& labels,
             }
             frame_size = *fs;
         } else {
-            for (auto& l : labels) {
+            for (auto& l : ctx.labels) {
                 if (l.addr == addr) {
                     frame_size = l.frame_size;
                     break;
@@ -916,30 +1043,6 @@ encode(std::string_view line, const std::vector<asm_helpers::Label>& labels,
         }
         write_u8(out, opcode_to_byte(Opcode::HALT));
         write_u8(out, code);
-        return {};
-    }
-    if (starts_with_keyword(s, "LOADVAR")) {
-        auto [reg_tok, slot_tok] = split_comma(after_keyword(s, 7));
-        TRY_REG(r, reg_tok)
-        auto slot = parse_u32(slot_tok);
-        if (!slot) {
-            return err("invalid slot in LOADVAR");
-        }
-        write_u8(out, opcode_to_byte(Opcode::LOADVAR));
-        write_u8(out, r);
-        write_u32(out, *slot);
-        return {};
-    }
-    if (starts_with_keyword(s, "STOREVAR")) {
-        auto [reg_tok, slot_tok] = split_comma(after_keyword(s, 8));
-        TRY_REG(r, reg_tok)
-        auto slot = parse_u32(slot_tok);
-        if (!slot) {
-            return err("invalid slot in STOREVAR");
-        }
-        write_u8(out, opcode_to_byte(Opcode::STOREVAR));
-        write_u8(out, r);
-        write_u32(out, *slot);
         return {};
     }
     if (starts_with_keyword(s, "LOAD")) {

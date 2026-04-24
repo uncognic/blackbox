@@ -1,0 +1,26 @@
+@ENTRY
+
+GLOBAL VAR counter = 0
+GLOBAL VAR accumulator = 0
+
+counter = 10
+accumulator = 5
+
+INC counter
+INC counter
+INC counter
+
+accumulator = counter + accumulator
+
+PRINT counter
+PRINT accumulator
+
+GLOBAL VAR result = 0
+CALL compute(counter, accumulator)
+PRINT result
+
+HALT OK
+
+FUNC compute: VAR x, VAR y
+    result = x * y
+ENDFUNC

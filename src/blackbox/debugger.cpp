@@ -77,7 +77,7 @@ void Debugger::handle_command(std::string_view raw) {
     }
 
     if (cmd.empty()) {
-        return; // step — caller handles
+        return;
     }
 
     if (cmd[0] == 'q') {

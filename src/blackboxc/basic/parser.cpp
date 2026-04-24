@@ -5,11 +5,12 @@
 #include "../../utils/string_utils.hpp"
 #include "bbx_codegen.hpp"
 #include <cctype>
+#include <cstring>
 #include <format>
 #include <fstream>
 #include <print>
 #include <sstream>
-#include <cstring>
+
 
 namespace basic {
 RegGuard::RegGuard(RegAlloc& ra) : ra(ra) {
@@ -388,8 +389,11 @@ std::optional<std::string> Parser::compile_file(const std::filesystem::path& pat
             current_func_->cg_owned = std::make_unique<BlackboxCodeGen>();
             current_func_->cg = current_func_->cg_owned.get();
             current_func_->scope = Scope(&global_slot_count_);
+            current_func_->scope = Scope(&global_slot_count_);
             if (current_ns_) {
                 current_func_->scope.set_parent(&current_ns_->scope);
+            } else {
+                current_func_->scope.set_parent(&scope_);
             }
 
             p = skip_ws(colon + 1);

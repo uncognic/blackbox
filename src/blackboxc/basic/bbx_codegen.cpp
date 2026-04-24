@@ -42,13 +42,12 @@ void BlackboxCodeGen::emit_data_str(const std::string& name, const std::string& 
 
 // vars
 void BlackboxCodeGen::emit_load_var(int r, uint32_t slot, std::string_view comment) {
-    code_comment(comment, std::format("    LOADVAR {}, {}", reg(r), slot));
+    code_comment(comment, std::format("    MOV {}, VAR {}", reg(r), slot));
 }
 
 void BlackboxCodeGen::emit_store_var(int r, uint32_t slot, std::string_view comment) {
-    code_comment(comment, std::format("    STOREVAR {}, {}", reg(r), slot));
+    code_comment(comment, std::format("    MOV VAR {}, {}", slot, reg(r)));
 }
-
 void BlackboxCodeGen::emit_load_global(int r, const std::string& name, std::string_view comment) {
     code_comment(comment, std::format("    MOV {}, [{}]", reg(r), name));
 }
@@ -74,7 +73,6 @@ void BlackboxCodeGen::emit_store_ref(int dst, int src) {
 void BlackboxCodeGen::emit_movi(int r, int32_t val) {
     code(std::format("    MOV {}, {}", reg(r), val));
 }
-
 void BlackboxCodeGen::emit_mov(int dst, int src) {
     code(std::format("    MOV {}, {}", reg(dst), reg(src)));
 }

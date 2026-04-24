@@ -74,13 +74,6 @@ add_executable(bbx
 target_include_directories(bbx PRIVATE src src/blackbox)
 target_link_libraries(bbx PRIVATE bbx_utils)
 
-# disassembler
-add_executable(bbxd
-        src/blackboxd/blackboxd.cpp
-)
-target_include_directories(bbxd PRIVATE src)
-target_link_libraries(bbxd PRIVATE bbx_utils)
-
  #windows
 if(WIN32)
     target_link_libraries(bbxc PRIVATE bcrypt)

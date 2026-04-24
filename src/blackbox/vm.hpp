@@ -28,6 +28,7 @@ class VM {
     bool hit_breakpoint() const { return breakpoint; }
     void set_hit_breakpoint() { breakpoint = true; }
     void clear_hit_breakpoint() { breakpoint = false; }
+    int64_t read_operand();
 
   private:
     Program prog;
@@ -81,7 +82,6 @@ class VM {
     int host_argc;
     char** host_argv;
 
-
     uint8_t fetch_u8();
     uint16_t fetch_u16();
     uint32_t fetch_u32();
@@ -111,6 +111,8 @@ class VM {
 
     void op_unknown();
 
+    void op_mov();
+
     // arithmetic
     void op_add();
     void op_sub();
@@ -131,8 +133,6 @@ class VM {
     void op_shri();
 
     // registers
-    void op_movi();
-    void op_mov_reg();
     void op_push_reg();
     void op_pushi();
     void op_pop();
@@ -156,12 +156,6 @@ class VM {
     void op_load_reg();
     void op_store();
     void op_store_reg();
-    void op_loadvar();
-    void op_storevar();
-    void op_loadvar_reg();
-    void op_storevar_reg();
-    void op_loadglobal();
-    void op_storeglobal();
     void op_loadref();
     void op_storeref();
     void op_alloc();

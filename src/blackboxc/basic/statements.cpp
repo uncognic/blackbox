@@ -1190,7 +1190,6 @@ std::optional<std::string> Parser::stmt_fprint(const std::string& s) {
     }
 
     if (!val_str.empty() && val_str[0] == '"') {
-        // string literal — write char by char
         size_t q2 = val_str.find('"', 1);
         if (q2 == std::string::npos) {
             return error("unterminated string in FPRINT");
