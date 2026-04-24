@@ -208,7 +208,7 @@ std::expected<void, std::string> Assembler::pass1() {
                 blackbox::tools::starts_with_ci(s.data(), "DWORD") ||
                 blackbox::tools::starts_with_ci(s.data(), "QWORD")) {
                 return std::unexpected(
-                    std::format("numeric data types removed, use MOVI instead: '{}'", s));
+                    std::format("numeric data types removed, use MOV instead: '{}'", s));
             }
             continue;
         }

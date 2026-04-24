@@ -20,24 +20,24 @@
 %asm
 %macro IDX row col dst
     MOV $dst, $row
-    MOVI R07, 40
+    MOV R07, 40
     MUL $dst, R07
     ADD $dst, $col
 %endmacro
 
 %macro CHECK_NEIGHBOR nr nc buf acc
-    MOVI R05, 0
+    MOV R05, 0
     CMP $nr, R05
     JL @@skip
 
-    MOVI R05, 19
+    MOV R05, 19
     CMP R05, $nr
     JL @@skip
-    MOVI R05, 0
+    MOV R05, 0
     CMP $nc, R05
     JL @@skip
 
-    MOVI R05, 39
+    MOV R05, 39
     CMP R05, $nc
     JL @@skip
     %IDX $nr, $nc, R06
@@ -49,85 +49,85 @@
 
 %main
     ALLOC 1600
-    MOVI R00, 0
+    MOV R00, 0
 
 .zero_loop:
     ; Zero out the entire grid
-    MOVI R05, 0
+    MOV R05, 0
     STORE R05, R00
     INC R00
-    MOVI R05, 1600
+    MOV R05, 1600
     CMP R00, R05
     JL zero_loop
 
-    MOVI R08, 0
-    MOVI R09, 800
+    MOV R08, 0
+    MOV R09, 800
 
     WRITE STDOUT "Start with: (1) glider seed or (2) draw your own: "
     READ R00
 
-    MOVI R01, 2
+    MOV R01, 2
     CMP R00, R01
     JE setup_phase
-    MOVI R02, 0
-    MOVI R03, 1
+    MOV R02, 0
+    MOV R03, 1
 
-    MOVI R00, 1
-    MOVI R01, 3
+    MOV R00, 1
+    MOV R01, 3
     %IDX R00, R01, R06
     ADD R06, R02
     STORE R03, R06
 
-    MOVI R00, 2
-    MOVI R01, 1
+    MOV R00, 2
+    MOV R01, 1
     %IDX R00, R01, R06
     ADD R06, R02
     STORE R03, R06
 
-    MOVI R00, 2
-    MOVI R01, 3
+    MOV R00, 2
+    MOV R01, 3
     %IDX R00, R01, R06
     ADD R06, R02
     STORE R03, R06
 
-    MOVI R00, 3
-    MOVI R01, 2
+    MOV R00, 3
+    MOV R01, 2
     %IDX R00, R01, R06
     ADD R06, R02
     STORE R03, R06
 
-    MOVI R00, 3
-    MOVI R01, 3
+    MOV R00, 3
+    MOV R01, 3
     %IDX R00, R01, R06
     ADD R06, R02
     STORE R03, R06
 
-    MOVI R00, 8
-    MOVI R01, 19
+    MOV R00, 8
+    MOV R01, 19
     %IDX R00, R01, R06
     ADD R06, R02
     STORE R03, R06
 
-    MOVI R00, 8
-    MOVI R01, 20
+    MOV R00, 8
+    MOV R01, 20
     %IDX R00, R01, R06
     ADD R06, R02
     STORE R03, R06
 
-    MOVI R00, 9
-    MOVI R01, 18
+    MOV R00, 9
+    MOV R01, 18
     %IDX R00, R01, R06
     ADD R06, R02
     STORE R03, R06
 
-    MOVI R00, 9
-    MOVI R01, 19
+    MOV R00, 9
+    MOV R01, 19
     %IDX R00, R01, R06
     ADD R06, R02
     STORE R03, R06
 
-    MOVI R00, 10
-    MOVI R01, 19
+    MOV R00, 10
+    MOV R01, 19
     %IDX R00, R01, R06
     ADD R06, R02
     STORE R03, R06
@@ -137,16 +137,16 @@
 .setup_phase:
     WRITE STDOUT "WASD=move  SPACE=toggle  ENTER=start"
     NEWLINE
-    MOVI R12, 10
-    MOVI R13, 20
+    MOV R12, 10
+    MOV R13, 20
 
 .setup_loop:
     CLRSCR
-    MOVI R10, 0
+    MOV R10, 0
     WRITE STDOUT "WASD=move  SPACE=toggle  ENTER=start"
     NEWLINE
 .setup_render_row:
-    MOVI R11, 0
+    MOV R11, 0
 .setup_render_col:
     CMP R10, R12
     JNE setup_not_cursor
@@ -158,7 +158,7 @@
     %IDX R10, R11, R06
     ADD R06, R08
     LOAD R00, R06
-    MOVI R05, 0
+    MOV R05, 0
     CMP R00, R05
     JNE setup_print_alive
     PRINT '.'
@@ -167,75 +167,75 @@
     PRINT '#'
 .setup_render_col_next:
     INC R11
-    MOVI R05, 40
+    MOV R05, 40
     CMP R11, R05
     JL setup_render_col
     NEWLINE
     INC R10
-    MOVI R05, 20
+    MOV R05, 20
     CMP R10, R05
     JL setup_render_row
 
     SLEEP 80
     GETKEY R00
 
-    MOVI R05, -1
+    MOV R05, -1
     CMP R00, R05
     JE setup_loop
 
-    MOVI R05, 119
+    MOV R05, 119
     CMP R00, R05
     JE setup_move_up
 
-    MOVI R05, 115
+    MOV R05, 115
     CMP R00, R05
     JE setup_move_down
 
-    MOVI R05, 97
+    MOV R05, 97
     CMP R00, R05
     JE setup_move_left
 
-    MOVI R05, 100
+    MOV R05, 100
     CMP R00, R05
     JE setup_move_right
 
-    MOVI R05, 32
+    MOV R05, 32
     CMP R00, R05
     JE setup_toggle
 
-    MOVI R05, 13
+    MOV R05, 13
     CMP R00, R05
     JE main_loop
 
-    MOVI R05, 10
+    MOV R05, 10
     CMP R00, R05
     JE main_loop
 
     JMP setup_loop
 
 .setup_move_up:
-    MOVI R05, 0
+    MOV R05, 0
     CMP R12, R05
     JE setup_loop
     DEC R12
     JMP setup_loop
 
 .setup_move_down:
-    MOVI R05, 19
+    MOV R05, 19
     CMP R05, R12
     JE setup_loop
     INC R12
     JMP setup_loop
 
 .setup_move_left:
-    MOVI R05, 0
+    MOV R05, 0
     CMP R13, R05
     JE setup_loop
     DEC R13
     JMP setup_loop
 
 .setup_move_right:
-    MOVI R05, 39
+    MOV R05, 39
     CMP R05, R13
     JE setup_loop
     INC R13
@@ -245,28 +245,28 @@
     %IDX R12, R13, R06
     ADD R06, R08
     LOAD R00, R06
-    MOVI R05, 0
+    MOV R05, 0
     CMP R00, R05
     JE setup_set_alive
-    MOVI R00, 0
+    MOV R00, 0
     STORE R00, R06
     JMP setup_loop
 .setup_set_alive:
-    MOVI R00, 1
+    MOV R00, 1
     STORE R00, R06
     JMP setup_loop
 
 .main_loop:
     CLRSCR
-    MOVI R10, 0
+    MOV R10, 0
 
 .render_row:
-    MOVI R11, 0
+    MOV R11, 0
 .render_col:
     %IDX R10, R11, R06
     ADD R06, R08
     LOAD R00, R06
-    MOVI R05, 0
+    MOV R05, 0
     CMP R00, R05
     JNE print_alive
     PRINT '.'
@@ -275,20 +275,20 @@
     PRINT '#'
 .render_next_col:
     INC R11
-    MOVI R05, 40
+    MOV R05, 40
     CMP R11, R05
     JL render_col
     NEWLINE
     INC R10
-    MOVI R05, 20
+    MOV R05, 20
     CMP R10, R05
     JL render_row
 
-    MOVI R10, 0
+    MOV R10, 0
 .gen_row:
-    MOVI R11, 0
+    MOV R11, 0
 .gen_col:
-    MOVI R04, 0
+    MOV R04, 0
 
     MOV R00, R10
     DEC R00
@@ -338,28 +338,28 @@
     ADD R06, R08
     LOAD R03, R06
 
-    MOVI R05, 0
+    MOV R05, 0
 
-    MOVI R00, 0
+    MOV R00, 0
     CMP R03, R00
     JE check_birth
 
-    MOVI R00, 2
+    MOV R00, 2
     CMP R04, R00
     JE set_alive
-    MOVI R00, 3
+    MOV R00, 3
     CMP R04, R00
     JE set_alive
     JMP write_next
 
 .check_birth:
-    MOVI R00, 3
+    MOV R00, 3
     CMP R04, R00
     JE set_alive
     JMP write_next
 
 .set_alive:
-    MOVI R05, 1
+    MOV R05, 1
 
 .write_next:
     %IDX R10, R11, R06
@@ -367,12 +367,12 @@
     STORE R05, R06
 
     INC R11
-    MOVI R00, 40
+    MOV R00, 40
     CMP R11, R00
     JL gen_col
 
     INC R10
-    MOVI R00, 20
+    MOV R00, 20
     CMP R10, R00
     JL gen_row
 

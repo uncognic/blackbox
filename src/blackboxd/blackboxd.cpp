@@ -501,7 +501,7 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
                 return std::nullopt;
             }
             j += 5;
-            os << "    movi " << reg_name(dst) << ", " << imm << "\n";
+            os << "    MOV " << reg_name(dst) << ", " << imm << "\n";
             break;
         }
         case Opcode::MOV_REG:
@@ -1211,7 +1211,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
                 return invalid();
             }
             j += 5;
-            print_offset("movi " + reg_name(dst) + ", " + std::to_string(imm));
+            print_offset("MOV " + reg_name(dst) + ", " + std::to_string(imm));
             break;
         }
         case Opcode::MOV_REG:

@@ -3,11 +3,11 @@
 %include "macro_library.bbx"
 
 %macro loop_n cnt
-    MOVI R00, $cnt
+    MOV R00, $cnt
 .@@loop:
     print '.'
     dec R00
-    MOVI R01, 0
+    MOV R01, 0
     cmp R00, R01
     jne @@loop
 %endmacro

@@ -370,7 +370,7 @@ Use an assembly block when you need instructions not exposed by BASIC statements
 
 ```basic
 ASM:
-    MOVI R01, 65 ; Assembly syntax rules apply here
+    MOV R01, 65 ; Assembly syntax rules apply here
     PRINTCHAR R01 ; Like these comments
 ENDASM
 ```

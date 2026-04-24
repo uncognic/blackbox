@@ -5,17 +5,17 @@
 ; echo "++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>." | .\bbx .\out.bcx
 %main
     ALLOC 60000
-    MOVI R10, 0
-    MOVI R11, 1
-    MOVI R20, 62  ; '>'
-    MOVI R21, 60  ; '<'
-    MOVI R22, 43  ; '+'
-    MOVI R23, 45  ; '-'
-    MOVI R24, 46  ; '.'
-    MOVI R25, 44  ; ','
-    MOVI R26, 91  ; '['
-    MOVI R27, 93  ; ']'
-    MOVI R04, 0
+    MOV R10, 0
+    MOV R11, 1
+    MOV R20, 62  ; '>'
+    MOV R21, 60  ; '<'
+    MOV R22, 43  ; '+'
+    MOV R23, 45  ; '-'
+    MOV R24, 46  ; '.'
+    MOV R25, 44  ; ','
+    MOV R26, 91  ; '['
+    MOV R27, 93  ; ']'
+    MOV R04, 0
 .read_src:
     FREAD F0, R06
     CMP R06, R10
@@ -25,8 +25,8 @@
     JMP read_src
 .read_src_done:
     MOV R14, R04
-    MOVI R15, 30000
-    MOVI R16, 30000
+    MOV R15, 30000
+    MOV R16, 30000
     MOV R17, R15
 .zero_tape:
     CMP R16, R10
@@ -36,8 +36,8 @@
     DEC R16
     JMP zero_tape
 .zero_done:
-    MOVI R04, 0
-    MOVI R07, 0
+    MOV R04, 0
+    MOV R07, 0
 .main_loop:
     CMP R04, R14
     JGE end_program

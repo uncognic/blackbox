@@ -70,7 +70,7 @@ void BlackboxCodeGen::emit_store_ref(int dst, int src) {
 }
 
 void BlackboxCodeGen::emit_movi(int r, int32_t val) {
-    code(std::format("    MOVI {}, {}", reg(r), val));
+    code(std::format("    MOV {}, {}", reg(r), val));
 }
 
 void BlackboxCodeGen::emit_mov(int dst, int src) {
@@ -227,12 +227,12 @@ void BlackboxCodeGen::emit_eprint_char(int r) {
 }
 
 void BlackboxCodeGen::emit_newline() {
-    code("    MOVI R01, 10");
+    code("    MOV R01, 10");
     code("    PRINTCHAR R01");
 }
 
 void BlackboxCodeGen::emit_enewline() {
-    code("    MOVI R01, 10");
+    code("    MOV R01, 10");
     code("    EPRINTCHAR R01");
 }
 

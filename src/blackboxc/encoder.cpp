@@ -387,8 +387,9 @@ size_t instr_size(std::string_view line) {
     if (starts_with_keyword(s, "MOD")) {
         return 3;
     }
-    if (starts_with_keyword(s, "MOV_REG") || starts_with_keyword(s, "MOV")) {
-        return 3;
+    if (starts_with_keyword(s, "MOV")) {
+        auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
+        return parse_register(src_tok).has_value() ? 3 : 6;
     }
     if (starts_with_keyword(s, "CMP")) {
         return 3;
@@ -487,9 +488,6 @@ size_t instr_size(std::string_view line) {
     if (starts_with_keyword(s, "JMP")) {
         auto operand = after_keyword(s, 3);
         return parse_register(operand).has_value() ? 2 : 5;
-    }
-    if (starts_with_keyword(s, "MOVI")) {
-        return 6;
     }
     if (starts_with_keyword(s, "LOAD")) {
         auto [reg_tok, value_tok] = split_comma(after_keyword(s, 4));
@@ -739,24 +737,25 @@ std::expected<void, std::string> encode(std::string_view line,
         return {};
     }
 
-    if (starts_with_keyword(s, "MOVI")) {
-        auto [reg_tok, val_tok] = split_comma(after_keyword(s, 4));
-        TRY_REG(r, reg_tok)
-        auto v = parse_i32(val_tok);
-        if (!v) {
-            return err("invalid immediate in MOVI");
-        }
-        write_u8(out, opcode_to_byte(Opcode::MOVI));
-        write_u8(out, r);
-        write_i32(out, *v);
-        return {};
-    }
     if (starts_with_keyword(s, "MOV")) {
-        auto [dst, src] = split_comma(after_keyword(s, 3));
-        TRY_REG(d, dst) TRY_REG(r, src) write_u8(out, opcode_to_byte(Opcode::MOV_REG));
-        write_u8(out, d);
-        write_u8(out, r);
-        return {};
+        auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
+        TRY_REG(d, dst_tok); // dst can only be a reg
+
+        if (auto reg = parse_register(src_tok)) {
+            write_u8(out, opcode_to_byte(Opcode::MOV_REG));
+            write_u8(out, d);
+            write_u8(out, *reg);
+            return {};
+        }
+
+        if (auto imm = parse_i32(src_tok)) {
+            write_u8(out, opcode_to_byte(Opcode::MOVI));
+            write_u8(out, d);
+            write_i32(out, *imm);
+            return {};
+        }
+
+        return err("invalid source operand in MOV (expected register or i32 immediate)");
     }
     if (starts_with_keyword(s, "PUSH")) {
         auto arg = trim(after_keyword(s, 4));

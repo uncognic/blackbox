@@ -30,13 +30,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # utils
 add_library(bbx_utils STATIC
-        src/utils/data.cpp
         src/utils/string_utils.cpp
-        src/utils/asm_parser.cpp
         src/utils/preprocessor.cpp
         src/utils/macro_expansion.cpp
         src/utils/random_utils.cpp
         src/utils/fmt.cpp
+        src/utils/data.cpp
 )
 target_include_directories(bbx_utils PUBLIC src)
 

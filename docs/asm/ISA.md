@@ -9,7 +9,6 @@ Define a string constant. Must be in the `%data` section.
 - Syntax: `STR $<name>, "<contents>"`
 - Behavior: Adds a string entry to the data table. Referenced by name with `LOADSTR`.
 
-Numeric data types (`BYTE`, `WORD`, `DWORD`, `QWORD`) have been removed. Use `MOVI` for compile-time numeric constants,
 or `%define` for named numeric constants.
 
 ## Directives
@@ -34,7 +33,7 @@ Define a named constant that is substituted textually before assembly.
 ```
 %define $MAX 100
 %define $MSG "Hello"
-MOVI R00, $MAX
+MOV R00, $MAX
 ```
 
 ### FRAME
@@ -145,20 +144,12 @@ Read a single non-whitespace character from stdin.
 - Behavior: Skips leading whitespace, reads one character, stores its ASCII code in the register. On EOF, stores `0`.
 
 ## Registers and stack
-
-### MOVI
-
-Move an immediate integer value into a register.
-
-- Syntax: `MOVI <dst>, <value>`
-- Encoding: opcode, 1 byte dst, 4-byte signed immediate.
-
 ### MOV
 
-Copy one register into another.
+Copy data from a register or immediate value into a register.
 
 - Syntax: `MOV <dst>, <src>`
-- Encoding: opcode, 1 byte dst, 1 byte src.
+- Encoding: opcode, 1 byte dst, 1 byte src or 4 byte imm
 
 ### PUSH
 

@@ -2,7 +2,7 @@
 PRINT "Before ASM"
 
 ASM:
-    MOVI R01, 65 ; ASCII code for 'A'
+    MOV R01, 65 ; ASCII code for 'A'
     PRINTCHAR R01
 ENDASM
 

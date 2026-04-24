@@ -14,7 +14,7 @@
 ; Handlers
     .handler_setup:
         ALLOC 64
-        MOVI R00, 67
+        MOV R00, 67
         STORE R00, 10
         SETPERM 10, 10, RW/R
         SYSRET
@@ -36,7 +36,7 @@
         NEWLINE
 
         ; Try to write to slot 10, should trigger a fault and jump to handler_fault because RW/R
-        MOVI R01, 99
+        MOV R01, 99
         STORE R01, 10
         
         WRITE stdout "still running after fault!"

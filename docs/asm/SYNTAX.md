@@ -34,7 +34,7 @@ Named textual substitutions:
 ```asm
 %define $MAX 100
 %define $GREETING "Hello"
-MOVI R00, $MAX
+MOV R00, $MAX
 ```
 - By convention, names use `$` (for example `$MAX`).
 - Substitution is purely textual, done before assembly.
@@ -59,7 +59,7 @@ Holds executable instructions and labels. No data definitions allowed here.
 
 One instruction per line. Intel-style syntax with spaces and commas:
 ```asm
-MOVI R01, 100
+MOV R01, 100
 ADD  R00, R01
 JMP  R05
 JMP some_label
@@ -79,7 +79,7 @@ Labels are defined with a leading period and trailing colon:
 
 ```asm
 .my_label:
-MOVI R00, 1
+MOV R00, 1
 ```
 
 Referenced without the period or colon:
@@ -114,7 +114,7 @@ Declare the global segment size at the top of the file:
 
 Access global slots from any function using `LOADGLOBAL`/`STOREGLOBAL`:
 ```asm
-MOVI R01, 100   ; load immediate 100 into R01
+MOV R01, 100   ; load immediate 100 into R01
 STOREGLOBAL R01, 0    ; store R01 into global slot 0
 LOADGLOBAL R02, 0     ; load global slot 0 into R02
 ```
@@ -155,10 +155,10 @@ Invoked with `%`:
 - Local labels inside macros use `@@name` to get unique per-expansion names:
 ```asm
 %macro ABS reg
-  MOVI R97, 0
+  MOV R97, 0
   CMP  $reg, R97
   JGE  @@done
-  MOVI R97, -1
+  MOV R97, -1
   MUL  $reg, R97
 .@@done:
 %endmacro
@@ -177,7 +177,7 @@ Most instruction immediates currently accept decimal integers. Character literal
 
 Start with `;` and extend to end of line:
 ```asm
-MOVI R00, 0   ; initialize counter
+MOV R00, 0   ; initialize counter
 ; this whole line is a comment
 ```
 
@@ -193,9 +193,9 @@ There is no enforced calling convention. The common pattern used by the BASIC co
 Example:
 ```asm
 ; caller
-MOVI R01, 10
+MOV R01, 10
 PUSH R01
-MOVI R01, 20
+MOV R01, 20
 PUSH R01
 CALL add_them
 ; callee

@@ -13,7 +13,7 @@
         ALLOC 64
 
         ; Write a value into slot 10 while still privileged
-        MOVI R00, 67
+        MOV R00, 67
         STORE R00, 10
 
         ; Mark slots 10-19 as read-only (RW for privileged, R for protected)
@@ -33,7 +33,7 @@
         NEWLINE
 
         ; Try to write to slot 10, should fault
-        MOVI R01, 99
+        MOV R01, 99
         STORE R01, 10
 
         HALT OK

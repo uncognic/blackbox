@@ -1,6 +1,6 @@
 # Blackbox Assembly Documentation
 ## Info
-- Syntax is Intel-assembly like: instructions use spaces and commas (e.g. `MOVI R01, 42`).
+- Syntax is Intel-assembly like: instructions use spaces and commas (e.g. `MOV R01, 42`).
 - Labels start with a period and end with a colon (`.label:`), and are referenced without the period (`JMP label`). `JMP` accepts registers, labels, and numeric immediates (label/immediate forms are encoded as `JMPI`).
 - All files must start with `%asm`.
 - All files must have a `%main` or `%entry` section for the program entry point.
