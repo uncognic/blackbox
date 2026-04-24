@@ -6,6 +6,7 @@
 #define BLACKBOX_SCOPE_HPP
 #include "types.hpp"
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace basic {
@@ -35,6 +36,7 @@ class Scope {
     const std::string& ns_prefix() const { return ns_prefix_; }
 
     std::vector<std::string> global_names() const;
+    std::vector<std::pair<uint32_t, std::string>> global_symbols() const;
 
   private:
     std::string ns_prefix_;

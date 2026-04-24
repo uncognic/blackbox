@@ -918,20 +918,6 @@ encode(std::string_view line, const std::vector<asm_helpers::Label>& labels,
         write_u8(out, code);
         return {};
     }
-    if (starts_with_keyword(s, "LOADVAR_REG")) {
-        auto [reg_tok, idx_tok] = split_comma(after_keyword(s, 11));
-        TRY_REG(r, reg_tok) TRY_REG(i, idx_tok) write_u8(out, opcode_to_byte(Opcode::LOADVAR_REG));
-        write_u8(out, r);
-        write_u8(out, i);
-        return {};
-    }
-    if (starts_with_keyword(s, "STOREVAR_REG")) {
-        auto [reg_tok, idx_tok] = split_comma(after_keyword(s, 12));
-        TRY_REG(r, reg_tok) TRY_REG(i, idx_tok) write_u8(out, opcode_to_byte(Opcode::STOREVAR_REG));
-        write_u8(out, r);
-        write_u8(out, i);
-        return {};
-    }
     if (starts_with_keyword(s, "LOADVAR")) {
         auto [reg_tok, slot_tok] = split_comma(after_keyword(s, 7));
         TRY_REG(r, reg_tok)

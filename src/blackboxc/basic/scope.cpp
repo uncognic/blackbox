@@ -8,6 +8,19 @@ namespace basic {
 std::vector<std::string> Scope::global_names() const {
     return global_name_order_;
 }
+
+std::vector<std::pair<uint32_t, std::string>> Scope::global_symbols() const {
+    std::vector<std::pair<uint32_t, std::string>> out;
+    out.reserve(global_name_order_.size());
+
+    for (const auto& v : vars_) {
+        if (v.is_global) {
+            out.emplace_back(v.slot, v.name);
+        }
+    }
+    return out;
+}
+
 Scope::Scope(uint32_t* global_counter, std::string namespace_prefix)
     : ns_prefix_(std::move(namespace_prefix)), global_counter_(global_counter) {
 }

@@ -42,7 +42,7 @@ class Parser {
     std::string get_additional_data_section() const;
     std::string get_namespace_init_code_section() const;
     std::string get_function_code_section() const;
-    std::vector<std::string> get_global_names() const { return scope_.global_names(); }
+    std::vector<std::string> get_global_names() const;
 
   private:
     CodeGen& cg_;

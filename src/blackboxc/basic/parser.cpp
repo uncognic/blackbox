@@ -249,6 +249,41 @@ std::string Parser::get_function_code_section() const {
     return out.str();
 }
 
+std::vector<std::string> Parser::get_global_names() const {
+    std::vector<std::string> by_slot(global_slot_count_);
+
+    auto collect = [&by_slot](const Scope& scope) {
+        for (const auto& [slot, name] : scope.global_symbols()) {
+            if (slot < by_slot.size() && by_slot[slot].empty()) {
+                by_slot[slot] = name;
+            }
+        }
+    };
+
+    collect(scope_);
+
+    for (const auto& f : funcs_) {
+        collect(f.scope);
+    }
+
+    for (const auto& ns : namespaces_) {
+        collect(ns.scope);
+        for (const auto& f : ns.funcs) {
+            collect(f.scope);
+        }
+    }
+
+    std::vector<std::string> out;
+    out.reserve(by_slot.size());
+    for (const auto& name : by_slot) {
+        if (!name.empty()) {
+            out.push_back(name);
+        }
+    }
+
+    return out;
+}
+
 std::optional<std::string> Parser::compile_file(const std::filesystem::path& path) {
     std::ifstream file(path);
     if (!file) {
