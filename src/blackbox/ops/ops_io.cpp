@@ -5,8 +5,9 @@
 #include "ops_io.hpp"
 #include "../vm.hpp"
 #include <format>
-#include <print>
 #include <iostream>
+#include <print>
+
 
 void VM::op_print() {
     uint8_t val = fetch_u8();
@@ -68,7 +69,6 @@ void VM::op_eprintstr() {
     std::print(stderr, "{}", prog.strings.get(index));
 }
 
-
 void VM::op_write() {
     uint8_t fd = fetch_u8();
     uint32_t len = fetch_u32();
@@ -81,7 +81,8 @@ void VM::op_write() {
                    std::format("WRITE string past end of code at pc={}", pc));
     }
 
-    std::string_view sv(reinterpret_cast<const char*>(prog.code.data() + pc), static_cast<size_t>(len));
+    std::string_view sv(reinterpret_cast<const char*>(prog.code.data() + pc),
+                        static_cast<size_t>(len));
     if (fd == 1) {
         std::print("{}", sv);
     } else {
@@ -141,7 +142,8 @@ void VM::op_fopen() {
                    std::format("FOPEN filename past end of code at pc={}", pc));
     }
 
-    std::string fname(reinterpret_cast<const char*>(prog.code.data() + pc), static_cast<size_t>(fname_len));
+    std::string fname(reinterpret_cast<const char*>(prog.code.data() + pc),
+                      static_cast<size_t>(fname_len));
     pc += static_cast<size_t>(fname_len);
 
     // close existing
@@ -212,10 +214,9 @@ void VM::op_fread() {
     regs[reg] = (c == EOF) ? -1 : static_cast<int64_t>(c);
 }
 
-void VM::op_fwrite_reg() {
+void VM::op_fwrite() {
     uint8_t fd = fetch_u8();
-    size_t reg = fetch_reg();
-
+    int64_t val = read_operand();
     if (fd >= FILE_DESCRIPTORS) {
         hard_fault(FaultType::OutOfBounds, std::format("FWRITE invalid fd {} at pc={}", fd, pc));
     }
@@ -224,59 +225,23 @@ void VM::op_fwrite_reg() {
         hard_fault(FaultType::OutOfBounds,
                    std::format("FWRITE fd {} not open for writing at pc={}", fd, pc));
     }
-    out->put(static_cast<char>(regs[reg]));
-    out->flush();
-}
-
-void VM::op_fwrite_imm() {
-    uint8_t fd = fetch_u8();
-    int32_t val = fetch_i32();
-
-    if (fd >= FILE_DESCRIPTORS) {
-        hard_fault(FaultType::OutOfBounds,
-                   std::format("FWRITE_IMM invalid fd {} at pc={}", fd, pc));
-    }
-    std::ostream* out = fds[fd].writer();
-    if (!out) {
-        hard_fault(FaultType::OutOfBounds,
-                   std::format("FWRITE_IMM fd {} not open for writing at pc={}", fd, pc));
-    }
     out->put(static_cast<char>(val));
     out->flush();
 }
 
-void VM::op_fseek_reg() {
+void VM::op_fseek() {
     uint8_t fd = fetch_u8();
-    size_t reg = fetch_reg();
-
+    int64_t offset = read_operand();
     if (fd >= FILE_DESCRIPTORS) {
         hard_fault(FaultType::OutOfBounds, std::format("FSEEK invalid fd {} at pc={}", fd, pc));
-    }
-    auto pos = static_cast<std::streamoff>(regs[reg]);
-    if (std::istream* in = fds[fd].reader()) {
-        in->clear();
-        in->seekg(pos, std::ios::beg);
-    }
-    if (std::ostream* out = fds[fd].writer()) {
-        out->clear();
-        out->seekp(pos, std::ios::beg);
-    }
-}
-
-void VM::op_fseek_imm() {
-    uint8_t fd = fetch_u8();
-    int32_t offset = fetch_i32();
-
-    if (fd >= FILE_DESCRIPTORS) {
-        hard_fault(FaultType::OutOfBounds, std::format("FSEEK_IMM invalid fd {} at pc={}", fd, pc));
     }
     auto pos = static_cast<std::streamoff>(offset);
     if (std::istream* in = fds[fd].reader()) {
         in->clear();
         in->seekg(pos, std::ios::beg);
     }
-    if (std::ostream* out = fds[fd].writer()) {
-        out->clear();
-        out->seekp(pos, std::ios::beg);
+    if (std::ostream* o = fds[fd].writer()) {
+        o->clear();
+        o->seekp(pos, std::ios::beg);
     }
 }

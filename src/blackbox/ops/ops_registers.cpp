@@ -6,14 +6,8 @@
 #include "../vm.hpp"
 #include <format>
 
-void VM::op_push_reg() {
-    size_t reg = fetch_reg();
-    operand_push(regs[reg]);
-}
-
-void VM::op_pushi() {
-    int32_t val = fetch_i32();
-    operand_push(static_cast<int64_t>(val));
+void VM::op_push() {
+    operand_push(read_operand());
 }
 
 void VM::op_pop() {

@@ -46,7 +46,8 @@ void VM::op_storeref() {
 
 void VM::op_load() {
     size_t reg = fetch_reg();
-    uint32_t addr = fetch_u32();
+    int64_t addr_val = read_operand();
+    uint32_t addr = static_cast<uint32_t>(addr_val);
     if (addr >= op_stack.size()) {
         hard_fault(FaultType::OutOfBounds,
                    std::format("LOAD address {} out of bounds at pc={}", addr, pc));
@@ -64,11 +65,11 @@ void VM::op_load() {
 
 void VM::op_store() {
     size_t reg = fetch_reg();
-    uint32_t addr = fetch_u32();
+    int64_t addr_val = read_operand();
+    uint32_t addr = static_cast<uint32_t>(addr_val);
     if (addr >= op_stack.size()) {
         hard_fault(FaultType::OutOfBounds,
-                   std::format("STORE address {} out of bounds at pc={} (try ALLOCing more stack)",
-                               addr, pc));
+                   std::format("STORE address {} out of bounds at pc={}", addr, pc));
     }
     if (cur_mode == Mode::Privileged && !op_stack_perms[addr].priv_write) {
         raise_fault(FaultType::PermWrite,
@@ -77,34 +78,6 @@ void VM::op_store() {
     if (cur_mode == Mode::Protected && !op_stack_perms[addr].prot_write) {
         raise_fault(FaultType::PermWrite,
                     std::format("STORE write permission denied at slot {} pc={}", addr, pc));
-    }
-    op_stack[addr] = regs[reg];
-}
-
-void VM::op_load_reg() {
-    size_t reg = fetch_reg();
-    size_t idx_reg = fetch_reg();
-    if (regs[idx_reg] < 0) {
-        hard_fault(FaultType::OutOfBounds, std::format("LOAD_REG negative address at pc={}", pc));
-    }
-    uint32_t addr = static_cast<uint32_t>(regs[idx_reg]);
-    if (addr >= op_stack.size()) {
-        hard_fault(FaultType::OutOfBounds,
-                   std::format("LOAD_REG address {} out of bounds at pc={}", addr, pc));
-    }
-    regs[reg] = op_stack[addr];
-}
-
-void VM::op_store_reg() {
-    size_t reg = fetch_reg();
-    size_t idx_reg = fetch_reg();
-    if (regs[idx_reg] < 0) {
-        hard_fault(FaultType::OutOfBounds, std::format("STORE_REG negative address at pc={}", pc));
-    }
-    uint32_t addr = static_cast<uint32_t>(regs[idx_reg]);
-    if (addr >= op_stack.size()) {
-        hard_fault(FaultType::OutOfBounds,
-                   std::format("STORE_REG address {} out of bounds at pc={}", addr, pc));
     }
     op_stack[addr] = regs[reg];
 }

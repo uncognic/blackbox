@@ -3,11 +3,12 @@
 //
 
 #include "ops_system.hpp"
+#include "../../utils/random_utils.hpp"
 #include "../vm.hpp"
 #include <cstdlib>
 #include <format>
 #include <print>
-#include "../../utils/random_utils.hpp"
+
 
 #ifdef _WIN32
 #include <conio.h>
@@ -47,14 +48,8 @@ static void sleep_ms(uint64_t ms) {
 }
 
 void VM::op_sleep() {
-    uint32_t ms = fetch_u32();
-    sleep_ms(static_cast<uint64_t>(ms));
-}
-
-void VM::op_sleep_reg() {
-    size_t reg = fetch_reg();
-    int64_t raw = regs[reg];
-    sleep_ms(raw < 0 ? 0 : static_cast<uint64_t>(raw));
+    int64_t ms = read_operand();
+    sleep_ms(ms < 0 ? 0 : static_cast<uint64_t>(ms));
 }
 
 void VM::op_rand() {
@@ -142,7 +137,8 @@ void VM::op_getenv() {
                    std::format("GETENV name past end of code at pc={}", pc));
     }
 
-    std::string_view name(reinterpret_cast<const char*>(prog.code.data() + pc), static_cast<size_t>(envlen));
+    std::string_view name(reinterpret_cast<const char*>(prog.code.data() + pc),
+                          static_cast<size_t>(envlen));
     pc += static_cast<size_t>(envlen);
 
     const char* val = std::getenv(std::string(name).c_str());

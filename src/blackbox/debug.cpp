@@ -33,16 +33,8 @@ const char* opcode_name(uint8_t op) {
             return "SHL";
         case Opcode::SHR:
             return "SHR";
-        case Opcode::SHLI:
-            return "SHLI";
-        case Opcode::SHRI:
-            return "SHRI";
         case Opcode::CMP:
             return "CMP";
-        case Opcode::PUSH_REG:
-            return "PUSH_REG";
-        case Opcode::PUSHI:
-            return "PUSHI";
         case Opcode::POP:
             return "POP";
         case Opcode::JMP:
@@ -69,12 +61,8 @@ const char* opcode_name(uint8_t op) {
             return "HALT";
         case Opcode::LOAD:
             return "LOAD";
-        case Opcode::LOAD_REG:
-            return "LOAD_REG";
         case Opcode::STORE:
             return "STORE";
-        case Opcode::STORE_REG:
-            return "STORE_REG";
         case Opcode::LOADREF:
             return "LOADREF";
         case Opcode::STOREREF:
@@ -119,20 +107,10 @@ const char* opcode_name(uint8_t op) {
             return "FCLOSE";
         case Opcode::FREAD:
             return "FREAD";
-        case Opcode::FWRITE_REG:
-            return "FWRITE_REG";
-        case Opcode::FWRITE_IMM:
-            return "FWRITE_IMM";
-        case Opcode::FSEEK_REG:
-            return "FSEEK_REG";
-        case Opcode::FSEEK_IMM:
-            return "FSEEK_IMM";
         case Opcode::EXEC:
             return "EXEC";
         case Opcode::SLEEP:
             return "SLEEP";
-        case Opcode::SLEEP_REG:
-            return "SLEEP_REG";
         case Opcode::RAND:
             return "RAND";
         case Opcode::GETKEY:
@@ -171,6 +149,12 @@ const char* opcode_name(uint8_t op) {
             return "DUMPREGS";
         case Opcode::PRINT_STACKSIZE:
             return "PRINT_STACKSIZE";
+        case Opcode::PUSH:
+            return "PUSH";
+        case Opcode::FWRITE:
+            return "FWRITE";
+        case Opcode::FSEEK:
+            return "FSEEK";
         default:
             return "UNKNOWN";
     }

@@ -129,18 +129,14 @@ class VM {
     void op_not();
     void op_shl();
     void op_shr();
-    void op_shli();
-    void op_shri();
 
     // registers
-    void op_push_reg();
-    void op_pushi();
+    void op_push();
     void op_pop();
     void op_cmp();
 
     // control
     void op_jmp();
-    void op_jmpi();
     void op_je();
     void op_jne();
     void op_jl();
@@ -153,9 +149,7 @@ class VM {
 
     // memory
     void op_load();
-    void op_load_reg();
     void op_store();
-    void op_store_reg();
     void op_loadref();
     void op_storeref();
     void op_alloc();
@@ -182,15 +176,12 @@ class VM {
     void op_fopen();
     void op_fclose();
     void op_fread();
-    void op_fwrite_reg();
-    void op_fwrite_imm();
-    void op_fseek_reg();
-    void op_fseek_imm();
+    void op_fwrite();
+    void op_fseek();
 
     // system
     void op_exec();
     void op_sleep();
-    void op_sleep_reg();
     void op_rand();
     void op_getkey();
     void op_clrscr();

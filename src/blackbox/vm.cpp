@@ -27,16 +27,11 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
     t[opcode_to_byte(Opcode::NOT)] = &VM::op_not;
     t[opcode_to_byte(Opcode::SHL)] = &VM::op_shl;
     t[opcode_to_byte(Opcode::SHR)] = &VM::op_shr;
-    t[opcode_to_byte(Opcode::SHLI)] = &VM::op_shli;
-    t[opcode_to_byte(Opcode::SHRI)] = &VM::op_shri;
 
-    t[opcode_to_byte(Opcode::PUSH_REG)] = &VM::op_push_reg;
-    t[opcode_to_byte(Opcode::PUSHI)] = &VM::op_pushi;
     t[opcode_to_byte(Opcode::POP)] = &VM::op_pop;
     t[opcode_to_byte(Opcode::CMP)] = &VM::op_cmp;
 
     t[opcode_to_byte(Opcode::JMP)] = &VM::op_jmp;
-    t[opcode_to_byte(Opcode::JMPI)] = &VM::op_jmpi;
     t[opcode_to_byte(Opcode::JE)] = &VM::op_je;
     t[opcode_to_byte(Opcode::JNE)] = &VM::op_jne;
     t[opcode_to_byte(Opcode::JL)] = &VM::op_jl;
@@ -48,9 +43,7 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
     t[opcode_to_byte(Opcode::HALT)] = &VM::op_halt;
 
     t[opcode_to_byte(Opcode::LOAD)] = &VM::op_load;
-    t[opcode_to_byte(Opcode::LOAD_REG)] = &VM::op_load_reg;
     t[opcode_to_byte(Opcode::STORE)] = &VM::op_store;
-    t[opcode_to_byte(Opcode::STORE_REG)] = &VM::op_store_reg;
     t[opcode_to_byte(Opcode::LOADREF)] = &VM::op_loadref;
     t[opcode_to_byte(Opcode::STOREREF)] = &VM::op_storeref;
     t[opcode_to_byte(Opcode::ALLOC)] = &VM::op_alloc;
@@ -75,14 +68,9 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
     t[opcode_to_byte(Opcode::FOPEN)] = &VM::op_fopen;
     t[opcode_to_byte(Opcode::FCLOSE)] = &VM::op_fclose;
     t[opcode_to_byte(Opcode::FREAD)] = &VM::op_fread;
-    t[opcode_to_byte(Opcode::FWRITE_REG)] = &VM::op_fwrite_reg;
-    t[opcode_to_byte(Opcode::FWRITE_IMM)] = &VM::op_fwrite_imm;
-    t[opcode_to_byte(Opcode::FSEEK_REG)] = &VM::op_fseek_reg;
-    t[opcode_to_byte(Opcode::FSEEK_IMM)] = &VM::op_fseek_imm;
 
     t[opcode_to_byte(Opcode::EXEC)] = &VM::op_exec;
     t[opcode_to_byte(Opcode::SLEEP)] = &VM::op_sleep;
-    t[opcode_to_byte(Opcode::SLEEP_REG)] = &VM::op_sleep_reg;
     t[opcode_to_byte(Opcode::RAND)] = &VM::op_rand;
     t[opcode_to_byte(Opcode::GETKEY)] = &VM::op_getkey;
     t[opcode_to_byte(Opcode::CLRSCR)] = &VM::op_clrscr;
@@ -106,6 +94,9 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
     t[opcode_to_byte(Opcode::PRINT_STACKSIZE)] = &VM::op_print_stacksize;
 
     t[opcode_to_byte(Opcode::MOV)] = &VM::op_mov;
+    t[opcode_to_byte(Opcode::PUSH)] = &VM::op_push;
+    t[opcode_to_byte(Opcode::FWRITE)] = &VM::op_fwrite;
+    t[opcode_to_byte(Opcode::FSEEK)] = &VM::op_fseek;
 
     return t;
 }();
@@ -144,7 +135,6 @@ int64_t VM::read_operand() {
                                                            static_cast<uint8_t>(type), pc));
     }
 }
-
 
 VM::VM(Program program, int argc, char** argv)
     : prog(std::move(program)), host_argc(argc), host_argv(argv) {

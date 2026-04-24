@@ -31,8 +31,7 @@ void VM::op_not() {
 
 void VM::op_shl() {
     size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    int64_t shift = regs[src];
+    int64_t shift = read_operand();
     if (shift < 0 || shift >= 64) {
         regs[dst] = 0;
         return;
@@ -42,31 +41,10 @@ void VM::op_shl() {
 
 void VM::op_shr() {
     size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    int64_t shift = regs[src];
+    int64_t shift = read_operand();
     if (shift < 0 || shift >= 64) {
         regs[dst] = regs[dst] < 0 ? -1 : 0;
         return;
     }
     regs[dst] >>= shift;
-}
-
-void VM::op_shli() {
-    size_t   reg   = fetch_reg();
-    uint64_t shift = fetch_u64();
-    if (shift >= 64) {
-        regs[reg] = 0;
-        return;
-    }
-    regs[reg] <<= shift;
-}
-
-void VM::op_shri() {
-    size_t   reg   = fetch_reg();
-    uint64_t shift = fetch_u64();
-    if (shift >= 64) {
-        regs[reg] = regs[reg] < 0 ? -1 : 0;
-        return;
-    }
-    regs[reg] >>= shift;
 }

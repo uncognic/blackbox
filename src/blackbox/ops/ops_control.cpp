@@ -7,21 +7,12 @@
 #include <format>
 
 void VM::op_jmp() {
-    size_t reg = fetch_reg();
-    size_t addr = static_cast<size_t>(regs[reg]);
-    if (addr >= prog.code.size()) {
+    int64_t addr = read_operand();
+    if (static_cast<size_t>(addr) >= prog.code.size()) {
         hard_fault(FaultType::OutOfBounds,
                    std::format("JMP address {} out of bounds at pc={}", addr, pc));
     }
-    pc = addr;
-}
-
-void VM::op_jmpi() {
-    uint32_t addr = fetch_u32();
-    if (addr >= prog.code.size()) {
-        hard_fault(FaultType::OutOfBounds, std::format("JMPI address {} out of bounds at pc={}", addr, pc));
-    }
-    pc = addr;
+    pc = static_cast<size_t>(addr);
 }
 
 void VM::op_je() {
@@ -94,7 +85,8 @@ void VM::op_call() {
     uint32_t addr = fetch_u32();
     uint32_t frame_size = fetch_u32();
     if (addr >= prog.code.size()) {
-        hard_fault(FaultType::OutOfBounds, std::format("CALL address {} out of bounds at pc={}", addr, pc));
+        hard_fault(FaultType::OutOfBounds,
+                   std::format("CALL address {} out of bounds at pc={}", addr, pc));
     }
     push_frame(frame_size, pc);
     pc = addr;

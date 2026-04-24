@@ -489,11 +489,8 @@ size_t instr_size(std::string_view line) {
     }
     if (starts_with_keyword(s, "PUSH")) {
         auto operand = trim(after_keyword(s, 4));
-        if (operand.empty()) {
-            return 0;
-        }
-
-        return parse_register(operand).has_value() ? 2 : 5;
+        auto kind = parse_register(operand) ? Operand::Kind::Reg : Operand::Kind::Imm;
+        return 1 + operand_encoded_size(kind);
     }
     if (starts_with_keyword(s, "POP")) {
         return 2;
@@ -595,24 +592,26 @@ size_t instr_size(std::string_view line) {
     }
     if (starts_with_keyword(s, "SHL")) {
         auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
-        return parse_register(src_tok).has_value() ? 3 : 10;
+        auto kind = parse_register(src_tok) ? Operand::Kind::Reg : Operand::Kind::Imm64;
+        return 1 + 1 + operand_encoded_size(kind); // opcode + dst_reg + src_operand
     }
     if (starts_with_keyword(s, "SHR")) {
         auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
-        return parse_register(src_tok).has_value() ? 3 : 10;
+        auto kind = parse_register(src_tok) ? Operand::Kind::Reg : Operand::Kind::Imm64;
+        return 1 + 1 + operand_encoded_size(kind);
     }
     if (starts_with_keyword(s, "FREAD")) {
         return 3;
     }
     if (starts_with_keyword(s, "FWRITE")) {
-        auto [fd_tok, value_tok] = split_comma(after_keyword(s, 6));
-        (void) fd_tok;
-        return parse_register(value_tok).has_value() ? 3 : 6;
+        auto [fd_tok, val_tok] = split_comma(after_keyword(s, 6));
+        auto kind = parse_register(val_tok) ? Operand::Kind::Reg : Operand::Kind::Imm;
+        return 1 + 1 + operand_encoded_size(kind); // opcode + fd + operand
     }
     if (starts_with_keyword(s, "FSEEK")) {
-        auto [fd_tok, value_tok] = split_comma(after_keyword(s, 5));
-        (void) fd_tok;
-        return parse_register(value_tok).has_value() ? 3 : 6;
+        auto [fd_tok, val_tok] = split_comma(after_keyword(s, 5));
+        auto kind = parse_register(val_tok) ? Operand::Kind::Reg : Operand::Kind::Imm;
+        return 1 + 1 + operand_encoded_size(kind);
     }
     if (starts_with_keyword(s, "LOADREF")) {
         return 3;
@@ -640,8 +639,10 @@ size_t instr_size(std::string_view line) {
     }
     if (starts_with_keyword(s, "SLEEP")) {
         auto operand = trim(after_keyword(s, 5));
-        return parse_register(operand).has_value() ? 2 : 5;
+        auto kind = parse_register(operand) ? Operand::Kind::Reg : Operand::Kind::Imm;
+        return 1 + operand_encoded_size(kind);
     }
+
     if (starts_with_keyword(s, "ALLOC")) {
         return 5;
     }
@@ -656,19 +657,23 @@ size_t instr_size(std::string_view line) {
     }
 
     if (starts_with_keyword(s, "JMP")) {
-        auto operand = after_keyword(s, 3);
-        return parse_register(operand).has_value() ? 2 : 5;
+        auto operand = trim(after_keyword(s, 3));
+        auto kind = parse_register(operand) ? Operand::Kind::Reg : Operand::Kind::Imm;
+        return 1 + operand_encoded_size(kind);
     }
+
     if (starts_with_keyword(s, "LOAD")) {
-        auto [reg_tok, value_tok] = split_comma(after_keyword(s, 4));
-        static_cast<void>(reg_tok);
-        return parse_register(value_tok).has_value() ? 3 : 6;
+        auto [reg_tok, addr_tok] = split_comma(after_keyword(s, 4));
+        auto kind = parse_register(addr_tok) ? Operand::Kind::Reg : Operand::Kind::Imm;
+        return 1 + 1 + operand_encoded_size(kind); // opcode + dst_reg + src_operand
     }
+
     if (starts_with_keyword(s, "STORE")) {
-        auto [reg_tok, value_tok] = split_comma(after_keyword(s, 5));
-        static_cast<void>(reg_tok);
-        return parse_register(value_tok).has_value() ? 3 : 6;
+        auto [reg_tok, addr_tok] = split_comma(after_keyword(s, 5));
+        auto kind = parse_register(addr_tok) ? Operand::Kind::Reg : Operand::Kind::Imm;
+        return 1 + 1 + operand_encoded_size(kind);
     }
+
     if (starts_with_keyword(s, "LOADSTR")) {
         return 6;
     }
@@ -843,38 +848,51 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
     }
     if (starts_with_keyword(s, "SHL")) {
         auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
-        if (auto reg = parse_register(src_tok)) {
-            TRY_REG(d, dst_tok) write_u8(out, opcode_to_byte(Opcode::SHL));
+        TRY_REG(d, dst_tok)
+        auto src = parse_operand(src_tok, ctx);
+        if (!src) {
+            return std::unexpected(src.error());
+        }
+        if (src->kind == Operand::Kind::Imm) {
+            Operand promoted = *src;
+            promoted.kind = Operand::Kind::Imm64;
+            promoted.imm64 = static_cast<int64_t>(src->imm);
+            write_u8(out, opcode_to_byte(Opcode::SHL));
             write_u8(out, d);
-            write_u8(out, *reg);
+            encode_operand(promoted, out);
             return {};
         }
-
-        if (auto imm = parse_u32(src_tok)) {
-            TRY_REG(d, dst_tok) write_u8(out, opcode_to_byte(Opcode::SHLI));
-            write_u8(out, d);
-            write_u64(out, static_cast<uint64_t>(*imm));
-            return {};
+        if (src->kind != Operand::Kind::Reg) {
+            return err("SHL source must be register or immediate");
         }
-
-        return err("invalid SHL operand");
+        write_u8(out, opcode_to_byte(Opcode::SHL));
+        write_u8(out, d);
+        encode_operand(*src, out);
+        return {};
     }
     if (starts_with_keyword(s, "SHR")) {
         auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
-        if (auto reg = parse_register(src_tok)) {
-            TRY_REG(d, dst_tok) write_u8(out, opcode_to_byte(Opcode::SHR));
+        TRY_REG(d, dst_tok)
+        auto src = parse_operand(src_tok, ctx);
+        if (!src) {
+            return std::unexpected(src.error());
+        }
+        if (src->kind == Operand::Kind::Imm) {
+            Operand promoted = *src;
+            promoted.kind = Operand::Kind::Imm64;
+            promoted.imm64 = static_cast<int64_t>(src->imm);
+            write_u8(out, opcode_to_byte(Opcode::SHR));
             write_u8(out, d);
-            write_u8(out, *reg);
+            encode_operand(promoted, out);
             return {};
         }
-        if (auto imm = parse_u32(src_tok)) {
-            TRY_REG(d, dst_tok) write_u8(out, opcode_to_byte(Opcode::SHRI));
-            write_u8(out, d);
-            write_u64(out, static_cast<uint64_t>(*imm));
-            return {};
+        if (src->kind != Operand::Kind::Reg) {
+            return err("SHR source must be register or immediate");
         }
-
-        return err("invalid SHR operand");
+        write_u8(out, opcode_to_byte(Opcode::SHR));
+        write_u8(out, d);
+        encode_operand(*src, out);
+        return {};
     }
 
     if (starts_with_keyword(s, "MOV")) {
@@ -900,26 +918,16 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         return {};
     }
     if (starts_with_keyword(s, "PUSH")) {
-        auto arg = trim(after_keyword(s, 4));
-        if (arg.empty()) {
-            return err("missing operand in PUSH");
+        auto src = parse_operand(trim(after_keyword(s, 4)), ctx);
+        if (!src) {
+            return std::unexpected(src.error());
         }
-
-        // if is reg
-        if (auto reg = parse_register(arg)) {
-            write_u8(out, opcode_to_byte(Opcode::PUSH_REG));
-            write_u8(out, *reg);
-            return {};
+        if (src->kind != Operand::Kind::Reg && src->kind != Operand::Kind::Imm) {
+            return err("PUSH expects register or immediate");
         }
-
-        // if imm
-        if (auto imm = parse_i32(arg)) {
-            write_u8(out, opcode_to_byte(Opcode::PUSHI));
-            write_i32(out, *imm);
-            return {};
-        }
-
-        return err("invalid operand in PUSH (expected register or i32 immediate)");
+        write_u8(out, opcode_to_byte(Opcode::PUSH));
+        encode_operand(*src, out);
+        return {};
     }
     if (starts_with_keyword(s, "POP")) {
         TRY_REG(r, after_keyword(s, 3))
@@ -936,31 +944,19 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
     }
 
     if (starts_with_keyword(s, "JMP")) {
-        auto target = trim(after_keyword(s, 3));
-        if (target.empty()) {
-            return err("missing JMP operand");
+        auto src = parse_operand(trim(after_keyword(s, 3)), ctx);
+        if (!src) {
+            return std::unexpected(src.error());
         }
-
-        if (auto reg = parse_register(target)) {
-            write_u8(out, opcode_to_byte(Opcode::JMP));
-            write_u8(out, *reg);
-            return {};
+        if (src->kind != Operand::Kind::Reg && src->kind != Operand::Kind::Imm &&
+            src->kind != Operand::Kind::Label) {
+            return err("JMP expects register, label, or immediate");
         }
-
-        if (auto addr = resolve_label(target, ctx.labels)) {
-            write_u8(out, opcode_to_byte(Opcode::JMPI));
-            write_u32(out, *addr);
-            return {};
-        }
-
-        if (auto imm = parse_u32(target)) {
-            write_u8(out, opcode_to_byte(Opcode::JMPI));
-            write_u32(out, *imm);
-            return {};
-        }
-
-        return err("invalid JMP operand (expected register, label, or u32 immediate)");
+        write_u8(out, opcode_to_byte(Opcode::JMP));
+        encode_operand(*src, out);
+        return {};
     }
+
     if (starts_with_keyword(s, "JE")) {
         TRY_LABEL(addr, after_keyword(s, 2))
         write_u8(out, opcode_to_byte(Opcode::JE));
@@ -1048,37 +1044,31 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
     if (starts_with_keyword(s, "LOAD")) {
         auto [reg_tok, addr_tok] = split_comma(after_keyword(s, 4));
         TRY_REG(r, reg_tok)
-        if (auto idx = parse_register(addr_tok)) {
-            write_u8(out, opcode_to_byte(Opcode::LOAD_REG));
-            write_u8(out, r);
-            write_u8(out, *idx);
-            return {};
+        auto src = parse_operand(addr_tok, ctx);
+        if (!src) {
+            return std::unexpected(src.error());
         }
-        auto addr = parse_u32(addr_tok);
-        if (!addr) {
-            return err("invalid address in LOAD");
+        if (src->kind != Operand::Kind::Reg && src->kind != Operand::Kind::Imm) {
+            return err("LOAD address must be register or immediate");
         }
         write_u8(out, opcode_to_byte(Opcode::LOAD));
         write_u8(out, r);
-        write_u32(out, *addr);
+        encode_operand(*src, out);
         return {};
     }
     if (starts_with_keyword(s, "STORE")) {
         auto [reg_tok, addr_tok] = split_comma(after_keyword(s, 5));
         TRY_REG(r, reg_tok)
-        if (auto idx = parse_register(addr_tok)) {
-            write_u8(out, opcode_to_byte(Opcode::STORE_REG));
-            write_u8(out, r);
-            write_u8(out, *idx);
-            return {};
+        auto src = parse_operand(addr_tok, ctx);
+        if (!src) {
+            return std::unexpected(src.error());
         }
-        auto addr = parse_u32(addr_tok);
-        if (!addr) {
-            return err("invalid address in STORE");
+        if (src->kind != Operand::Kind::Reg && src->kind != Operand::Kind::Imm) {
+            return err("STORE address must be register or immediate");
         }
         write_u8(out, opcode_to_byte(Opcode::STORE));
         write_u8(out, r);
-        write_u32(out, *addr);
+        encode_operand(*src, out);
         return {};
     }
     if (starts_with_keyword(s, "LOADREF")) {
@@ -1289,50 +1279,33 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         return {};
     }
     if (starts_with_keyword(s, "FWRITE")) {
-        auto [fd_tok, value_tok] = split_comma(after_keyword(s, 6));
+        auto [fd_tok, val_tok] = split_comma(after_keyword(s, 6));
         TRY_FD(fd, fd_tok)
-
-        if (auto reg = parse_register(value_tok)) {
-            write_u8(out, opcode_to_byte(Opcode::FWRITE_REG));
-            write_u8(out, fd);
-            write_u8(out, *reg);
-            return {};
+        auto src = parse_operand(val_tok, ctx);
+        if (!src) {
+            return std::unexpected(src.error());
         }
-
-        auto v = parse_i32(value_tok);
-        if (!v) {
-            auto tok = trim(value_tok);
-            if (!tok.empty() && tok.front() == '"') {
-                return err("invalid FWRITE operand: expected register or numeric immediate (quoted "
-                           "strings are not supported)");
-            }
-            return err("invalid FWRITE operand: expected register or numeric immediate");
+        if (src->kind != Operand::Kind::Reg && src->kind != Operand::Kind::Imm) {
+            return err("FWRITE value must be register or immediate");
         }
-
-        write_u8(out, opcode_to_byte(Opcode::FWRITE_IMM));
+        write_u8(out, opcode_to_byte(Opcode::FWRITE));
         write_u8(out, fd);
-        write_i32(out, *v);
+        encode_operand(*src, out);
         return {};
     }
     if (starts_with_keyword(s, "FSEEK")) {
-        auto [fd_tok, value_tok] = split_comma(after_keyword(s, 5));
+        auto [fd_tok, val_tok] = split_comma(after_keyword(s, 5));
         TRY_FD(fd, fd_tok)
-
-        if (auto reg = parse_register(value_tok)) {
-            write_u8(out, opcode_to_byte(Opcode::FSEEK_REG));
-            write_u8(out, fd);
-            write_u8(out, *reg);
-            return {};
+        auto src = parse_operand(val_tok, ctx);
+        if (!src) {
+            return std::unexpected(src.error());
         }
-
-        auto v = parse_i32(value_tok);
-        if (!v) {
-            return err("invalid offset in FSEEK");
+        if (src->kind != Operand::Kind::Reg && src->kind != Operand::Kind::Imm) {
+            return err("FSEEK offset must be register or immediate");
         }
-
-        write_u8(out, opcode_to_byte(Opcode::FSEEK_IMM));
+        write_u8(out, opcode_to_byte(Opcode::FSEEK));
         write_u8(out, fd);
-        write_i32(out, *v);
+        encode_operand(*src, out);
         return {};
     }
 
@@ -1360,20 +1333,15 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         return {};
     }
     if (starts_with_keyword(s, "SLEEP")) {
-        auto operand = trim(after_keyword(s, 5));
-
-        if (auto reg = parse_register(operand)) {
-            write_u8(out, opcode_to_byte(Opcode::SLEEP_REG));
-            write_u8(out, *reg);
-            return {};
+        auto src = parse_operand(trim(after_keyword(s, 5)), ctx);
+        if (!src) {
+            return std::unexpected(src.error());
         }
-
-        auto v = parse_u32(operand);
-        if (!v) {
-            return err("invalid operand in SLEEP (expected register or u32 immediate)");
+        if (src->kind != Operand::Kind::Reg && src->kind != Operand::Kind::Imm) {
+            return err("SLEEP expects register or immediate");
         }
         write_u8(out, opcode_to_byte(Opcode::SLEEP));
-        write_u32(out, *v);
+        encode_operand(*src, out);
         return {};
     }
     if (starts_with_keyword(s, "RAND")) {
