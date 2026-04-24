@@ -44,7 +44,7 @@ jobs:
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        for f in bbx bbxd bbxc; do
+        for f in bbx bbxc; do
           test -f "build/$f" || { echo "Missing artifact: $f"; exit 1; }
         done
 
@@ -52,7 +52,7 @@ jobs:
       if: runner.os == 'Windows'
       shell: powershell
       run: |
-        $files = "bbx","bbxd","bbxc"
+        $files = "bbx","bbxc"
         foreach ($f in $files) {
           $path = "build\Release\$f.exe"
           if (!(Test-Path $path)) {
@@ -77,8 +77,6 @@ jobs:
           ${{ github.event.head_commit.message }}
         files: |
           build/bbx
-          build/bbxd
           build/bbxc
           build/Release/bbx.exe
-          build/Release/bbxd.exe
           build/Release/bbxc.exe
