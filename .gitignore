@@ -51,3 +51,4 @@ Folder.DotSettings.user
 CMakeSettings.json
 /.idea
 /.idea
+/build-linux

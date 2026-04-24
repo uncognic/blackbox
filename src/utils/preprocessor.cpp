@@ -5,6 +5,7 @@
 #include <cstring>
 #include <print>
 #include <string>
+#include <vector>
 
 namespace blackbox {
 namespace tools {

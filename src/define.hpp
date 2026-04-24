@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 
 // binary format constants
 constexpr uint32_t MAGIC = 0x626378U;

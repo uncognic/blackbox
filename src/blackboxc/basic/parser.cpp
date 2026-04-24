@@ -9,6 +9,7 @@
 #include <fstream>
 #include <print>
 #include <sstream>
+#include <cstring>
 
 namespace basic {
 RegGuard::RegGuard(RegAlloc& ra) : ra(ra) {

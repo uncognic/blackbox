@@ -1,29 +1,72 @@
 name: Make build
+
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+
 permissions:
   contents: write
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
     steps:
     - uses: actions/checkout@v4
-    - name: Install dependencies
-      run: sudo apt install g++-14 cmake
-    - name: Build
+
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux'
       run: |
-        cmake -B build
-        cmake --build build
-    - name: Check artifacts
+        sudo apt update
+        sudo apt install -y g++-14 cmake
+
+    - name: Configure (Linux)
+      if: runner.os == 'Linux'
+      run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Configure (Windows)
+      if: runner.os == 'Windows'
+      run: cmake -B build
+
+    - name: Build (Linux)
+      if: runner.os == 'Linux'
+      run: cmake --build build
+
+    - name: Build (Windows)
+      if: runner.os == 'Windows'
+      run: cmake --build build --config Release
+
+    - name: Check artifacts (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
       run: |
         for f in bbx bbxd bbxc; do
           test -f "build/$f" || { echo "Missing artifact: $f"; exit 1; }
         done
+
+    - name: Check artifacts (Windows)
+      if: runner.os == 'Windows'
+      shell: powershell
+      run: |
+        $files = "bbx","bbxd","bbxc"
+        foreach ($f in $files) {
+          $path = "build\Release\$f.exe"
+          if (!(Test-Path $path)) {
+            Write-Host "Missing artifact: $path"
+            exit 1
+          }
+        }
+
     - name: Delete old continuous release
-      run: gh release delete continuous --yes --cleanup-tag || true
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      shell: bash
+      run: gh release delete continuous --yes --cleanup-tag || true
+
     - name: Release
       uses: softprops/action-gh-release@v2
       with:
@@ -33,6 +76,9 @@ jobs:
           Built from ${{ github.sha }}
           ${{ github.event.head_commit.message }}
         files: |
-          build/bbx
-          build/bbxd
-          build/bbxc
+          build/bbx*
+          build/bbxd*
+          build/bbxc*
+          build/Release/bbx*.exe
+          build/Release/bbxd*.exe
+          build/Release/bbxc*.exe
