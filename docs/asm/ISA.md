@@ -210,19 +210,11 @@ Bitwise binary operations.
 
 ### SHL / SHR
 
-Register-count bitwise shift.
+Bitwise shifts
 
 - Syntax: `SHL <dst>, <src>` / `SHR <dst>, <src>`
-- Encoding: opcode, 1 byte dst, 1 byte src.
+- Encoding: opcode, 1 byte dst, 1 byte src or 8 byte imm
 - Behavior: Shifts `dst` left or right by the value in `src`. SHR preserves sign for negative values.
-
-### SHLI / SHRI
-
-Immediate-count bitwise shift.
-
-- Syntax: `SHLI <reg>, <shift>` / `SHRI <reg>, <shift>`
-- Encoding: opcode, 1 byte register, 8-byte unsigned shift count.
-- Behavior: Shifts the register by the encoded immediate count. SHRI preserves sign for negative values.
 
 ## Control flow
 

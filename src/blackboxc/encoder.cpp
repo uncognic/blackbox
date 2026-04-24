@@ -404,10 +404,12 @@ size_t instr_size(std::string_view line) {
         return 3;
     }
     if (starts_with_keyword(s, "SHL")) {
-        return 3;
+        auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
+        return parse_register(src_tok).has_value() ? 3 : 10;
     }
     if (starts_with_keyword(s, "SHR")) {
-        return 3;
+        auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
+        return parse_register(src_tok).has_value() ? 3 : 10;
     }
     if (starts_with_keyword(s, "FREAD")) {
         return 3;
@@ -504,12 +506,6 @@ size_t instr_size(std::string_view line) {
 
     if (starts_with_keyword(s, "CALL")) {
         return 9;
-    }
-    if (starts_with_keyword(s, "SHLI")) {
-        return 10;
-    }
-    if (starts_with_keyword(s, "SHRI")) {
-        return 10;
     }
     if (starts_with_keyword(s, "RAND")) {
         return 18;
@@ -670,43 +666,40 @@ std::expected<void, std::string> encode(std::string_view line,
         write_u8(out, r);
         return {};
     }
-    if (starts_with_keyword(s, "SHLI")) {
-        auto [reg_tok, shift_tok] = split_comma(after_keyword(s, 4));
-        TRY_REG(r, reg_tok)
-        auto shift = parse_u32(shift_tok);
-        if (!shift) {
-            return err("invalid shift amount in SHLI");
-        }
-        write_u8(out, opcode_to_byte(Opcode::SHLI));
-        write_u8(out, r);
-        write_u64(out, static_cast<uint64_t>(*shift));
-        return {};
-    }
-    if (starts_with_keyword(s, "SHRI")) {
-        auto [reg_tok, shift_tok] = split_comma(after_keyword(s, 4));
-        TRY_REG(r, reg_tok)
-        auto shift = parse_u32(shift_tok);
-        if (!shift) {
-            return err("invalid shift amount in SHRI");
-        }
-        write_u8(out, opcode_to_byte(Opcode::SHRI));
-        write_u8(out, r);
-        write_u64(out, static_cast<uint64_t>(*shift));
-        return {};
-    }
     if (starts_with_keyword(s, "SHL")) {
-        auto [dst, src] = split_comma(after_keyword(s, 3));
-        TRY_REG(d, dst) TRY_REG(r, src) write_u8(out, opcode_to_byte(Opcode::SHL));
-        write_u8(out, d);
-        write_u8(out, r);
-        return {};
+        auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
+        if (auto reg = parse_register(src_tok)) {
+            TRY_REG(d, dst_tok) write_u8(out, opcode_to_byte(Opcode::SHL));
+            write_u8(out, d);
+            write_u8(out, *reg);
+            return {};
+        }
+
+        if (auto imm = parse_u32(src_tok)) {
+            TRY_REG(d, dst_tok) write_u8(out, opcode_to_byte(Opcode::SHLI));
+            write_u8(out, d);
+            write_u64(out, static_cast<uint64_t>(*imm));
+            return {};
+        }
+
+        return err("invalid SHL operand");
     }
     if (starts_with_keyword(s, "SHR")) {
-        auto [dst, src] = split_comma(after_keyword(s, 3));
-        TRY_REG(d, dst) TRY_REG(r, src) write_u8(out, opcode_to_byte(Opcode::SHR));
-        write_u8(out, d);
-        write_u8(out, r);
-        return {};
+        auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
+        if (auto reg = parse_register(src_tok)) {
+            TRY_REG(d, dst_tok) write_u8(out, opcode_to_byte(Opcode::SHR));
+            write_u8(out, d);
+            write_u8(out, *reg);
+            return {};
+        }
+        if (auto imm = parse_u32(src_tok)) {
+            TRY_REG(d, dst_tok) write_u8(out, opcode_to_byte(Opcode::SHRI));
+            write_u8(out, d);
+            write_u64(out, static_cast<uint64_t>(*imm));
+            return {};
+        }
+
+        return err("invalid SHR operand");
     }
 
     if (starts_with_keyword(s, "MOV")) {

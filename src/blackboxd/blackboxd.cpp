@@ -991,9 +991,9 @@ std::optional<size_t> emit_instruction_decomp(std::ostream& os, const std::vecto
             }
             j += 9;
             if (opcode == Opcode::SHLI) {
-                os << "    shli " << reg_name(reg) << ", " << amount << "\n";
+                os << "    SHL " << reg_name(reg) << ", " << amount << "\n";
             } else {
-                os << "    shri " << reg_name(reg) << ", " << amount << "\n";
+                os << "    SHR " << reg_name(reg) << ", " << amount << "\n";
             }
             break;
         }
@@ -1614,7 +1614,7 @@ std::optional<size_t> emit_instruction_dump(std::ostream& os, const std::vector<
             }
             j += 9;
 
-            std::string op = opcode == Opcode::SHLI ? "shli" : "shri";
+            std::string op = opcode == Opcode::SHLI ? "SHL" : "SHR";
             print_offset(op + " " + reg_name(reg) + ", " + std::to_string(amount));
             break;
         }
