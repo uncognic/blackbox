@@ -170,7 +170,7 @@ std::optional<std::string> Parser::emit_atom(const char* s, const char** end, in
                 return error("out of scratch registers");
             }
             if (v->is_global) {
-                active_cg().emit_load_global(r, v->slot, v->name);
+                active_cg().emit_load_global(r, v->name, v->name);
             } else if (v->type == VarType::Int || !v->is_const) {
                 active_cg().emit_load_var(r, v->slot, v->name);
             } else {
@@ -449,7 +449,7 @@ std::optional<std::string> Parser::emit_write_values(const char* arg, std::strin
                     if (v->is_const) {
                         active_cg().emit_load_str(r, v->data_name);
                     } else if (v->is_global) {
-                        active_cg().emit_load_global(r, v->slot, v->name);
+                        active_cg().emit_load_global(r, v->name, v->name);
                     } else {
                         active_cg().emit_load_var(r, v->slot, v->name);
                     }

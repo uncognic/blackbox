@@ -9,7 +9,6 @@
 #include "types.hpp"
 #include <filesystem>
 #include <optional>
-#include <ostream>
 #include <string>
 #include <vector>
 
@@ -27,6 +26,8 @@ struct RegGuard {
 
     RegGuard(const RegGuard&) = delete;
     RegGuard& operator=(const RegGuard&) = delete;
+
+    
 };
 
 class Parser {
@@ -41,6 +42,7 @@ class Parser {
     std::string get_additional_data_section() const;
     std::string get_namespace_init_code_section() const;
     std::string get_function_code_section() const;
+    std::vector<std::string> get_global_names() const { return scope_.global_names(); }
 
   private:
     CodeGen& cg_;

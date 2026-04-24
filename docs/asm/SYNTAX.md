@@ -51,6 +51,38 @@ STR $greeting, "Hello, world!"
 STR $prompt, "Enter a number: "
 ```
 
+### %bss
+Holds uninitialized data definitions. 
+```asm
+%asm
+%bss
+    counter
+    something
+
+%macro inc_counter
+    MOV R00, [counter]
+    INC R00
+    MOV [counter], R00
+%endmacro
+
+%entry
+    MOV R0, 67
+    MOV [something], R00
+
+    %inc_counter
+    %inc_counter
+    %inc_counter
+
+    MOV R01, [counter]
+    MOV R02, [something]
+
+    PRINTREG R01
+    PRINTREG R02
+
+    HALT
+
+```
+
 ### %main / %entry
 
 Holds executable instructions and labels. No data definitions allowed here.

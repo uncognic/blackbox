@@ -17,8 +17,9 @@ class BlackboxCodeGen final : public CodeGen {
 
     void emit_load_var(int reg, uint32_t slot, std::string_view comment = {}) override;
     void emit_store_var(int reg, uint32_t slot, std::string_view comment = {}) override;
-    void emit_load_global(int reg, uint32_t slot, std::string_view comment = {}) override;
-    void emit_store_global(int reg, uint32_t slot, std::string_view comment = {}) override;
+    void emit_load_global(int reg, const std::string& name, std::string_view comment = {}) override;
+    void emit_store_global(int reg, const std::string& name,
+                           std::string_view comment = {}) override;
     void emit_load_str(int reg, const std::string& data_name) override;
     void emit_load_ref(int dst, int src) override;
     void emit_store_ref(int dst, int src) override;
@@ -57,7 +58,7 @@ class BlackboxCodeGen final : public CodeGen {
 
     void emit_label(const std::string& name) override;
     void emit_frame(uint32_t slots) override;
-    void emit_globals(uint32_t count) override;
+    void emit_bss_symbol(const std::string& name) override;
     void emit_entry_point() override;
 
     void emit_print_reg(int reg) override;

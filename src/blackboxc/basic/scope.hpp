@@ -5,7 +5,6 @@
 #ifndef BLACKBOX_SCOPE_HPP
 #define BLACKBOX_SCOPE_HPP
 #include "types.hpp"
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -35,12 +34,15 @@ class Scope {
     // namespaceprefix
     const std::string& ns_prefix() const { return ns_prefix_; }
 
+    std::vector<std::string> global_names() const;
+
   private:
     std::string ns_prefix_;
     std::vector<Variable> vars_;
     uint32_t next_slot_ = 0;
     uint32_t* global_counter_ = nullptr;
     Scope* parent_ = nullptr;
+    std::vector<std::string> global_name_order_;
 
     std::string mangle(const std::string& name) const;
     uint32_t alloc_global_slot();

@@ -1,4 +1,5 @@
 #include "program.hpp"
+#include "../define.hpp"
 #include <format>
 #include <fstream>
 
@@ -33,15 +34,15 @@ static std::expected<Program, std::string> parse(const std::vector<uint8_t>& raw
     }
 
     // header layout
-    // magic(3), global_count(4), entry_count(4)
+    // magic(3), bss_count(4), entry_count(4)
     size_t cursor = MAGIC_SIZE;
-    uint32_t global_count = read_u32(raw, cursor);
+    uint32_t bss_count = read_u32(raw, cursor);
     cursor += 4;
     uint32_t entry_count = read_u32(raw, cursor);
     cursor += 4;
 
     Program prog;
-    prog.global_count = global_count;
+    prog.bss_count = bss_count;
 
     // parse typed data entries
     // each entry: type(1), length(4), bytes(length)

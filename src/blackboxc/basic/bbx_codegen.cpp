@@ -49,14 +49,16 @@ void BlackboxCodeGen::emit_store_var(int r, uint32_t slot, std::string_view comm
     code_comment(comment, std::format("    STOREVAR {}, {}", reg(r), slot));
 }
 
-void BlackboxCodeGen::emit_load_global(int r, uint32_t slot, std::string_view comment) {
-    code_comment(comment, std::format("    LOADGLOBAL {}, {}", reg(r), slot));
+void BlackboxCodeGen::emit_load_global(int r, const std::string& name, std::string_view comment) {
+    code_comment(comment, std::format("    MOV {}, [{}]", reg(r), name));
+}
+void BlackboxCodeGen::emit_store_global(int r, const std::string& name, std::string_view comment) {
+    code_comment(comment, std::format("    MOV [{}], {}", name, reg(r)));
 }
 
-void BlackboxCodeGen::emit_store_global(int r, uint32_t slot, std::string_view comment) {
-    code_comment(comment, std::format("    STOREGLOBAL {}, {}", reg(r), slot));
+void BlackboxCodeGen::emit_bss_symbol(const std::string& name) {
+    data(std::format("    {}", name));
 }
-
 void BlackboxCodeGen::emit_load_str(int r, const std::string& data_name) {
     code(std::format("    LOADSTR ${}, {}", data_name, reg(r)));
 }
@@ -193,10 +195,6 @@ void BlackboxCodeGen::emit_label(const std::string& name) {
 
 void BlackboxCodeGen::emit_frame(uint32_t slots) {
     code(std::format("    FRAME {}", slots));
-}
-
-void BlackboxCodeGen::emit_globals(uint32_t count) {
-    data(std::format("%globals {}", count));
 }
 
 void BlackboxCodeGen::emit_entry_point() {

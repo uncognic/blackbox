@@ -1,6 +1,5 @@
 #pragma once
 
-#include "../define.hpp"
 #include <cstdint>
 #include <cstdio>
 #include <print>

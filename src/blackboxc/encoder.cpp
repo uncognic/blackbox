@@ -10,7 +10,6 @@
 #include <print>
 #include <string>
 
-
 namespace bbxc::encoder {
 
 // writers
@@ -105,8 +104,8 @@ std::optional<uint8_t> parse_file_descriptor(std::string_view name) {
 
     return idx;
 }
-
-static std::string_view trim(std::string_view s) {
+namespace {
+std::string_view trim(std::string_view s) {
     while (!s.empty() && isspace(static_cast<unsigned char>(s.front()))) {
         s.remove_prefix(1);
     }
@@ -116,14 +115,14 @@ static std::string_view trim(std::string_view s) {
     return s;
 }
 
-static std::string_view strip_comment(std::string_view s) {
+std::string_view strip_comment(std::string_view s) {
     size_t pos = s.find(';');
     if (pos != std::string_view::npos) {
         s = s.substr(0, pos);
     }
     return trim(s);
 }
-static bool starts_with_keyword(std::string_view s, std::string_view kw) {
+bool starts_with_keyword(std::string_view s, std::string_view kw) {
     if (s.size() < kw.size()) {
         return false;
     }
@@ -139,13 +138,13 @@ static bool starts_with_keyword(std::string_view s, std::string_view kw) {
     return isspace(static_cast<unsigned char>(s[kw.size()]));
 }
 
-static std::string_view after_keyword(std::string_view s, size_t kw_len) {
+std::string_view after_keyword(std::string_view s, size_t kw_len) {
     s.remove_prefix(kw_len);
     return trim(s);
 }
 
 // parse quoted string and move pos
-static std::optional<std::string_view> parse_quoted(std::string_view s, size_t& pos) {
+std::optional<std::string_view> parse_quoted(std::string_view s, size_t& pos) {
     if (pos >= s.size() || s[pos] != '"') {
         return std::nullopt;
     }
@@ -158,7 +157,7 @@ static std::optional<std::string_view> parse_quoted(std::string_view s, size_t& 
     return s.substr(start, end - start);
 }
 
-static std::optional<int32_t> parse_i32(std::string_view s) {
+std::optional<int32_t> parse_i32(std::string_view s) {
     s = trim(s);
     int32_t v = 0;
     auto result = std::from_chars(s.data(), s.data() + s.size(), v);
@@ -168,7 +167,7 @@ static std::optional<int32_t> parse_i32(std::string_view s) {
     return v;
 }
 
-static std::optional<uint32_t> parse_u32(std::string_view s) {
+std::optional<uint32_t> parse_u32(std::string_view s) {
     s = trim(s);
     uint32_t v = 0;
     auto result = std::from_chars(s.data(), s.data() + s.size(), v);
@@ -178,7 +177,7 @@ static std::optional<uint32_t> parse_u32(std::string_view s) {
     return v;
 }
 
-static std::optional<int64_t> parse_i64(std::string_view s) {
+std::optional<int64_t> parse_i64(std::string_view s) {
     s = trim(s);
     int64_t v = 0;
     auto result = std::from_chars(s.data(), s.data() + s.size(), v);
@@ -188,7 +187,7 @@ static std::optional<int64_t> parse_i64(std::string_view s) {
     return v;
 }
 // split on first comma, returning lhs and rhs trimmed
-static std::pair<std::string_view, std::string_view> split_comma(std::string_view s) {
+std::pair<std::string_view, std::string_view> split_comma(std::string_view s) {
     size_t pos = s.find(',');
     if (pos == std::string_view::npos) {
         return {trim(s), {}};
@@ -197,8 +196,8 @@ static std::pair<std::string_view, std::string_view> split_comma(std::string_vie
 }
 
 // find label addr by name
-static std::optional<uint32_t> resolve_label(std::string_view name,
-                                             const std::vector<asm_helpers::Label>& labels) {
+std::optional<uint32_t> resolve_label(std::string_view name,
+                                      const std::vector<asm_helpers::Label>& labels) {
     name = trim(name);
     for (auto& l : labels) {
         if (l.name == name) {
@@ -209,8 +208,8 @@ static std::optional<uint32_t> resolve_label(std::string_view name,
 }
 
 // find data index by name
-static std::optional<uint32_t> resolve_data(std::string_view name,
-                                            const std::vector<asm_helpers::DataEntry>& entries) {
+std::optional<uint32_t> resolve_data(std::string_view name,
+                                     const std::vector<asm_helpers::DataEntry>& entries) {
     name = trim(name);
     if (!name.empty() && name[0] == '$') {
         name.remove_prefix(1);
@@ -224,7 +223,7 @@ static std::optional<uint32_t> resolve_data(std::string_view name,
 }
 
 // for variable size instructions
-static size_t quoted_string_len(std::string_view s) {
+size_t quoted_string_len(std::string_view s) {
     size_t q = s.find('"');
     if (q == std::string_view::npos) {
         return 0;
@@ -235,6 +234,16 @@ static size_t quoted_string_len(std::string_view s) {
     }
     return end - q - 1;
 }
+static std::string_view strip_brackets(std::string_view s) {
+    s = trim(s);
+    if (s.size() >= 2 && s.front() == '[' && s.back() == ']') {
+        s.remove_prefix(1);
+        s.remove_suffix(1);
+        return trim(s);
+    }
+    return s;
+}
+} // namespace
 size_t instr_size(std::string_view line) {
     std::string_view s = strip_comment(line);
     if (s.empty()) {
@@ -388,6 +397,9 @@ size_t instr_size(std::string_view line) {
     }
     if (starts_with_keyword(s, "MOV")) {
         auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
+        if (!dst_tok.empty() && dst_tok[0] == '[') {
+            return 6; // deref
+        }
         return parse_register(src_tok).has_value() ? 3 : 6;
     }
     if (starts_with_keyword(s, "CMP")) {
@@ -484,12 +496,6 @@ size_t instr_size(std::string_view line) {
     if (starts_with_keyword(s, "STOREVAR")) {
         return 6;
     }
-    if (starts_with_keyword(s, "LOADGLOBAL")) {
-        return 6;
-    }
-    if (starts_with_keyword(s, "STOREGLOBAL")) {
-        return 6;
-    }
     if (starts_with_keyword(s, "LOADSTR")) {
         return 6;
     }
@@ -516,10 +522,11 @@ size_t instr_size(std::string_view line) {
     return 0;
 }
 
-std::expected<void, std::string> encode(std::string_view line,
-                                        const std::vector<asm_helpers::Label>& labels,
-                                        const std::vector<asm_helpers::DataEntry>& data_entries,
-                                        std::vector<uint8_t>& out, bool debug) {
+std::expected<void, std::string>
+encode(std::string_view line, const std::vector<asm_helpers::Label>& labels,
+       const std::vector<asm_helpers::DataEntry>& data_entries,
+       const std::unordered_map<std::string, uint32_t>& bss_symbols, std::vector<uint8_t>& out,
+       bool debug) {
     std::string_view s = strip_comment(line);
     if (s.empty() || s[0] == '.' || s[0] == '%') {
         return {};
@@ -703,8 +710,51 @@ std::expected<void, std::string> encode(std::string_view line,
 
     if (starts_with_keyword(s, "MOV")) {
         auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
-        TRY_REG(d, dst_tok); // dst can only be a reg
 
+        // MOV [name], REG
+        if (!dst_tok.empty() && dst_tok[0] == '[') {
+            auto name = strip_brackets(dst_tok);
+            auto it = bss_symbols.find(std::string(name));
+            if (it == bss_symbols.end()) {
+                return err(std::format("undefined bss symbol '{}'", name));
+            }
+            auto src_reg = parse_register(src_tok);
+            if (!src_reg) {
+                return err("MOV [name], src: source must be a register");
+            }
+            write_u8(out, opcode_to_byte(Opcode::STOREGLOBAL));
+            write_u8(out, *src_reg);
+            write_u32(out, it->second);
+            return {};
+        }
+
+        TRY_REG(d, dst_tok);
+
+        // MOV REG, [name]
+        if (!src_tok.empty() && src_tok[0] == '[') {
+            auto name = strip_brackets(src_tok);
+            auto it = bss_symbols.find(std::string(name));
+            if (it == bss_symbols.end()) {
+                return err(std::format("undefined bss symbol '{}'", name));
+            }
+            write_u8(out, opcode_to_byte(Opcode::LOADGLOBAL));
+            write_u8(out, d);
+            write_u32(out, it->second);
+            return {};
+        }
+
+        // MOV REG, name (bss index)
+        {
+            auto it = bss_symbols.find(std::string(src_tok));
+            if (it != bss_symbols.end()) {
+                write_u8(out, opcode_to_byte(Opcode::MOVI));
+                write_u8(out, d);
+                write_i32(out, static_cast<int32_t>(it->second));
+                return {};
+            }
+        }
+
+        // MOV REG, REG
         if (auto reg = parse_register(src_tok)) {
             write_u8(out, opcode_to_byte(Opcode::MOV_REG));
             write_u8(out, d);
@@ -712,6 +762,7 @@ std::expected<void, std::string> encode(std::string_view line,
             return {};
         }
 
+        // MOV REG, imm
         if (auto imm = parse_i32(src_tok)) {
             write_u8(out, opcode_to_byte(Opcode::MOVI));
             write_u8(out, d);
@@ -719,7 +770,7 @@ std::expected<void, std::string> encode(std::string_view line,
             return {};
         }
 
-        return err("invalid source operand in MOV (expected register or i32 immediate)");
+        return err("invalid source operand in MOV");
     }
     if (starts_with_keyword(s, "PUSH")) {
         auto arg = trim(after_keyword(s, 4));
@@ -901,30 +952,6 @@ std::expected<void, std::string> encode(std::string_view line,
             return err("invalid slot in STOREVAR");
         }
         write_u8(out, opcode_to_byte(Opcode::STOREVAR));
-        write_u8(out, r);
-        write_u32(out, *slot);
-        return {};
-    }
-    if (starts_with_keyword(s, "LOADGLOBAL")) {
-        auto [reg_tok, slot_tok] = split_comma(after_keyword(s, 10));
-        TRY_REG(r, reg_tok)
-        auto slot = parse_u32(slot_tok);
-        if (!slot) {
-            return err("invalid slot in LOADGLOBAL");
-        }
-        write_u8(out, opcode_to_byte(Opcode::LOADGLOBAL));
-        write_u8(out, r);
-        write_u32(out, *slot);
-        return {};
-    }
-    if (starts_with_keyword(s, "STOREGLOBAL")) {
-        auto [reg_tok, slot_tok] = split_comma(after_keyword(s, 11));
-        TRY_REG(r, reg_tok)
-        auto slot = parse_u32(slot_tok);
-        if (!slot) {
-            return err("invalid slot in STOREGLOBAL");
-        }
-        write_u8(out, opcode_to_byte(Opcode::STOREGLOBAL));
         write_u8(out, r);
         write_u32(out, *slot);
         return {};

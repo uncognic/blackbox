@@ -17,8 +17,10 @@ class CodeGen {
 
     virtual void emit_load_var(int reg, uint32_t slot, std::string_view comment = {}) = 0;
     virtual void emit_store_var(int reg, uint32_t slot, std::string_view comment = {}) = 0;
-    virtual void emit_load_global(int reg, uint32_t slot, std::string_view comment = {}) = 0;
-    virtual void emit_store_global(int reg, uint32_t slot, std::string_view comment = {}) = 0;
+    virtual void emit_load_global(int reg, const std::string& name,
+                                  std::string_view comment = {}) = 0;
+    virtual void emit_store_global(int reg, const std::string& name,
+                                   std::string_view comment = {}) = 0;
     virtual void emit_load_str(int reg, const std::string& data_name) = 0;
     virtual void emit_load_ref(int dst, int src) = 0;
     virtual void emit_store_ref(int dst, int src) = 0;
@@ -57,7 +59,7 @@ class CodeGen {
 
     virtual void emit_label(const std::string& name) = 0;
     virtual void emit_frame(uint32_t slots) = 0;
-    virtual void emit_globals(uint32_t count) = 0;
+    virtual void emit_bss_symbol(const std::string& name) = 0;
     virtual void emit_entry_point() = 0;
 
     virtual void emit_print_reg(int reg) = 0;

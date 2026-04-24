@@ -146,9 +146,9 @@ Read a single non-whitespace character from stdin.
 ## Registers and stack
 ### MOV
 
-Copy data from a register or immediate value into a register.
+Copy data from a register or immediate value into a register or bss segment slot.
 
-- Syntax: `MOV <dst>, <src>`
+- Syntax: `MOV <dst>, <src>` or use bracketed name for bss references, e.g. `MOV [mybss], R00`
 - Encoding: opcode, 1 byte dst, 1 byte src or 4 byte imm
 
 ### PUSH
@@ -290,14 +290,6 @@ Frame-local access with register-indexed slot.
 
 - Syntax: `LOADVAR_REG <dst>, <idx_reg>` / `STOREVAR_REG <src>, <idx_reg>`
 - Encoding: opcode, 1 byte register, 1 byte index register.
-
-### LOADGLOBAL / STOREGLOBAL
-
-Access the global variable segment (allocated by `%globals`).
-
-- Syntax: `LOADGLOBAL <dst>, <slot>` / `STOREGLOBAL <src>, <slot>`
-- Encoding: opcode, 1 byte register, 4-byte slot index.
-- Behavior: Global slots are shared across all call frames and persist for the lifetime of the program.
 
 ### LOADREF / STOREREF
 

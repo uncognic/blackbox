@@ -45,7 +45,7 @@ std::optional<std::string> Parser::stmt_var(const std::string& s, bool is_global
         }
         active_cg().emit_load_str(r, dname);
         if (is_global) {
-            active_cg().emit_store_global(r, v->slot, name);
+            active_cg().emit_store_global(r, v->name, name);
         } else {
             active_cg().emit_store_var(r, v->slot, name);
         }
@@ -66,7 +66,7 @@ std::optional<std::string> Parser::stmt_var(const std::string& s, bool is_global
             return err;
         }
         if (is_global) {
-            active_cg().emit_store_global(ereg, v->slot, name);
+            active_cg().emit_store_global(ereg, v->name, name);
         } else {
             active_cg().emit_store_var(ereg, v->slot, name);
         }
@@ -178,7 +178,7 @@ std::optional<std::string> Parser::stmt_assign(const std::string& s) {
         }
         active_cg().emit_load_str(r, dname);
         if (v->is_global) {
-            active_cg().emit_store_global(r, v->slot, name);
+            active_cg().emit_store_global(r, v->name, name);
         } else {
             active_cg().emit_store_var(r, v->slot, name);
         }
@@ -206,7 +206,7 @@ std::optional<std::string> Parser::stmt_assign(const std::string& s) {
         ralloc_release(ereg);
         ralloc_release(slot_r);
     } else if (v->is_global) {
-        active_cg().emit_store_global(ereg, v->slot, name);
+        active_cg().emit_store_global(ereg, v->name, name);
         ralloc_release(ereg);
     } else {
         active_cg().emit_store_var(ereg, v->slot, name);
@@ -896,7 +896,7 @@ std::optional<std::string> Parser::stmt_random(const std::string& s) {
     }
 
     if (v->is_global) {
-        active_cg().emit_store_global(r, v->slot, name);
+        active_cg().emit_store_global(r, v->name, name);
     } else {
         active_cg().emit_store_var(r, v->slot, name);
     }
@@ -926,9 +926,9 @@ std::optional<std::string> Parser::stmt_inc(const std::string& s) {
         return error("out of scratch registers");
     }
     if (v->is_global) {
-        active_cg().emit_load_global(r, v->slot, name);
+        active_cg().emit_load_global(r, v->name, name);
         active_cg().emit_inc(r);
-        active_cg().emit_store_global(r, v->slot, name);
+        active_cg().emit_store_global(r, v->name, name);
     } else {
         active_cg().emit_load_var(r, v->slot, name);
         active_cg().emit_inc(r);
@@ -956,9 +956,9 @@ std::optional<std::string> Parser::stmt_dec(const std::string& s) {
         return error("out of scratch registers");
     }
     if (v->is_global) {
-        active_cg().emit_load_global(r, v->slot, name);
+        active_cg().emit_load_global(r, v->name, name);
         active_cg().emit_dec(r);
-        active_cg().emit_store_global(r, v->slot, name);
+        active_cg().emit_store_global(r, v->name, name);
     } else {
         active_cg().emit_load_var(r, v->slot, name);
         active_cg().emit_dec(r);
@@ -1003,7 +1003,7 @@ std::optional<std::string> Parser::stmt_exec(const std::string& s) {
             return error("EXEC destination must be integer");
         }
         if (dv->is_global) {
-            active_cg().emit_store_global(r, dv->slot, varname);
+            active_cg().emit_store_global(r, dv->name, varname);
         } else {
             active_cg().emit_store_var(r, dv->slot, varname);
         }

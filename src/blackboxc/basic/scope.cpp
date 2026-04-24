@@ -3,9 +3,11 @@
 //
 
 #include "scope.hpp"
-#include <format>
 
 namespace basic {
+std::vector<std::string> Scope::global_names() const {
+    return global_name_order_;
+}
 Scope::Scope(uint32_t* global_counter, std::string namespace_prefix)
     : ns_prefix_(std::move(namespace_prefix)), global_counter_(global_counter) {
 }
@@ -58,6 +60,9 @@ Variable* Scope::add_int(const std::string& name, bool is_global) {
     v.type = VarType::Int;
     v.is_global = is_global;
     v.slot = is_global ? alloc_global_slot() : alloc_local_slot();
+    if (is_global) {
+        global_name_order_.push_back(mangled);
+    }
     vars_.push_back(std::move(v));
     return &vars_.back();
 }
@@ -75,6 +80,9 @@ Variable* Scope::add_str(const std::string& name, const std::string& data_name, 
     v.is_global = is_global;
     v.data_name = data_name;
     v.slot = is_global ? alloc_global_slot() : alloc_local_slot();
+    if (is_global) {
+        global_name_order_.push_back(mangled);
+    }
     vars_.push_back(std::move(v));
     return &vars_.back();
 }

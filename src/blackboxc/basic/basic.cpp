@@ -26,11 +26,17 @@ std::optional<std::string> preprocess_basic(const std::filesystem::path& input,
     std::string data = cg.get_data_section() + parser.get_additional_data_section();
     std::string code = cg.get_code_section();
     std::string ns_init_code = parser.get_namespace_init_code_section();
-    uint32_t global_slots = parser.get_global_slot_count();
 
     out << "%asm\n";
 
-    out << "%globals " << global_slots << '\n';
+    auto global_names = parser.get_global_names();
+
+    if (!global_names.empty()) {
+        out << "%bss\n";
+        for (const auto& name : global_names) {
+            out << "    " << name << "\n";
+        }
+    }
 
     if (!data.empty()) {
         out << "%data\n";

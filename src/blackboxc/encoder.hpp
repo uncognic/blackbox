@@ -11,6 +11,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <unordered_map>
 
 namespace bbxc::encoder {
 
@@ -20,6 +21,7 @@ size_t instr_size(std::string_view line);
 std::expected<void, std::string> encode(std::string_view line,
                                         const std::vector<asm_helpers::Label>& labels,
                                         const std::vector<asm_helpers::DataEntry>& data_entries,
+                                        const std::unordered_map<std::string, uint32_t>& bss_symbols,
                                         std::vector<uint8_t>& out, bool debug);
 
 std::optional<uint8_t> parse_register(std::string_view name);

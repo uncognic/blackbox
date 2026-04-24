@@ -4,16 +4,24 @@
 
 #include "assembler.hpp"
 #include "../define.hpp"
-#include "encoder.hpp"
 #include "../utils/macro_expansion.hpp"
 #include "../utils/preprocessor.hpp"
 #include "../utils/string_utils.hpp"
+#include "encoder.hpp"
 #include <format>
 #include <fstream>
 #include <print>
 
 using namespace bbxc::asm_helpers;
 using namespace bbxc::encoder;
+
+std::optional<uint32_t> Assembler::find_bss_symbol(std::string_view name) const {
+    auto it = bss_symbols.find(std::string(name));
+    if (it == bss_symbols.end()) {
+        return std::nullopt;
+    }
+    return it->second;
+}
 
 std::expected<void, std::string> Assembler::assemble(const std::filesystem::path& input,
                                                      const std::filesystem::path& output,
@@ -89,7 +97,7 @@ std::expected<void, std::string> Assembler::preprocess(const std::filesystem::pa
         }
 
         if (t == "%asm" || t == "%data" || t == "%main" || t == "%entry" || t == "%endmacro" ||
-            blackbox::tools::starts_with_ci(t.data(), "%globals")) {
+            t == "%bss") {
             lines.push_back(std::string(t));
             continue;
         }
@@ -132,7 +140,7 @@ std::optional<uint32_t> Assembler::find_data_entry(std::string_view name) const 
 }
 
 std::expected<void, std::string> Assembler::pass1() {
-    enum class Section { None, Data, Code };
+    enum class Section { None, Data, Bss, Code };
     Section section = Section::None;
 
     uint32_t data_size = 0;
@@ -153,6 +161,7 @@ std::expected<void, std::string> Assembler::pass1() {
         }
 
         if (s == "%asm") {
+            section = Section::None;
             continue;
         }
         if (s == "%data") {
@@ -164,14 +173,8 @@ std::expected<void, std::string> Assembler::pass1() {
             continue;
         }
 
-        if (blackbox::tools::starts_with_ci(s.data(), "%globals")) {
-            auto tok = trim_copy(s.substr(8));
-            uint32_t n = 0;
-            auto r = std::from_chars(tok.data(), tok.data() + tok.size(), n);
-            if (r.ec != std::errc{}) {
-                return std::unexpected(std::format("invalid %globals value: '{}'", tok));
-            }
-            global_count = n;
+        if (s == "%bss") {
+            section = Section::Bss;
             continue;
         }
 
@@ -213,6 +216,18 @@ std::expected<void, std::string> Assembler::pass1() {
             continue;
         }
 
+        if (section == Section::Bss) {
+            if (s[0] == '.' || s[0] == '%') {
+                continue;
+            }
+
+            if (bss_symbols.count(s)) {
+                return std::unexpected(std::format("duplicate BSS symbol '{}'", s));
+            }
+            bss_symbols[s] = bss_count++;
+            continue;
+        }
+
         if (section == Section::Code) {
             if (s[0] == '.') {
                 std::string name = s.substr(1);
@@ -242,8 +257,8 @@ std::expected<void, std::string> Assembler::pass1() {
     }
 
     if (debug) {
-        std::println("[ASM] pass1: {} labels, {} data entries, {} globals, {} code bytes",
-                     labels.size(), data_entries.size(), global_count, code_pc);
+        std::println("[ASM] pass1: {} labels, {} data entries, {} bss entries, {} code bytes",
+                     labels.size(), data_entries.size(), bss_count, code_pc);
     }
 
     return {};
@@ -263,7 +278,7 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
     }
 
     // encode code
-    enum class Section { None, Code };
+    enum class Section { None, Bss, Code };
     Section section = Section::None;
     bool found_code = false;
 
@@ -281,8 +296,7 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
             continue;
         }
 
-        if (s == "%asm" || s == "%data" || s == "%globals" ||
-            blackbox::tools::starts_with_ci(s.data(), "%globals")) {
+        if (s == "%asm" || s == "%data" || s == "%bss") {
             continue;
         }
 
@@ -296,6 +310,14 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
             continue;
         }
 
+        if (s == "%bss") {
+            section = Section::Bss;
+            continue;
+        }
+        if (section == Section::Bss) {
+            continue;
+        }
+
         if (section == Section::Code) {
             if (s[0] == '.') {
                 continue;
@@ -305,7 +327,7 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
                 continue;
             }
 
-            auto result = encode(s, labels, data_entries, code_buf, debug);
+            auto result = encode(s, labels, data_entries, bss_symbols, code_buf, debug);
             if (!result) {
                 return std::unexpected(result.error());
             }
@@ -327,7 +349,7 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
     out.put(static_cast<char>((MAGIC) & 0xFF));
 
     std::vector<uint8_t> header_buf;
-    write_u32(header_buf, global_count);
+    write_u32(header_buf, bss_count);
     write_u32(header_buf, static_cast<uint32_t>(data_entries.size()));
     out.write(reinterpret_cast<const char*>(header_buf.data()),
               static_cast<std::streamsize>(header_buf.size()));

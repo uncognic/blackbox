@@ -119,7 +119,7 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
 VM::VM(Program program, int argc, char** argv)
     : prog(std::move(program)), host_argc(argc), host_argv(argv) {
     // set up global memory segment
-    global_end = prog.global_count;
+    global_end = prog.bss_count;
     mem.resize(global_end, 0);
     mem_top = global_end;
 
