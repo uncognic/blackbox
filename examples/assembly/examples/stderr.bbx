@@ -1,7 +1,7 @@
 %asm
 %data
-    STR $OUT_MSG, "stdout message"
-    STR $ERR_MSG, "stderr message"
+    OUT_MSG "stdout message"
+    ERR_MSG "stderr message"
 %main
     LOADSTR $OUT_MSG, R01 ; stdout message
     PRINTSTR R01

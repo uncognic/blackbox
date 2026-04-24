@@ -179,40 +179,40 @@ std::expected<void, std::string> Assembler::pass1() {
         }
 
         if (section == Section::Data) {
-            if (blackbox::tools::starts_with_ci(s.data(), "STR")) {
-                auto rest = trim_copy(s.substr(3));
-                if (rest.empty() || rest[0] != '$') {
-                    return std::unexpected(std::format("expected $name in STR: '{}'", s));
-                }
-                size_t comma = rest.find(',');
-                if (comma == std::string_view::npos) {
-                    return std::unexpected(std::format("expected comma in STR: '{}'", s));
-                }
-                std::string name = trim_copy(std::string(rest.substr(1, comma - 1)));
-                auto rest2 = trim_copy(rest.substr(comma + 1));
-                size_t q1 = rest2.find('"');
-                if (q1 == std::string_view::npos) {
-                    return std::unexpected(std::format("expected quoted string in STR: '{}'", s));
-                }
-                size_t q2 = rest2.find('"', q1 + 1);
-                if (q2 == std::string_view::npos) {
-                    return std::unexpected("unterminated string in STR");
-                }
-                std::string value = std::string(rest2.substr(q1 + 1, q2 - q1 - 1));
+            auto s_trim = trim_copy(s);
 
-                uint32_t index = static_cast<uint32_t>(data_entries.size());
-                data_entries.push_back(DataEntry{name, value, index});
-                // entry: type(1) + length(4) + bytes
-                data_size += 1 + 4 + static_cast<uint32_t>(value.size());
-                continue;
+            // if there are not 2 tokens
+            size_t sp = s_trim.find_first_of(" \t");
+            if (sp == std::string_view::npos) {
+                return std::unexpected(std::format("expected string value after name: '{}'", s));
             }
-            if (blackbox::tools::starts_with_ci(s.data(), "BYTE") ||
-                blackbox::tools::starts_with_ci(s.data(), "WORD") ||
-                blackbox::tools::starts_with_ci(s.data(), "DWORD") ||
-                blackbox::tools::starts_with_ci(s.data(), "QWORD")) {
-                return std::unexpected(
-                    std::format("numeric data types removed, use MOVI instead: '{}'", s));
+
+            std::string name = trim_copy(std::string(s_trim.substr(0, sp)));
+            auto rest = trim_copy(s_trim.substr(sp));
+
+            if (name.empty()) {
+                return std::unexpected(std::format("empty name data: '{}'", s));
             }
+
+            // is value quoted
+            size_t q1 = rest.find('"');
+            if (q1 == std::string_view::npos) {
+                return std::unexpected(std::format("expected quoted string: '{}'", s));
+            }
+
+            size_t q2 = rest.find('"', q1 + 1);
+            if (q2 == std::string_view::npos) {
+                return std::unexpected(std::format("unterminated string: '{}'", s));
+            }
+
+            std::string value = std::string(rest.substr(q1 + 1, q2 - q1 - 1));
+
+            uint32_t index = static_cast<uint32_t>(data_entries.size());
+            data_entries.push_back(DataEntry{name, value, index});
+
+            // entry: type(1) + length(4) + bytes
+            data_size += 1 + 4 + static_cast<uint32_t>(value.size());
+
             continue;
         }
 

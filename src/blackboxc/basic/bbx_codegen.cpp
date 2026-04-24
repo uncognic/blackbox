@@ -37,7 +37,7 @@ std::string BlackboxCodeGen::get_code_section() const {
 }
 
 void BlackboxCodeGen::emit_data_str(const std::string& name, const std::string& value) {
-    data(std::format("    STR ${}, \"{}\"", name, value));
+    data(std::format("    {} \"{}\"", name, value));
 }
 
 // vars

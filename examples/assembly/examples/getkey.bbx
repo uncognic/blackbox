@@ -1,9 +1,9 @@
 %asm
 ; demonstrates GETKEY non-blocking instruction
 %data
-    STR $prompt, "Press a key (or wait briefly)..."
-    STR $no_key, "No key pressed"
-    STR $got, "Got key: "
+    prompt "Press a key (or wait briefly)..."
+    no_key "No key pressed"
+    got "Got key: "
 
 %main
     loadstr $prompt, R01

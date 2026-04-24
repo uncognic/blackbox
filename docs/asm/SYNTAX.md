@@ -63,11 +63,11 @@ MOV R01, counter       ; load slot index of counter into R01 (address-of)
 
 ### %data
 
-Holds string constant definitions. Only `STR` is allowed here.
+Holds string constant definitions.
 ```asm
 %data
-STR $greeting, "Hello, world!"
-STR $prompt, "Enter a number: "
+  greeting "Hello, world!"
+  prompt "Enter a number: "
 ```
 
 ### %main / %entry
