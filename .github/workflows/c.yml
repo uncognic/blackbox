@@ -76,9 +76,9 @@ jobs:
           Built from ${{ github.sha }}
           ${{ github.event.head_commit.message }}
         files: |
-          build/bbx*
-          build/bbxd*
-          build/bbxc*
-          build/Release/bbx*.exe
-          build/Release/bbxd*.exe
-          build/Release/bbxc*.exe
+          build/bbx
+          build/bbxd
+          build/bbxc
+          build/Release/bbx.exe
+          build/Release/bbxd.exe
+          build/Release/bbxc.exe
