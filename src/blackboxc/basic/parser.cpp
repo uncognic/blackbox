@@ -233,7 +233,7 @@ std::string Parser::get_function_code_section() const {
     std::ostringstream out;
 
     auto emit_func = [&out](const FuncEntry& f) {
-        out << ".__bbx_func_" << f.name << ":\n";
+        out << "__bbx_func_" << f.name << ":\n";
         out << "    FRAME " << f.scope.next_local_slot() << "\n";
         out << f.cg->get_code_section();
         out << "    RET\n";

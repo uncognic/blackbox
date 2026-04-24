@@ -52,3 +52,5 @@ CMakeSettings.json
 /.idea
 /.idea
 /build-linux
+out.bbx
+mandelbrot.bf

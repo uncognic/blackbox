@@ -188,7 +188,7 @@ void BlackboxCodeGen::emit_halt(uint8_t code_val) {
 }
 
 void BlackboxCodeGen::emit_label(const std::string& name) {
-    code(std::format(".{}:", name));
+    code(std::format("{}:", name));
 }
 
 void BlackboxCodeGen::emit_frame(uint32_t slots) {
@@ -196,7 +196,7 @@ void BlackboxCodeGen::emit_frame(uint32_t slots) {
 }
 
 void BlackboxCodeGen::emit_entry_point() {
-    code(".__bbx_basic_main:");
+    code("__bbx_basic_main:");
 }
 void BlackboxCodeGen::emit_print_reg(int r) {
     code(std::format("    PRINTREG {}", reg(r)));

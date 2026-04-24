@@ -60,7 +60,7 @@ std::optional<std::string> preprocess_basic(const std::filesystem::path& input,
             out << code;
         }
     } else {
-        out << ".__bbx_basic_main:\n";
+        out << "__bbx_basic_main:\n";
         out << "    FRAME " << local_slots << "\n";
         out << ns_init_code;
         out << code;

@@ -4,11 +4,11 @@
     MOV R00, 50
     MOV R01, 2 
     MOV R20, 0
-    .loop_outer:
+    loop_outer:
         MOV R02, 2
         MOV R03, 1
 
-    .loop_inner:
+    loop_inner:
         mov R04, R01
         div R04, R02
         mul R04, R02
@@ -25,10 +25,10 @@
         newline
         jmp next_number
 
-    .not_prime:
+    not_prime:
 
 
-    .next_number:
+    next_number:
         inc R01
         mov R05, R01
         sub R05, R00

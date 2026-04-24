@@ -11,7 +11,7 @@
     newline
 
 
-.wait:
+wait:
     getkey R00
     mov R01, R00
     inc R01
@@ -26,7 +26,7 @@
     newline
     halt ok
 
-.got:
+got:
     loadstr $got, R02
     printstr R02
     printreg R00

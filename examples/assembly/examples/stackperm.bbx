@@ -9,7 +9,7 @@
     JMP protected_start
 
 ; Syscall handlers
-    .handler_setup:
+    handler_setup:
         ALLOC 64
 
         ; Write a value into slot 10 while still privileged
@@ -22,7 +22,7 @@
 
 ; Protected mode code
 
-    .protected_start:
+    protected_start:
         ; Set up memory and permissions
         SYSCALL 0
 

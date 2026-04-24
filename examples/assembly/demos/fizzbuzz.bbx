@@ -4,7 +4,7 @@
     MOV r00, 1
     MOV r01, 101
     MOV r10, 0
-.loop:
+loop:
     mov r02, r00
     MOV r03, 15
     mod r02, r03
@@ -23,18 +23,18 @@
     printreg r00
     newline
     jmp next
-.fizzbuzz:
+fizzbuzz:
     write STDOUT "FizzBuzz"
     newline
     jmp next
-.fizz:
+fizz:
     write STDOUT "Fizz"
     newline
     jmp next
-.buzz:
+buzz:
     write STDOUT "Buzz"
     newline
-.next:
+next:
     inc r00
     cmp r00, r01
     jne loop

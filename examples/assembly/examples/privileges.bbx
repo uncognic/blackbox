@@ -12,7 +12,7 @@
     JMP protected_start
 
 ; Syscall handlers
-    .handler_alloc:
+    handler_alloc:
         ALLOC 256
         WRITE STDOUT "Allocated "
         PRINT_STACKSIZE
@@ -20,13 +20,13 @@
         NEWLINE
         SYSRET
     
-    .handler_print:
+    handler_print:
         WRITE STDOUT "Hello from syscall 1!"
         NEWLINE
         SYSRET
 
 ; Protected mode code
-    .protected_start:
+    protected_start:
         ; Execute syscall 0
         SYSCALL 0
 

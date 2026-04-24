@@ -12,21 +12,21 @@
     JMP protected_start
 
 ; Handlers
-    .handler_setup:
+    handler_setup:
         ALLOC 64
         MOV R00, 67
         STORE R00, 10
         SETPERM 10, 10, RW/R
         SYSRET
 
-    .handler_fault:
+    handler_fault:
         ; Handle a write permission fault by printing a message and returning
         WRITE STDOUT "Caught a write permission fault!"
         NEWLINE
         FAULTRET
     
 ; Protected code
-    .protected_start:
+    protected_start:
         ; Set up memory and permissions
         SYSCALL 0
         

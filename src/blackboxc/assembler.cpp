@@ -229,14 +229,14 @@ std::expected<void, std::string> Assembler::pass1() {
         }
 
         if (section == Section::Code) {
-            if (s[0] == '.') {
-                std::string name = s.substr(1);
-                if (!name.empty() && name.back() == ':') {
-                    name.pop_back();
-                }
+            auto s_trim = trim_copy(s);
+            if (!s_trim.empty() && s_trim.back() == ':') {
+                std::string name = std::string(s_trim.substr(0, s_trim.size() - 1));
+
                 if (find_label(name)) {
                     return std::unexpected(std::format("duplicate label '{}'", name));
                 }
+
                 labels.push_back(Label{name, code_pc, 0});
                 continue;
             }
@@ -319,7 +319,8 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
         }
 
         if (section == Section::Code) {
-            if (s[0] == '.') {
+            auto s_trim = trim_copy(s);
+            if (!s_trim.empty() && s_trim.back() == ':') {
                 continue;
             }
 

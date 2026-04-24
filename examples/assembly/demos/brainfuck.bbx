@@ -16,29 +16,29 @@
     MOV R26, 91  ; '['
     MOV R27, 93  ; ']'
     MOV R04, 0
-.read_src:
+read_src:
     FREAD F0, R06
     CMP R06, R10
     JL read_src_done
     STORE R06, R04
     INC R04
     JMP read_src
-.read_src_done:
+read_src_done:
     MOV R14, R04
     MOV R15, 30000
     MOV R16, 30000
     MOV R17, R15
-.zero_tape:
+zero_tape:
     CMP R16, R10
     JE zero_done
     STORE R10, R17
     INC R17
     DEC R16
     JMP zero_tape
-.zero_done:
+zero_done:
     MOV R04, 0
     MOV R07, 0
-.main_loop:
+main_loop:
     CMP R04, R14
     JGE end_program
     LOAD R06, R04
@@ -60,15 +60,15 @@
     JE op_rb
     INC R04
     JMP main_loop
-.op_gt:
+op_gt:
     INC R07
     INC R04
     JMP main_loop
-.op_lt:
+op_lt:
     DEC R07
     INC R04
     JMP main_loop
-.op_plus:
+op_plus:
     MOV R12, R15
     ADD R12, R07
     LOAD R08, R12
@@ -76,7 +76,7 @@
     STORE R08, R12
     INC R04
     JMP main_loop
-.op_minus:
+op_minus:
     MOV R12, R15
     ADD R12, R07
     LOAD R08, R12
@@ -84,21 +84,21 @@
     STORE R08, R12
     INC R04
     JMP main_loop
-.op_dot:
+op_dot:
     MOV R12, R15
     ADD R12, R07
     LOAD R08, R12
     FWRITE F1, R08
     INC R04
     JMP main_loop
-.op_comma:
+op_comma:
     MOV R12, R15
     ADD R12, R07
     FREAD F0, R08
     STORE R08, R12
     INC R04
     JMP main_loop
-.op_lb:
+op_lb:
     MOV R12, R15
     ADD R12, R07
     LOAD R08, R12
@@ -106,9 +106,9 @@
     JE skip_loop
     INC R04
     JMP main_loop
-.skip_loop:
+skip_loop:
     MOV R13, R11
-.scan_fwd:
+scan_fwd:
     INC R04
     LOAD R06, R04
     CMP R06, R26
@@ -116,25 +116,25 @@
     CMP R06, R27
     JE dec_depth_fwd
     JMP scan_fwd
-.inc_depth_fwd:
+inc_depth_fwd:
     INC R13
     JMP scan_fwd
-.dec_depth_fwd:
+dec_depth_fwd:
     DEC R13
     CMP R13, R10
     JE after_scan_fwd
     JMP scan_fwd
-.after_scan_fwd:
+after_scan_fwd:
     INC R04
     JMP main_loop
-.op_rb:
+op_rb:
     MOV R12, R15
     ADD R12, R07
     LOAD R08, R12
     CMP R08, R10
     JE after_rb
     MOV R13, R11
-.scan_bwd:
+scan_bwd:
     DEC R04
     LOAD R06, R04
     CMP R06, R27
@@ -142,19 +142,19 @@
     CMP R06, R26
     JE dec_depth_bwd
     JMP scan_bwd
-.inc_depth_bwd:
+inc_depth_bwd:
     INC R13
     JMP scan_bwd
-.dec_depth_bwd:
+dec_depth_bwd:
     DEC R13
     CMP R13, R10
     JE found_lb
     JMP scan_bwd
-.found_lb:
+found_lb:
     INC R04
     JMP main_loop
-.after_rb:
+after_rb:
     INC R04
     JMP main_loop
-.end_program:
+end_program:
     HALT 0

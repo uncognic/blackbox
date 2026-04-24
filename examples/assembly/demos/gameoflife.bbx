@@ -44,14 +44,14 @@
     ADD R06, $buf
     LOAD R05, R06
     ADD $acc, R05
-.@@skip:
+@@skip:
 %endmacro
 
 %main
     ALLOC 1600
     MOV R00, 0
 
-.zero_loop:
+zero_loop:
     ; Zero out the entire grid
     MOV R05, 0
     STORE R05, R00
@@ -134,27 +134,27 @@
 
     JMP main_loop
 
-.setup_phase:
+setup_phase:
     WRITE STDOUT "WASD=move  SPACE=toggle  ENTER=start"
     NEWLINE
     MOV R12, 10
     MOV R13, 20
 
-.setup_loop:
+setup_loop:
     CLRSCR
     MOV R10, 0
     WRITE STDOUT "WASD=move  SPACE=toggle  ENTER=start"
     NEWLINE
-.setup_render_row:
+setup_render_row:
     MOV R11, 0
-.setup_render_col:
+setup_render_col:
     CMP R10, R12
     JNE setup_not_cursor
     CMP R11, R13
     JNE setup_not_cursor
     PRINT '@'
     JMP setup_render_col_next
-.setup_not_cursor:
+setup_not_cursor:
     %IDX R10, R11, R06
     ADD R06, R08
     LOAD R00, R06
@@ -163,9 +163,9 @@
     JNE setup_print_alive
     PRINT '.'
     JMP setup_render_col_next
-.setup_print_alive:
+setup_print_alive:
     PRINT '#'
-.setup_render_col_next:
+setup_render_col_next:
     INC R11
     MOV R05, 40
     CMP R11, R05
@@ -213,35 +213,35 @@
 
     JMP setup_loop
 
-.setup_move_up:
+setup_move_up:
     MOV R05, 0
     CMP R12, R05
     JE setup_loop
     DEC R12
     JMP setup_loop
 
-.setup_move_down:
+setup_move_down:
     MOV R05, 19
     CMP R05, R12
     JE setup_loop
     INC R12
     JMP setup_loop
 
-.setup_move_left:
+setup_move_left:
     MOV R05, 0
     CMP R13, R05
     JE setup_loop
     DEC R13
     JMP setup_loop
 
-.setup_move_right:
+setup_move_right:
     MOV R05, 39
     CMP R05, R13
     JE setup_loop
     INC R13
     JMP setup_loop
 
-.setup_toggle:
+setup_toggle:
     %IDX R12, R13, R06
     ADD R06, R08
     LOAD R00, R06
@@ -251,18 +251,18 @@
     MOV R00, 0
     STORE R00, R06
     JMP setup_loop
-.setup_set_alive:
+setup_set_alive:
     MOV R00, 1
     STORE R00, R06
     JMP setup_loop
 
-.main_loop:
+main_loop:
     CLRSCR
     MOV R10, 0
 
-.render_row:
+render_row:
     MOV R11, 0
-.render_col:
+render_col:
     %IDX R10, R11, R06
     ADD R06, R08
     LOAD R00, R06
@@ -271,9 +271,9 @@
     JNE print_alive
     PRINT '.'
     JMP render_next_col
-.print_alive:
+print_alive:
     PRINT '#'
-.render_next_col:
+render_next_col:
     INC R11
     MOV R05, 40
     CMP R11, R05
@@ -285,9 +285,9 @@
     JL render_row
 
     MOV R10, 0
-.gen_row:
+gen_row:
     MOV R11, 0
-.gen_col:
+gen_col:
     MOV R04, 0
 
     MOV R00, R10
@@ -352,16 +352,16 @@
     JE set_alive
     JMP write_next
 
-.check_birth:
+check_birth:
     MOV R00, 3
     CMP R04, R00
     JE set_alive
     JMP write_next
 
-.set_alive:
+set_alive:
     MOV R05, 1
 
-.write_next:
+write_next:
     %IDX R10, R11, R06
     ADD R06, R09
     STORE R05, R06
