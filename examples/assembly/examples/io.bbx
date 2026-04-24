@@ -2,22 +2,30 @@
 %asm
 %main
     fopen w, F1, "test"
-    fwrite F1, 123
+
+    MOV R00, 123
+    fwrite F1, R00
     fseek F1, 10
+
     fwrite F1, 123
     fseek F1, 5
+
     fwrite F1, 123
+
     fclose F1
+
     fopen r, F1, "test"
     fseek F1, 0
     fread F1, R0
     printreg R0
     newline
+
     fseek F1, 5
     fread F1, R0
     printreg R0
     fclose F1
     newline
+
     halt ok
 
 ;expected output is 123 123
