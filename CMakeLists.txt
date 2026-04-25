@@ -24,9 +24,34 @@ if(NOT DEFINED CMAKE_C_COMPILER)
 endif()
 
 project(Blackbox CXX)
+option(USE_AVX512 "Enable AVX-512" OFF)
+
+function(set_target_opts target)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(${target} PRIVATE
+            $<$<CONFIG:Release>:-O3>
+        )
+
+        if(NOT DEFINED ENV{GITHUB_ACTIONS})
+            target_compile_options(${target} PRIVATE
+                $<$<CONFIG:Release>:-march=native>
+            )
+        endif()
+
+    elseif(MSVC)
+        target_compile_options(${target} PRIVATE
+            $<$<CONFIG:Release>:/O2>
+        )
+
+        if(USE_AVX512)
+            target_compile_options(${target} PRIVATE /arch:AVX512)
+        endif()
+    endif()
+endfunction()
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
 
 # utils
 add_library(bbx_utils STATIC
@@ -79,3 +104,7 @@ if(WIN32)
     target_link_libraries(bbxc PRIVATE bcrypt)
     target_link_libraries(bbx  PRIVATE bcrypt)
 endif()
+
+set_target_opts(bbx_utils)
+set_target_opts(bbxc)
+set_target_opts(bbx)
