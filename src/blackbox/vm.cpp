@@ -323,7 +323,6 @@ bool VM::step() {
     }
 
     uint8_t byte = prog.code[pc++];
-
     try {
         (this->*dispatch_table[byte])();
     } catch (const VMFault& f) {
@@ -341,4 +340,20 @@ bool VM::step() {
         }
     }
     return !halted;
+}
+
+int64_t& VM::fetch_writable() {
+    auto type = static_cast<OperandType>(fetch_u8());
+    switch (type) {
+        case OperandType::Reg:
+            return regs[fetch_reg()];
+        case OperandType::Bss:
+            return global_var(fetch_u32());
+        case OperandType::Var:
+            return var(fetch_u32());
+        default:
+            hard_fault(FaultType::OutOfBounds,
+                       std::format("non-writable dst operand type 0x{:02X} at pc={}",
+                                   static_cast<uint8_t>(type), pc));
+    }
 }

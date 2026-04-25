@@ -37,6 +37,10 @@ class CodeGen {
     virtual void emit_mod(int dst, int src) = 0;
     virtual void emit_inc(int reg) = 0;
     virtual void emit_dec(int reg) = 0;
+    virtual void emit_inc_var(uint32_t slot) = 0;
+    virtual void emit_dec_var(uint32_t slot) = 0;
+    virtual void emit_inc_global(const std::string& name) = 0;
+    virtual void emit_dec_global(const std::string& name) = 0;
 
     virtual void emit_and(int dst, int src) = 0;
     virtual void emit_or(int dst, int src) = 0;

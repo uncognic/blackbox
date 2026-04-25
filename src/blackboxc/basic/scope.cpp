@@ -4,6 +4,8 @@
 
 #include "scope.hpp"
 
+#include <print>
+
 namespace basic {
 std::vector<std::string> Scope::global_names() const {
     return global_name_order_;
@@ -77,6 +79,7 @@ Variable* Scope::add_int(const std::string& name, bool is_global) {
         global_name_order_.push_back(mangled);
     }
     vars_.push_back(std::move(v));
+
     return &vars_.back();
 }
 Variable* Scope::add_str(const std::string& name, const std::string& data_name, bool is_const,

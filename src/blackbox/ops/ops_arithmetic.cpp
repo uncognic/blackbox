@@ -6,47 +6,38 @@
 #include <format>
 
 void VM::op_add() {
-    size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    regs[dst] += regs[src];
+    auto& dst = fetch_writable();
+    dst += read_operand();
 }
-
 void VM::op_sub() {
-    size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    regs[dst] -= regs[src];
+    auto& dst = fetch_writable();
+    dst -= read_operand();
 }
-
 void VM::op_mul() {
-    size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    regs[dst] *= regs[src];
+    auto& dst = fetch_writable();
+    dst *= read_operand();
 }
-
 void VM::op_div() {
-    size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    if (regs[src] == 0) {
+    auto& dst = fetch_writable();
+    auto src = read_operand();
+    if (src == 0) {
         raise_fault(FaultType::DivZero, std::format("division by zero at pc={}", pc));
     }
-    regs[dst] /= regs[src];
+    dst /= src;
 }
-
 void VM::op_mod() {
-    size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    if (regs[src] == 0) {
+    auto& dst = fetch_writable();
+    auto src = read_operand();
+    if (src == 0) {
         raise_fault(FaultType::DivZero, std::format("modulo by zero at pc={}", pc));
     }
-    regs[dst] %= regs[src];
+    dst %= src;
 }
-
 void VM::op_inc() {
-    size_t reg = fetch_reg();
-    regs[reg]++;
+    auto& dst = fetch_writable();
+    dst++;
 }
-
 void VM::op_dec() {
-    size_t reg = fetch_reg();
-    regs[reg]--;
+    auto& dst = fetch_writable();
+    dst--;
 }

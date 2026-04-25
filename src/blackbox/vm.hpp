@@ -90,6 +90,8 @@ class VM {
     int64_t fetch_i64();
     size_t fetch_reg();
 
+    int64_t& fetch_writable();
+
     void expect_bytes(size_t needed);
 
     int64_t& var(uint32_t slot);

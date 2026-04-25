@@ -122,40 +122,6 @@ void VM::op_free() {
 }
 
 void VM::op_mov() {
-    auto dst_type = static_cast<OperandType>(fetch_u8());
-    size_t dst_reg = 0;
-    uint32_t dst_slot = 0;
-
-    switch (dst_type) {
-        case OperandType::Reg:
-            dst_reg = fetch_reg();
-            break;
-        case OperandType::Bss:
-        case OperandType::Var:
-            dst_slot = fetch_u32();
-            break;
-        default:
-            hard_fault(FaultType::OutOfBounds,
-                       std::format("invalid MOV dst operand type 0x{:02X} at pc={}",
-                                   static_cast<uint8_t>(dst_type), pc));
-    }
-
-    int64_t value = read_operand();
-
-    switch (dst_type) {
-        case OperandType::Reg:
-            regs[dst_reg] = value;
-            break;
-        case OperandType::Bss:
-            global_var(dst_slot) = value;
-            break;
-        case OperandType::Var:
-            var(dst_slot) = value;
-            break;
-
-        default:
-            hard_fault(FaultType::OutOfBounds,
-                       std::format("invalid MOV dst operand type 0x{:02X} at pc={}",
-                                   static_cast<uint8_t>(dst_type), pc));
-    }
+    auto& dst = fetch_writable();
+    dst = read_operand();
 }

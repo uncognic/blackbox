@@ -36,6 +36,10 @@ class BlackboxCodeGen final : public CodeGen {
     void emit_mod(int dst, int src) override;
     void emit_inc(int reg) override;
     void emit_dec(int reg) override;
+    void emit_inc_var(uint32_t slot) override;
+    void emit_dec_var(uint32_t slot) override;
+    void emit_inc_global(const std::string& name) override;
+    void emit_dec_global(const std::string& name) override;
 
     void emit_and(int dst, int src) override;
     void emit_or(int dst, int src) override;
