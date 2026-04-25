@@ -42,6 +42,7 @@ enum class OperandType : uint8_t {
     BssRef = 0x04, // 4 bytes: bss slot (address-of, bare name)
     Var = 0x05,    // 4 bytes: frame slot
     Data = 0x06,   // 4 bytes: data index
+    HeapAddr = 0x07,   // 4 bytes: heap address
 };
 
 enum class Opcode : uint8_t {
@@ -73,8 +74,6 @@ enum class Opcode : uint8_t {
     CALL = 0x1D,
     RET = 0x1E,
     HALT = 0x1F,
-    LOAD = 0x20,
-    STORE = 0x22,
     LOADREF = 0x24,
     STOREREF = 0x25,
     LOADSTR = 0x26,

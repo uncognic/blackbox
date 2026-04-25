@@ -16,6 +16,7 @@ enum class FaultType : uint8_t {
     DivZero,
     OutOfBounds,
     EnvVarNotFound,
+    IllegalOp,
     Count // not a real fault
 };
 

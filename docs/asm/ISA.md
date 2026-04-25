@@ -148,7 +148,7 @@ Read a single non-whitespace character from stdin.
 
 Copy data from a register or immediate value into a register or bss segment slot.
 
-- Syntax: `MOV <dst>, <src>` or use bracketed name for bss references, e.g. `MOV [mybss], R00`
+- Syntax: `MOV <dst>, <src>` or use bracketed name for bss references, e.g. `MOV [mybss], R00` or use & for heap slot e.g. `MOV &10, 100` (the idx by & must be within stack range (ALLOC/GROW capacity))
 - Encoding: opcode, 1 byte dst, 1 byte src or 4 byte imm
 
 ### PUSH
@@ -306,15 +306,6 @@ Load a string handle into a register.
 - Syntax: `LOADSTR $<name>, <reg>`
 - Encoding: opcode, 1 byte register, 4-byte string index.
 - Behavior: Loads the index of the named string from the string table into the register. Use `PRINTSTR` to print it.
-
-### LOAD / STORE
-
-Access the raw operand stack by absolute index.
-
-- Syntax: `LOAD <reg>, <index>` / `STORE <reg>, <index>`
-- Encoding: opcode, 1 byte register, 4-byte index.
-- Behavior: Reads or writes a 64-bit slot in the operand stack by absolute position. Index must be within current stack
-  capacity.
 
 ### LOAD_REG / STORE_REG
 

@@ -42,8 +42,6 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
     t[opcode_to_byte(Opcode::RET)] = &VM::op_ret;
     t[opcode_to_byte(Opcode::HALT)] = &VM::op_halt;
 
-    t[opcode_to_byte(Opcode::LOAD)] = &VM::op_load;
-    t[opcode_to_byte(Opcode::STORE)] = &VM::op_store;
     t[opcode_to_byte(Opcode::LOADREF)] = &VM::op_loadref;
     t[opcode_to_byte(Opcode::STOREREF)] = &VM::op_storeref;
     t[opcode_to_byte(Opcode::ALLOC)] = &VM::op_alloc;
@@ -129,6 +127,24 @@ int64_t VM::read_operand() {
                            std::format("DATA index {} out of bounds at pc={}", idx, pc));
             }
             return static_cast<int64_t>(prog.data_string_handles[idx]);
+        }
+        case OperandType::HeapAddr: {
+            uint32_t addr = fetch_u32();
+            {
+                if (addr >= op_stack.size()) {
+                    hard_fault(FaultType::OutOfBounds,
+                               std::format("MOV src slot {} out of bounds at pc={}", addr, pc));
+                }
+                if (cur_mode == Mode::Privileged && !op_stack_perms[addr].priv_read) {
+                    raise_fault(FaultType::PermRead,
+                                std::format("MOV read denied at slot {} pc={}", addr, pc));
+                }
+                if (cur_mode == Mode::Protected && !op_stack_perms[addr].prot_read) {
+                    raise_fault(FaultType::PermRead,
+                                std::format("MOV read denied at slot {} pc={}", addr, pc));
+                }
+            }
+            return heap_addr(addr);
         }
         default:
             hard_fault(FaultType::OutOfBounds, std::format("unknown operand type 0x{:02X} at pc={}",
@@ -341,6 +357,14 @@ bool VM::step() {
     }
     return !halted;
 }
+int64_t& VM::heap_addr(uint32_t addr) {
+    if (addr >= op_stack.size()) {
+        hard_fault(FaultType::OutOfBounds,
+                   std::format("heap address {} out of bounds (op_stack.size()={}) at pc={}", addr,
+                               op_stack.size(), pc));
+    }
+    return op_stack[addr];
+}
 
 int64_t& VM::fetch_writable() {
     auto type = static_cast<OperandType>(fetch_u8());
@@ -351,6 +375,22 @@ int64_t& VM::fetch_writable() {
             return global_var(fetch_u32());
         case OperandType::Var:
             return var(fetch_u32());
+        case OperandType::HeapAddr: {
+            uint32_t addr = fetch_u32();
+            if (addr >= op_stack.size()) {
+                hard_fault(FaultType::OutOfBounds,
+                           std::format("heap slot {} out of bounds at pc={}", addr, pc));
+            }
+            if (cur_mode == Mode::Privileged && !op_stack_perms[addr].priv_write) {
+                raise_fault(FaultType::PermWrite,
+                            std::format("write denied at slot {} pc={}", addr, pc));
+            }
+            if (cur_mode == Mode::Protected && !op_stack_perms[addr].prot_write) {
+                raise_fault(FaultType::PermWrite,
+                            std::format("write denied at slot {} pc={}", addr, pc));
+            }
+            return heap_addr(addr);
+        }
         default:
             hard_fault(FaultType::OutOfBounds,
                        std::format("non-writable dst operand type 0x{:02X} at pc={}",

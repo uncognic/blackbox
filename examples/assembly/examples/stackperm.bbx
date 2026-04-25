@@ -13,11 +13,12 @@
         ALLOC 64
 
         ; Write a value into slot 10 while still privileged
-        MOV R00, 67
-        STORE R00, 10
+        MOV &10, 67
 
         ; Mark slots 10-19 as read-only (RW for privileged, R for protected)
         SETPERM 10, 10, RW/R
+        WRITE STDOUT "Handler setup complete"
+        NEWLINE
         SYSRET
 
 ; Protected mode code
@@ -27,13 +28,12 @@
         SYSCALL 0
 
         ; Read from slot 10, should work fine
-        LOAD R00, 10
+        MOV R00, &10
         WRITE stdout "Read value: "
         PRINTREG R00
         NEWLINE
 
         ; Try to write to slot 10, should fault
-        MOV R01, 99
-        STORE R01, 10
+        MOV &10, 99
 
         HALT OK

@@ -6,43 +6,64 @@
     c
 
 %entry
+    ; imm to reg
     MOV R01, 42
     PRINTREG R01
     NEWLINE
 
+    ; reg to reg
     MOV R02, R01
     PRINTREG R02
     NEWLINE
 
+    ; reg to [bss]
     MOV [a], R01
     MOV R03, [a]
     PRINTREG R03
     NEWLINE
 
+    ; imm to [bss]
     MOV [b], 100
     MOV R04, [b]
     PRINTREG R04
     NEWLINE
 
+    ; bss address to reg
     MOV R05, a
     PRINTREG R05
     NEWLINE
 
+    ; bss address to reg
     MOV R06, b
     PRINTREG R06
     NEWLINE
 
+    ; bss address to reg
     MOV R07, c
     PRINTREG R07
     NEWLINE
 
-    MOV [c], R04
+    CALL testfunc
+    PRINTREG R00
+    NEWLINE
+
+    ; reg to [bss], then [bss] to reg
+    MOV [c], R04 ; should be 100
     MOV R08, [c]
     PRINTREG R08
     NEWLINE
 
-    CALL testfunc
-    PRINTREG R00
+    ; imm to heap address
+    ALLOC 5
+    MOV &0, 10
+    MOV R09, &0 ; should be 10
+    PRINTREG R09
+    NEWLINE
+
+    ; [bss] to heap, then heap to reg
+    MOV &4, [b] ; should be 100
+    MOV R10, &4
+    PRINTREG R10
     NEWLINE
 
     HALT OK

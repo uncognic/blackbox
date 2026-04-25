@@ -32,6 +32,8 @@ size_t operand_encoded_size(Operand::Kind kind) {
             return 5;
         case Operand::Kind::FD:
             return 2;
+        case Operand::Kind::HeapAddr:
+            return 5;
         default:
             return 0;
     }
@@ -74,6 +76,11 @@ template <typename Buf> void encode_operand(const Operand& op, Buf& out) {
         case Operand::Kind::FD:
             write_u8(out, static_cast<uint8_t>(OperandType::Reg)); // fd reuses reg slot
             write_u8(out, op.reg);
+            break;
+
+        case Operand::Kind::HeapAddr:
+            write_u8(out, static_cast<uint8_t>(OperandType::HeapAddr));
+            write_u32(out, static_cast<uint32_t>(op.imm));
             break;
     }
 }
@@ -311,7 +318,8 @@ static std::string_view strip_brackets(std::string_view s) {
 }
 
 constexpr bool is_writable(Operand::Kind k) {
-    return k == Operand::Kind::Reg || k == Operand::Kind::Bss || k == Operand::Kind::Var;
+    return k == Operand::Kind::Reg || k == Operand::Kind::Bss || k == Operand::Kind::Var ||
+           k == Operand::Kind::HeapAddr;
 }
 
 } // namespace
@@ -320,6 +328,19 @@ std::expected<Operand, std::string> parse_operand(std::string_view tok, const Op
     tok = trim(tok);
     if (tok.empty()) {
         return std::unexpected("empty operand");
+    }
+    // heap address: &addr
+    if (tok.front() == '&') {
+        auto addr_str = trim(tok.substr(1));
+        auto addr = parse_i32(addr_str);
+        if (!addr) {
+            return std::unexpected(std::format("invalid heap address '{}'", addr_str));
+        }
+        Operand op;
+        op.kind = Operand::Kind::HeapAddr;
+        op.imm = *addr;
+        op.name = std::string(tok);
+        return op;
     }
 
     // BssDeref: [name]
@@ -782,9 +803,8 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         }
 
         // validate: dst must be writable (Reg or Bss)
-        if (dst->kind != Operand::Kind::Reg && dst->kind != Operand::Kind::Bss &&
-            dst->kind != Operand::Kind::Var) {
-            return err("MOV dst must be a register, [bss], or frame var");
+        if (!is_writable(dst->kind)) {
+            return err("MOV dst must be a register, [bss], frame var or heap address");
         }
 
         write_u8(out, opcode_to_byte(Opcode::MOV));
@@ -923,50 +943,6 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         }
         write_u8(out, opcode_to_byte(Opcode::HALT));
         write_u8(out, code);
-        return {};
-    }
-    if (starts_with_keyword(s, "LOAD")) {
-        auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
-
-        auto dst = parse_operand(dst_tok, ctx);
-        if (!dst) {
-            return std::unexpected(dst.error());
-        }
-
-        auto src = parse_operand(src_tok, ctx);
-        if (!src) {
-            return std::unexpected(src.error());
-        }
-
-        if (!is_writable(dst->kind)) {
-            return err("LOAD dst must be register, [bss] or framevar");
-        }
-
-        write_u8(out, opcode_to_byte(Opcode::LOAD));
-        encode_operand(*dst, out);
-        encode_operand(*src, out);
-        return {};
-    }
-    if (starts_with_keyword(s, "STORE")) {
-        auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
-
-        auto dst = parse_operand(dst_tok, ctx);
-        if (!dst) {
-            return std::unexpected(dst.error());
-        }
-
-        auto src = parse_operand(src_tok, ctx);
-        if (!src) {
-            return std::unexpected(src.error());
-        }
-
-        if (!is_writable(dst->kind)) {
-            return err("STORE dst must be register, [bss] or framevar");
-        }
-
-        write_u8(out, opcode_to_byte(Opcode::STORE));
-        encode_operand(*dst, out);
-        encode_operand(*src, out);
         return {};
     }
     if (starts_with_keyword(s, "LOADREF")) {

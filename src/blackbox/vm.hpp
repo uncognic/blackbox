@@ -96,6 +96,7 @@ class VM {
 
     int64_t& var(uint32_t slot);
     int64_t& global_var(uint32_t slot);
+    int64_t& heap_addr(uint32_t addr);
 
     void push_frame(size_t frame_size, size_t ret_pc);
     void pop_frame();
@@ -150,8 +151,6 @@ class VM {
     void op_halt();
 
     // memory
-    void op_load();
-    void op_store();
     void op_loadref();
     void op_storeref();
     void op_alloc();

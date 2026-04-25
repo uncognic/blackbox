@@ -44,44 +44,6 @@ void VM::op_storeref() {
     mem[abs] = regs[src];
 }
 
-void VM::op_load() {
-    size_t reg = fetch_reg();
-    int64_t addr_val = read_operand();
-    uint32_t addr = static_cast<uint32_t>(addr_val);
-    if (addr >= op_stack.size()) {
-        hard_fault(FaultType::OutOfBounds,
-                   std::format("LOAD address {} out of bounds at pc={}", addr, pc));
-    }
-    if (cur_mode == Mode::Privileged && !op_stack_perms[addr].priv_read) {
-        raise_fault(FaultType::PermRead,
-                    std::format("LOAD read permission denied at slot {} pc={}", addr, pc));
-    }
-    if (cur_mode == Mode::Protected && !op_stack_perms[addr].prot_read) {
-        raise_fault(FaultType::PermRead,
-                    std::format("LOAD read permission denied at slot {} pc={}", addr, pc));
-    }
-    regs[reg] = op_stack[addr];
-}
-
-void VM::op_store() {
-    size_t reg = fetch_reg();
-    int64_t addr_val = read_operand();
-    uint32_t addr = static_cast<uint32_t>(addr_val);
-    if (addr >= op_stack.size()) {
-        hard_fault(FaultType::OutOfBounds,
-                   std::format("STORE address {} out of bounds at pc={}", addr, pc));
-    }
-    if (cur_mode == Mode::Privileged && !op_stack_perms[addr].priv_write) {
-        raise_fault(FaultType::PermWrite,
-                    std::format("STORE write permission denied at slot {} pc={}", addr, pc));
-    }
-    if (cur_mode == Mode::Protected && !op_stack_perms[addr].prot_write) {
-        raise_fault(FaultType::PermWrite,
-                    std::format("STORE write permission denied at slot {} pc={}", addr, pc));
-    }
-    op_stack[addr] = regs[reg];
-}
-
 void VM::op_alloc() {
     require_privileged("ALLOC");
     uint32_t elems = fetch_u32();
