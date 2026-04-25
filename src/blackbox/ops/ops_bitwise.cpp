@@ -7,28 +7,21 @@
 #include <format>
 
 void VM::op_and() {
-    size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    regs[dst] &= regs[src];
+    auto& dst = fetch_writable();
+    dst &= read_operand();
 }
-
 void VM::op_or() {
-    size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    regs[dst] |= regs[src];
+    auto& dst = fetch_writable();
+    dst |= read_operand();
 }
-
 void VM::op_xor() {
-    size_t dst = fetch_reg();
-    size_t src = fetch_reg();
-    regs[dst] ^= regs[src];
+    auto& dst = fetch_writable();
+    dst ^= read_operand();
 }
-
 void VM::op_not() {
-    size_t reg = fetch_reg();
-    regs[reg] = ~regs[reg];
+    auto& dst = fetch_writable();
+    dst = ~read_operand();
 }
-
 void VM::op_shl() {
     size_t dst = fetch_reg();
     int64_t shift = read_operand();

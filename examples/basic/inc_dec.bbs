@@ -1,8 +1,23 @@
+NAMESPACE inc_dec
+    GLOBAL VAR X = 5
+    GLOBAL VAR Y = 3
+    FUNC inc_y:
+        INC Y
+    ENDFUNC
+ENDNAMESPACE
+
 @ENTRY
-FOR VAR I = 10 TO 0 STEP 0
-    DEC I
+FOR VAR I = 10 TO 0 STEP -1
 NEXT I
 
-PRINT "Done"
+PRINT "Done counting down from 10"
+
+
+INC inc_dec.X
+PRINT "X incremented = ", inc_dec.X
+
+PRINT "Y = ", inc_dec.Y
+CALL inc_dec.inc_y()
+PRINT "Y after INC = ", inc_dec.Y
 
 HALT OK

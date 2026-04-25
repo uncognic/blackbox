@@ -76,6 +76,7 @@ std::optional<std::string> Parser::stmt_var(const std::string& s, bool is_global
             std::println("[BASIC] VAR int {} -> slot {}", name, v->slot);
         }
     }
+
     return std::nullopt;
 }
 
@@ -910,7 +911,20 @@ std::optional<std::string> Parser::stmt_random(const std::string& s) {
 
 std::optional<std::string> Parser::stmt_inc(const std::string& s) {
     std::string name = trim(s.substr(3));
+    for (size_t dot = name.find('.'); dot != std::string::npos; dot = name.find('.', dot + 2)) {
+        name.replace(dot, 1, "__");
+    }
     Variable* v = active_scope().find(name);
+
+    if (!v && name.find("__") != std::string::npos) {
+        for (auto& ns : namespaces_) {
+            if (auto* nv = ns.scope.find(name)) {
+                v = nv;
+                break;
+            }
+        }
+    }
+
     if (!v) {
         return error(std::format("undefined variable '{}'", name));
     }
@@ -921,26 +935,28 @@ std::optional<std::string> Parser::stmt_inc(const std::string& s) {
         return error("cannot INC non-integer");
     }
 
-    int r = ralloc_acquire();
-    if (r < 0) {
-        return error("out of scratch registers");
-    }
     if (v->is_global) {
-        active_cg().emit_load_global(r, v->name, name);
-        active_cg().emit_inc(r);
-        active_cg().emit_store_global(r, v->name, name);
+        active_cg().emit_inc_global(v->name);
     } else {
-        active_cg().emit_load_var(r, v->slot, name);
-        active_cg().emit_inc(r);
-        active_cg().emit_store_var(r, v->slot, name);
+        active_cg().emit_inc_var(v->slot);
     }
-    ralloc_release(r);
     return std::nullopt;
 }
 
 std::optional<std::string> Parser::stmt_dec(const std::string& s) {
     std::string name = trim(s.substr(3));
+    for (size_t dot = name.find('.'); dot != std::string::npos; dot = name.find('.', dot + 2)) {
+        name.replace(dot, 1, "__");
+    }
     Variable* v = active_scope().find(name);
+    if (!v && name.find("__") != std::string::npos) {
+        for (auto& ns : namespaces_) {
+            if (auto* nv = ns.scope.find(name)) {
+                v = nv;
+                break;
+            }
+        }
+    }
     if (!v) {
         return error(std::format("undefined variable '{}'", name));
     }
@@ -951,20 +967,11 @@ std::optional<std::string> Parser::stmt_dec(const std::string& s) {
         return error("cannot DEC non-integer");
     }
 
-    int r = ralloc_acquire();
-    if (r < 0) {
-        return error("out of scratch registers");
-    }
     if (v->is_global) {
-        active_cg().emit_load_global(r, v->name, name);
-        active_cg().emit_dec(r);
-        active_cg().emit_store_global(r, v->name, name);
+        active_cg().emit_dec_global(v->name);
     } else {
-        active_cg().emit_load_var(r, v->slot, name);
-        active_cg().emit_dec(r);
-        active_cg().emit_store_var(r, v->slot, name);
+        active_cg().emit_dec_var(v->slot);
     }
-    ralloc_release(r);
     return std::nullopt;
 }
 

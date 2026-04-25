@@ -252,7 +252,16 @@ std::expected<void, std::string> Assembler::pass1() {
                 }
                 continue;
             }
-            code_pc += static_cast<uint32_t>(instr_size(s));
+            bbxc::encoder::OperandContext size_ctx{
+                .labels = labels,
+                .data_entries = data_entries,
+                .bss_symbols = bss_symbols,
+            };
+            uint32_t size = static_cast<uint32_t>(instr_size(s, size_ctx));
+            code_pc += size;
+            if (debug) {
+                std::println("[DBG] Line {}: {} bytes", trim_copy(raw_line), size);
+            }
         }
     }
 

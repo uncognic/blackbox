@@ -15,7 +15,7 @@
 
 namespace bbxc::encoder {
 
-size_t instr_size(std::string_view line);
+
 
 struct Operand {
     enum class Kind { Reg, Imm, Imm64, Bss, BssRef, Var, Data, Label, FD };
@@ -31,6 +31,13 @@ struct OperandContext {
     const std::vector<asm_helpers::Label>& labels;
     const std::vector<asm_helpers::DataEntry>& data_entries;
     const std::unordered_map<std::string, uint32_t>& bss_symbols;
+    bool sizing_pass = false;
+};
+size_t instr_size(std::string_view line, const OperandContext& ctx);
+struct CountingBuffer {
+    size_t n = 0;
+    void push_back(uint8_t) { n++; }
+    size_t size() const { return n; }
 };
 
 // size of one encoded operand (type byte + value bytes)
@@ -38,17 +45,18 @@ size_t operand_encoded_size(Operand::Kind kind);
 
 std::expected<Operand, std::string> parse_operand(std::string_view tok, const OperandContext& ctx);
 
-void encode_operand(const Operand& op, std::vector<uint8_t>& out);
+template <typename Buf> void encode_operand(const Operand& op, Buf& out);
 // encode one line
-std::expected<void, std::string> encode(std::string_view line, const OperandContext& ctx,
-                                        std::vector<uint8_t>& out, bool debug);
+template <typename Buf>
+std::expected<void, std::string> encode(std::string_view line, const OperandContext& ctx, Buf& out,
+                                        bool debug = false);
 
-void write_u8(std::vector<uint8_t>& buf, uint8_t v);
-void write_u16(std::vector<uint8_t>& buf, uint16_t v);
-void write_u32(std::vector<uint8_t>& buf, uint32_t v);
-void write_u64(std::vector<uint8_t>& buf, uint64_t v);
-void write_i32(std::vector<uint8_t>& buf, int32_t v);
-void write_i64(std::vector<uint8_t>& buf, int64_t v);
+template <typename Buf> void write_u8(Buf& buf, uint8_t v);
+template <typename Buf> void write_u16(Buf& buf, uint16_t v);
+template <typename Buf> void write_u32(Buf& buf, uint32_t v);
+template <typename Buf> void write_u64(Buf& buf, uint64_t v);
+template <typename Buf> void write_i32(Buf& buf, int32_t v);
+template <typename Buf> void write_i64(Buf& buf, int64_t v);
 
 } // namespace bbxc::encoder
 #endif // BLACKBOX_ENCODER_HPP

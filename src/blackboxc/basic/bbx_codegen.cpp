@@ -304,4 +304,16 @@ void BlackboxCodeGen::emit_getenv(int r, const std::string& name) {
 void BlackboxCodeGen::emit_raw(std::string_view line) {
     code(line);
 }
+void BlackboxCodeGen::emit_inc_var(uint32_t slot) {
+    code(std::format("    INC VAR {}", slot));
+}
+void BlackboxCodeGen::emit_dec_var(uint32_t slot) {
+    code(std::format("    DEC VAR {}", slot));
+}
+void BlackboxCodeGen::emit_inc_global(const std::string& n) {
+    code(std::format("    INC [{}]", n));
+}
+void BlackboxCodeGen::emit_dec_global(const std::string& n) {
+    code(std::format("    DEC [{}]", n));
+}
 } // namespace basic
