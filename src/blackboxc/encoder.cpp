@@ -1433,6 +1433,14 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
 #undef TRY_LABEL
 #undef TRY_DATA
 }
+
+template void write_u8<std::vector<uint8_t>>(std::vector<uint8_t>&, uint8_t);
+template void write_u16<std::vector<uint8_t>>(std::vector<uint8_t>&, uint16_t);
+template void write_u32<std::vector<uint8_t>>(std::vector<uint8_t>&, uint32_t);
+template void write_u64<std::vector<uint8_t>>(std::vector<uint8_t>&, uint64_t);
+template void write_i32<std::vector<uint8_t>>(std::vector<uint8_t>&, int32_t);
+template void write_i64<std::vector<uint8_t>>(std::vector<uint8_t>&, int64_t);
+
 template std::expected<void, std::string>
 encode<std::vector<uint8_t>>(std::string_view, const OperandContext&, std::vector<uint8_t>&, bool);
 
