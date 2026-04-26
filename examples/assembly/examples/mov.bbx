@@ -66,6 +66,14 @@
     PRINTREG R10
     NEWLINE
 
+    ; reg to heap addr in reg
+    ALLOC 21
+    MOV R00, 20
+    MOV &R00, R00 ; should write 20 to heap address 20
+    MOV R00, &R00 ; should read 20 from heap address 20
+    PRINTREG R00 ; should print 20
+    NEWLINE
+
     HALT OK
 
 testfunc:

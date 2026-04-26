@@ -99,6 +99,14 @@ class CodeGen {
 
     virtual std::string get_data_section() const = 0;
     virtual std::string get_code_section() const = 0;
+
+    virtual void emit_alloc(int size) = 0;
+    virtual void emit_free(int size) = 0;
+    virtual void emit_grow(int size) = 0;
+    virtual void emit_resize(int size) = 0;
+
+    virtual void emit_heap_read(int dst, int addr_reg) = 0;
+virtual void emit_heap_write(int addr_reg, int src) = 0;
 };
 } // namespace basic
 #endif // BLACKBOX_CODEGEN_HPP

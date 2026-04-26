@@ -15,6 +15,35 @@ std::optional<std::string> Parser::stmt_var(const std::string& s, bool is_global
         body = trim(body.substr(4));
     }
 
+    // array
+    size_t start_bracket = body.find('[');
+    if (start_bracket != std::string::npos) {
+        std::string array_name = trim(body.substr(0, start_bracket));
+        size_t close_bracket = body.find(']', start_bracket + 1);
+        if (close_bracket == std::string::npos) {
+            return error("expected ']' in array declaration");
+        }
+        std::string size_str =
+            trim(body.substr(start_bracket + 1, close_bracket - start_bracket - 1));
+        char* endptr;
+        long size = strtol(size_str.c_str(), &endptr, 10);
+
+        if (*endptr != '\0' || size <= 0) {
+            return error(std::format("invalid array size '{}'", size_str));
+        }
+
+        if (array_name.empty()) {
+            return error("expected array name");
+        }
+        if (arrays_.count(array_name)) {
+            return error(std::format("array '{}' already declared", array_name));
+        }
+        arrays_[array_name] = ArrayInfo{heap_top_, static_cast<size_t>(size)};
+        heap_top_ += static_cast<size_t>(size);
+        active_cg().emit_grow(static_cast<int>(size));
+        return std::nullopt;
+    }
+
     size_t eq = body.find('=');
     if (eq == std::string::npos) {
         return error(std::format("expected VAR <name> = <value>"));
@@ -133,6 +162,46 @@ std::optional<std::string> Parser::stmt_const(const std::string& s) {
 }
 
 std::optional<std::string> Parser::stmt_assign(const std::string& s) {
+    // array write: arr[i] = expr
+    size_t start_bracket = s.find('[');
+    if (start_bracket != std::string::npos && start_bracket < 64) {
+        std::string array_name = trim(s.substr(0, start_bracket));
+        auto iterator = arrays_.find(array_name);
+        if (iterator != arrays_.end()) {
+            size_t close_bracket = s.find(']', start_bracket + 1);
+            if (close_bracket == std::string::npos) {
+                return error("expected ']' in array index");
+            }
+            size_t equals = s.find('=', close_bracket + 1);
+            if (equals == std::string::npos) {
+                return error("expected '=' after array index");
+            }
+            std::string index =
+                trim(s.substr(start_bracket + 1, close_bracket - start_bracket - 1));
+            std::string right = trim(s.substr(equals + 1));
+            const ArrayInfo& array_info = iterator->second;
+
+            int idx_reg;
+            if (auto err = emit_expr(index.c_str(), &idx_reg)) {
+                return err;
+            }
+
+            int addr_reg = ralloc_acquire();
+            active_cg().emit_movi(addr_reg, static_cast<int32_t>(array_info.base));
+            active_cg().emit_add(addr_reg, idx_reg);
+            ralloc_release(idx_reg);
+
+            int val_reg;
+            if (auto err = emit_expr(right.c_str(), &val_reg)) {
+                ralloc_release(addr_reg);
+                return err;
+            }
+            active_cg().emit_heap_write(addr_reg, val_reg);
+            ralloc_release(addr_reg);
+            ralloc_release(val_reg);
+            return std::nullopt;
+        }
+    }
     // find first = that isn't == != <= >=
     size_t eq = std::string::npos;
     for (size_t i = 0; i < s.size(); i++) {

@@ -58,6 +58,34 @@ std::optional<std::string> Parser::emit_atom(const char* s, const char** end, in
 
         const char* after = skip_ws(p);
 
+        if (*after == '[') {
+            auto iterator = arrays_.find(name);
+            if (iterator != arrays_.end()) {
+                const ArrayInfo& array_info = iterator->second;
+                const char* index_ptr = skip_ws(after + 1);
+                int index_reg;
+                if (auto err = emit_expr_p(index_ptr, &index_ptr, &index_reg)) {
+                    return err;
+                }
+                index_ptr = skip_ws(index_ptr);
+                if (*index_ptr != ']') {
+                    return error("expected ']' in array index");
+                }
+                *end = index_ptr + 1;
+
+                int addr_reg = ralloc_acquire();
+                active_cg().emit_movi(addr_reg, static_cast<int32_t>(array_info.base));
+                active_cg().emit_add(addr_reg, index_reg);
+                ralloc_release(index_reg);
+
+                int dst = ralloc_acquire();
+                active_cg().emit_heap_read(dst, addr_reg);
+                ralloc_release(addr_reg);
+                *out_reg = dst;
+                return std::nullopt;
+            }
+        }
+
         // function call
         if (*after == '(') {
             std::string resolved_name = resolve_func_name(name);

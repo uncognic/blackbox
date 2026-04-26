@@ -3,30 +3,25 @@
 #include <cstddef>
 #include <cstdint>
 
-// binary format constants
 constexpr uint32_t MAGIC = 0x626378U;
 constexpr size_t MAGIC_SIZE = 3;
 
-// header: magic(3) | global_count(4) | entry_count(4)
+// header: magic(3) - global_count(4) - entry_count(4)
 constexpr size_t HEADER_FIXED_SIZE = 11;
-
-// VM limits
 constexpr size_t REGISTERS = 99;
 constexpr size_t FILE_DESCRIPTORS = 99;
 constexpr size_t MAX_SYSCALLS = 256;
 
-// data section entry types
+// ts will not change because we are not bringing back whatever we had before
 enum class DataEntryType : uint8_t {
     String = 0,
 };
 
-// privilege mode
 enum class Mode : uint8_t {
     Protected,
     Privileged,
 };
 
-// slot permissions
 struct SlotPermission {
     uint8_t priv_read : 1;
     uint8_t priv_write : 1;
@@ -43,6 +38,7 @@ enum class OperandType : uint8_t {
     Var = 0x05,    // 4 bytes: frame slot
     Data = 0x06,   // 4 bytes: data index
     HeapAddr = 0x07,   // 4 bytes: heap address
+    HeapReg = 0x08, // 1 byte heap addr in reg
 };
 
 enum class Opcode : uint8_t {

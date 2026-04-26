@@ -8,6 +8,7 @@ You compile them with the same `bbxc` compiler, and they run on the same `bbx` i
 Supported statements and blocks:
 - `CONST name = <expr or "string">`
 - `VAR name = <expr or "string">`
+- `VAR name[size]` (array)
 - `GLOBAL CONST name = <expr or "string">`
 - `GLOBAL VAR name = <expr or "string">`
 - `name = <expr>`

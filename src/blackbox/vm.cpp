@@ -146,6 +146,22 @@ int64_t VM::read_operand() {
             }
             return heap_addr(addr);
         }
+        case OperandType::HeapReg: {
+            uint32_t addr = static_cast<uint32_t>(regs[fetch_reg()]);
+            if (addr >= op_stack.size()) {
+                    hard_fault(FaultType::OutOfBounds,
+                               std::format("MOV src slot {} out of bounds at pc={}", addr, pc));
+                }
+                if (cur_mode == Mode::Privileged && !op_stack_perms[addr].priv_read) {
+                    raise_fault(FaultType::PermRead,
+                                std::format("MOV read denied at slot {} pc={}", addr, pc));
+                }
+                if (cur_mode == Mode::Protected && !op_stack_perms[addr].prot_read) {
+                    raise_fault(FaultType::PermRead,
+                                std::format("MOV read denied at slot {} pc={}", addr, pc));
+                }
+            return heap_addr(addr);
+        }
         default:
             hard_fault(FaultType::OutOfBounds, std::format("unknown operand type 0x{:02X} at pc={}",
                                                            static_cast<uint8_t>(type), pc));
@@ -377,6 +393,22 @@ int64_t& VM::fetch_writable() {
             return var(fetch_u32());
         case OperandType::HeapAddr: {
             uint32_t addr = fetch_u32();
+            if (addr >= op_stack.size()) {
+                hard_fault(FaultType::OutOfBounds,
+                           std::format("heap slot {} out of bounds at pc={}", addr, pc));
+            }
+            if (cur_mode == Mode::Privileged && !op_stack_perms[addr].priv_write) {
+                raise_fault(FaultType::PermWrite,
+                            std::format("write denied at slot {} pc={}", addr, pc));
+            }
+            if (cur_mode == Mode::Protected && !op_stack_perms[addr].prot_write) {
+                raise_fault(FaultType::PermWrite,
+                            std::format("write denied at slot {} pc={}", addr, pc));
+            }
+            return heap_addr(addr);
+        }
+        case OperandType::HeapReg: {
+            uint32_t addr = static_cast<uint32_t>(regs[fetch_reg()]);
             if (addr >= op_stack.size()) {
                 hard_fault(FaultType::OutOfBounds,
                            std::format("heap slot {} out of bounds at pc={}", addr, pc));

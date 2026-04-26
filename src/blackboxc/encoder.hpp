@@ -18,7 +18,7 @@ namespace bbxc::encoder {
 
 
 struct Operand {
-    enum class Kind { Reg, Imm, Imm64, Bss, BssRef, Var, Data, Label, FD, HeapAddr };
+    enum class Kind { Reg, Imm, Imm64, Bss, BssRef, Var, Data, Label, FD, HeapAddr, HeapReg };
     Kind kind = Kind::Imm;
     uint8_t reg = 0;
     int32_t imm = 0;

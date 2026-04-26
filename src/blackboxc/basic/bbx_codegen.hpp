@@ -94,6 +94,14 @@ class BlackboxCodeGen final : public CodeGen {
     void emit_getargc(int reg) override;
     void emit_getenv(int reg, const std::string& name) override;
 
+    void emit_alloc(int size) override;
+    void emit_free(int size) override;
+    void emit_grow(int size) override;
+    void emit_resize(int size) override;
+
+    void emit_heap_read(int dst, int addr_reg) override;
+    void emit_heap_write(int addr_reg, int src) override;
+
     void emit_raw(std::string_view line) override;
 
     std::string get_data_section() const override;

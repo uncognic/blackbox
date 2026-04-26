@@ -316,4 +316,24 @@ void BlackboxCodeGen::emit_inc_global(const std::string& n) {
 void BlackboxCodeGen::emit_dec_global(const std::string& n) {
     code(std::format("    DEC [{}]", n));
 }
+void BlackboxCodeGen::emit_alloc(int size) {
+    code(std::format("    ALLOC {}", size));
+}
+void BlackboxCodeGen::emit_free(int size) {
+    code(std::format("    FREE {}", size));
+}
+void BlackboxCodeGen::emit_grow(int size) {
+    code(std::format("    GROW {}", size));
+}
+void BlackboxCodeGen::emit_resize(int size) {
+    code(std::format("    RESIZE {}", size));
+}
+
+void BlackboxCodeGen::emit_heap_read(int dst, int addr_reg) {
+    code(std::format("    MOV {}, &{}", reg(dst), reg(addr_reg)));
+}
+void BlackboxCodeGen::emit_heap_write(int addr_reg, int src) {
+    code(std::format("    MOV &{}, {}", reg(addr_reg), reg(src)));
+}
+
 } // namespace basic

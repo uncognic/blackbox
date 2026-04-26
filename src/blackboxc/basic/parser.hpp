@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <unordered_map>
 
 namespace basic {
 struct RegGuard {
@@ -63,6 +64,9 @@ class Parser {
 
     std::vector<FileHandle> file_handles_;
     uint8_t next_file_handle_ = 0;
+
+    std::unordered_map<std::string, ArrayInfo> arrays_;
+    size_t heap_top_ = 0;
 
     struct FuncEntry {
         std::string name;

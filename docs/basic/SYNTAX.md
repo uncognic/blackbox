@@ -22,7 +22,11 @@ VAR INITIAL_VALUE = 10
 VAR OTHER_VALUE = INITIAL_VALUE + 5
 VAR NAME = "Blackbox"
 ```
-
+### Array declaration
+```basic
+VAR arr[10]
+arr[0] = 1
+```
 ### Constant declaration
 ```basic
 CONST limit = 10
@@ -420,5 +424,4 @@ CALL namespace.print(hello)
 
 
 ## Current limitations
-- No arrays or structured types in BASIC syntax.
 - Advanced VM privilege/syscall/fault flows are assembly-first.

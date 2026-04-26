@@ -148,7 +148,7 @@ Read a single non-whitespace character from stdin.
 
 Copy data from a register or immediate value into a register or bss segment slot.
 
-- Syntax: `MOV <dst>, <src>` or use bracketed name for bss references, e.g. `MOV [mybss], R00` or use & for heap slot e.g. `MOV &10, 100` (the idx by & must be within stack range (ALLOC/GROW capacity))
+- Syntax: `MOV <dst>, <src>` or use bracketed name for bss references, e.g. `MOV [mybss], R00` or use & for heap slot e.g. `MOV &10, 100` (the idx by & must be within stack range (ALLOC/GROW capacity)) or heap slot via reg `MOV &R00, 10`. you get the point, it's pretty flexible
 - Encoding: opcode, 1 byte dst, 1 byte src or 4 byte imm
 
 ### PUSH

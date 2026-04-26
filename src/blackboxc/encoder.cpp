@@ -82,6 +82,11 @@ template <typename Buf> void encode_operand(const Operand& op, Buf& out) {
             write_u8(out, static_cast<uint8_t>(OperandType::HeapAddr));
             write_u32(out, static_cast<uint32_t>(op.imm));
             break;
+
+        case Operand::Kind::HeapReg:
+            write_u8(out, static_cast<uint8_t>(OperandType::HeapReg));
+            write_u8(out, op.reg);
+            break;
     }
 }
 
@@ -319,7 +324,7 @@ static std::string_view strip_brackets(std::string_view s) {
 
 constexpr bool is_writable(Operand::Kind k) {
     return k == Operand::Kind::Reg || k == Operand::Kind::Bss || k == Operand::Kind::Var ||
-           k == Operand::Kind::HeapAddr;
+           k == Operand::Kind::HeapAddr || k == Operand::Kind::HeapReg;
 }
 
 } // namespace
@@ -332,6 +337,13 @@ std::expected<Operand, std::string> parse_operand(std::string_view tok, const Op
     // heap address: &addr
     if (tok.front() == '&') {
         auto addr_str = trim(tok.substr(1));
+        if (auto reg = parse_register(addr_str)) {
+            Operand op;
+            op.kind = Operand::Kind::HeapReg;
+            op.reg = *reg;
+            op.name = std::string(tok);
+            return op;
+        }
         auto addr = parse_i32(addr_str);
         if (!addr) {
             return std::unexpected(std::format("invalid heap address '{}'", addr_str));

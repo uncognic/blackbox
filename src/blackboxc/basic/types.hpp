@@ -51,6 +51,11 @@ struct FileHandle {
     uint8_t fd = 0;
 };
 
+struct ArrayInfo {
+    size_t base = 0;
+    size_t length = 0;
+};
+
 struct FuncDef;
 struct NamespaceDef;
 
