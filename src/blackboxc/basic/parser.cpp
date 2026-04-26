@@ -656,6 +656,10 @@ std::optional<std::string> Parser::compile_line(const std::string& s) {
     if (equals_ci(s, "CLRSCR")) {
         return stmt_clrscr();
     }
+    if (starts_with_ci(s, "FOREACH")) {
+        return stmt_foreach(s);
+    }
+
 
     if (auto err = stmt_assign(s); err != std::optional<std::string>("__no_match__")) {
         return err;

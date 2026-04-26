@@ -191,6 +191,20 @@ FOR I = 10 TO 0 STEP -1
 NEXT I
 ```
 
+### FOREACH / NEXT
+```basic
+VAR arr[10]
+arr[0] = 1
+arr[1] = 2
+arr[2] = 3
+arr[3] = 4
+arr[4] = 5
+
+FOREACH VAR i IN arr:
+    PRINT i
+NEXT i
+```
+
 You can also declare the loop variable inline:
 ```basic
 FOR VAR I = 10 TO 0 STEP -1

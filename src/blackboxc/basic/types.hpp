@@ -30,7 +30,7 @@ struct RegAlloc {
     uint32_t used = 0;
 };
 
-enum class BlockKind { If, While, For };
+enum class BlockKind { If, While, For, ForEach };
 
 struct Block {
     BlockKind kind;
@@ -44,6 +44,13 @@ struct Block {
     uint32_t for_limit_slot = 0;
     uint32_t for_step_slot = 0;
     std::string for_var_name;
+
+    // FOREACH
+    uint32_t foreach_idx_slot = 0;
+    uint32_t foreach_elem_slot = 0;
+    size_t foreach_base = 0;
+    size_t foreach_length = 0;
+    std::string foreach_elem_name;
 };
 
 struct FileHandle {

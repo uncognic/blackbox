@@ -20,6 +20,7 @@ Supported statements and blocks:
 - `WHILE <condition>:` ... `ENDWHILE`
 - `FOR <name> = <expr> TO <expr> [STEP <expr>]` ... `NEXT [name]`
 	(or inline declaration: `FOR VAR <name> = ...`)
+- `FOREACH VAR <var> IN <array>:` ... `NEXT <var>`
 - `BREAK` (exits innermost loop)
 - `CONTINUE` (skips to next iteration of innermost loop)
 - `HALT [OK|BAD|number]`

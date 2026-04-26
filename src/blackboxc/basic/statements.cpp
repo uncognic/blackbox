@@ -568,18 +568,126 @@ std::optional<std::string> Parser::stmt_for(const std::string& s) {
     return std::nullopt;
 }
 
+std::optional<std::string> Parser::stmt_foreach(const std::string& s) {
+    std::string body = trim(s.substr(7));
+    if (!body.empty() && body.back() == ':') {
+        body.pop_back();
+    }
+
+    bool inline_decl = false;
+    if (starts_with_ci(body, "VAR ")) {
+        inline_decl = true;
+        body = trim(body.substr(4));
+    }
+
+    size_t in_pos;
+    {
+        std::string upper = body;
+        for (auto& c : upper) {
+            c = toupper(static_cast<unsigned char>(c));
+        }
+        in_pos = upper.find(" IN ");
+        if (in_pos == std::string::npos) {
+            return error("expected 'IN' in FOREACH");
+        }
+    }
+
+    std::string var_name = trim(body.substr(0, in_pos));
+    std::string arr_name = trim(body.substr(in_pos + 4));
+
+    // resolve array
+    auto it = arrays_.find(arr_name);
+    if (it == arrays_.end()) {
+        return error(std::format("undefined array '{}'", arr_name));
+    }
+    const ArrayInfo& arr = it->second;
+
+    // variable for iterating
+    Variable* v = active_scope().find(var_name);
+    if (inline_decl) {
+        if (v) {
+            return error(std::format("'{}' already defined", var_name));
+        }
+        v = active_scope().add_int(var_name);
+    } else if (!v) {
+        return error(std::format("undefined variable '{}'", var_name));
+    }
+
+    if (v->is_const) {
+        return error(std::format("cannot use CONST '{}' as FOREACH variable", var_name));
+    }
+
+    // allocate index
+    uint32_t idx_slot = active_scope().alloc_local_slot();
+
+    // idx = 0
+    int r = ralloc_acquire();
+    active_cg().emit_movi(r, 0);
+    active_cg().emit_store_var(r, idx_slot, "foreach-idx");
+    ralloc_release(r);
+
+    Block b;
+    b.kind = BlockKind::ForEach;
+    b.loop_label = make_label("foreach");
+    b.end_label = make_label("endforeach");
+    b.foreach_idx_slot = idx_slot;
+    b.foreach_elem_slot = v->slot;
+    b.foreach_base = arr.base;
+    b.foreach_length = arr.length;
+    b.foreach_elem_name = var_name;
+
+    active_cg().emit_label(b.loop_label);
+
+    // load idx
+    int idx_r = ralloc_acquire();
+    int len_r = ralloc_acquire();
+
+    // exit condition
+    active_cg().emit_load_var(idx_r, idx_slot, "foreach-idx");
+    active_cg().emit_movi(len_r, static_cast<int32_t>(arr.length));
+    active_cg().emit_cmp(idx_r, len_r);
+    active_cg().emit_jge(b.end_label);
+
+    // addr = base + idx
+    int addr_r = ralloc_acquire();
+    active_cg().emit_movi(addr_r, static_cast<int32_t>(arr.base));
+    active_cg().emit_add(addr_r, idx_r);
+
+    // load element
+    int val_r = ralloc_acquire();
+    active_cg().emit_heap_read(val_r, addr_r);
+    active_cg().emit_store_var(val_r, v->slot, var_name);
+
+    ralloc_release(idx_r);
+    ralloc_release(len_r);
+    ralloc_release(addr_r);
+    ralloc_release(val_r);
+
+    block_stack_.push_back(b);
+
+    return std::nullopt;
+}
+
 std::optional<std::string> Parser::stmt_next(const std::string& s) {
-    if (block_stack_.empty() || block_stack_.back().kind != BlockKind::For) {
-        return error("NEXT without FOR");
+    if (block_stack_.empty() || (block_stack_.back().kind != BlockKind::For &&
+                                 block_stack_.back().kind != BlockKind::ForEach)) {
+        return error("NEXT without FOR/FOREACH");
     }
 
     std::string arg = trim(s.substr(4));
     Block b = block_stack_.back();
     block_stack_.pop_back();
-
-    if (!arg.empty() && !equals_ci(arg, b.for_var_name)) {
-        return error(std::format("NEXT variable '{}' does not match FOR variable '{}'", arg,
-                                 b.for_var_name));
+    if (b.kind == BlockKind::For) {
+        if (!arg.empty() && !equals_ci(arg, b.for_var_name)) {
+            return error(std::format("NEXT variable '{}' does not match FOR variable '{}'", arg,
+                                     b.for_var_name));
+        }
+    }
+    if (b.kind == BlockKind::ForEach) {
+        if (!arg.empty() && !equals_ci(arg, b.foreach_elem_name)) {
+            return error(std::format("NEXT variable '{}' does not match FOR variable '{}'", arg,
+                                     b.foreach_elem_name));
+        }
     }
 
     int var_r = ralloc_acquire();
@@ -588,18 +696,31 @@ std::optional<std::string> Parser::stmt_next(const std::string& s) {
         return error("out of scratch registers");
     }
 
-    active_cg().emit_load_var(var_r, b.for_var_slot, b.for_var_name);
-    active_cg().emit_load_var(step_r, b.for_step_slot, "for-step");
-    active_cg().emit_add(var_r, step_r);
-    active_cg().emit_store_var(var_r, b.for_var_slot, b.for_var_name);
-    active_cg().emit_jmp(b.loop_label);
-    active_cg().emit_label(b.end_label);
+    if (b.kind == BlockKind::For) {
+        active_cg().emit_load_var(var_r, b.for_var_slot, b.for_var_name);
+        active_cg().emit_load_var(step_r, b.for_step_slot, "for-step");
+        active_cg().emit_add(var_r, step_r);
+        active_cg().emit_store_var(var_r, b.for_var_slot, b.for_var_name);
+        active_cg().emit_jmp(b.loop_label);
+        active_cg().emit_label(b.end_label);
+    } else if (b.kind == BlockKind::ForEach) {
+        active_cg().emit_inc_var(b.foreach_idx_slot);
+        active_cg().emit_jmp(b.loop_label);
+        active_cg().emit_label(b.end_label);
+    }
 
     ralloc_release(var_r);
     ralloc_release(step_r);
 
+    std::string name;
+    if (b.kind == BlockKind::For) {
+        name = b.for_var_name;
+    } else if (b.kind == BlockKind::ForEach) {
+        name = b.foreach_elem_name;
+    }
+
     if (debug_) {
-        std::println("[BASIC] NEXT {}", b.for_var_name);
+        std::println("[BASIC] NEXT {}", name);
     }
     return std::nullopt;
 }

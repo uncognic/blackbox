@@ -109,6 +109,7 @@ class Parser {
     std::optional<std::string> stmt_while(const std::string& s);
     std::optional<std::string> stmt_endwhile();
     std::optional<std::string> stmt_for(const std::string& s);
+    std::optional<std::string> stmt_foreach(const std::string& s);
     std::optional<std::string> stmt_next(const std::string& s);
     std::optional<std::string> stmt_print(const std::string& s, bool to_stderr);
     std::optional<std::string> stmt_write(const std::string& s, bool to_stderr);
