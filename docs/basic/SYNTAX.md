@@ -431,6 +431,35 @@ VAR hello = "Hello, World!"
 CALL namespace.print(hello)
 ```
 
+### Includes
+You can include files to split your code into multiple files or to include libraries. Paths are relative to the including file. Typically, you would wrap the included file in a namespace to avoid name collisions.
+
+```basic
+// math.bbs
+NAMESPACE Math
+    FUNC abs: VAR n
+            IF n < 0:
+            RETURN 0 - n
+        ENDIF
+        RETURN n
+    ENDFUNC
+
+    FUNC max: VAR a, VAR b
+        IF a > b:
+            RETURN a
+        ENDIF
+        RETURN b
+    ENDFUNC
+ENDNAMESPACE
+```
+```basic
+// main.bbs
+INCLUDE "math.bbs"
+
+VAR x = Math.abs(-10) // should print 10
+PRINT x
+```
+
 ## Notes:
 - `R01`-`R15` are used by the BASIC compiler as scratch registers (`R00` is used for function return values). Nothing prevents using them manually (such as in ASM blocks) but BASIC statements may overwrite them.
 - ASM block lines are passed to the assembler.

@@ -1,0 +1,15 @@
+NAMESPACE Math
+    FUNC abs: VAR n
+            IF n < 0:
+            RETURN 0 - n
+        ENDIF
+        RETURN n
+    ENDFUNC
+
+    FUNC max: VAR a, VAR b
+        IF a > b:
+            RETURN a
+        ENDIF
+        RETURN b
+    ENDFUNC
+ENDNAMESPACE

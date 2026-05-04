@@ -1,0 +1,4 @@
+INCLUDE "math.bbs"
+
+VAR x = Math.abs(-10) // should print 10
+PRINT x

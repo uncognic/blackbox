@@ -6,6 +6,7 @@ You compile them with the same `bbxc` compiler, and they run on the same `bbx` i
 
 ## Current feature set
 Supported statements and blocks:
+- `INCLUDE "filename"` (includes another BASIC source file, paths are relative to the including file)
 - `CONST name = <expr or "string">`
 - `VAR name = <expr or "string">`
 - `VAR name[size]` (array)

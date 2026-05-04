@@ -11,7 +11,6 @@
 #include <print>
 #include <sstream>
 
-
 namespace basic {
 RegGuard::RegGuard(RegAlloc& ra) : ra(ra) {
     for (int i = 0; i < SCRATCH_COUNT; i++) {
@@ -291,6 +290,11 @@ std::optional<std::string> Parser::compile_file(const std::filesystem::path& pat
     if (!file) {
         return error(std::format("Cannot open {}", path.string()));
     }
+    std::error_code ec;
+    auto canonical = std::filesystem::canonical(path, ec);
+    if (!ec) {
+        included_files_.insert(canonical);
+    }
 
     std::string raw_line;
     while (std::getline(file, raw_line)) {
@@ -481,6 +485,39 @@ std::optional<std::string> Parser::compile_file(const std::filesystem::path& pat
             continue;
         }
 
+        // adds includes to compiler state
+        if (starts_with_ci(statement, "INCLUDE")) {
+            const char* p = skip_ws(statement.c_str() + 7);
+            if (*p != '"') {
+                return error("expected INCLUDE \"filename\"");
+            }
+            const char* end_quote = strchr(p + 1, '"');
+            if (!end_quote) {
+                return error("unterminated string in INCLUDE");
+            }
+            std::string include_file(p + 1, static_cast<size_t>(end_quote - (p + 1)));
+            if (include_file.empty()) {
+                return error("empty filename in INCLUDE");
+            }
+
+            // resolve path relative to current file
+            std::filesystem::path include_path = path.parent_path() / include_file;
+
+            std::error_code ec2;
+            auto inc_canonical = std::filesystem::canonical(include_path, ec2);
+            if (!ec2 && included_files_.count(inc_canonical)) {
+                continue; // already included
+            }
+
+            int saved_lineno = lineno_;
+            lineno_ = 0;
+            if (auto err = compile_file(include_path)) {
+                return err;
+            }
+            lineno_ = saved_lineno;
+            continue;
+        }
+
         if (equals_ci(statement, "ASM:")) {
             // read until ENDASM
             while (std::getline(file, raw_line)) {
@@ -659,7 +696,6 @@ std::optional<std::string> Parser::compile_line(const std::string& s) {
     if (starts_with_ci(s, "FOREACH")) {
         return stmt_foreach(s);
     }
-
 
     if (auto err = stmt_assign(s); err != std::optional<std::string>("__no_match__")) {
         return err;
