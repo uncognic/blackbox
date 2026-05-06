@@ -75,7 +75,7 @@ int main(int argc, char** argv) {
                 continue;
             }
             line = line.substr(s);
-            is_asm = blackbox::tools::equals_ci(line.c_str(), "%asm");
+            is_asm = blackbox::tools::equals_ci(line.c_str(), ".asm");
             break;
         }
         if (!is_asm) {

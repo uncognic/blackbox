@@ -11,7 +11,7 @@ void VM::op_break() {
     set_hit_breakpoint();
 }
 
-void VM::op_continue() {
+void VM::op_nop() {
     // noop
 }
 

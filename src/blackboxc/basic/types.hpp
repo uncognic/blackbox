@@ -10,7 +10,7 @@
 
 namespace basic {
 
-constexpr int SCRATCH_MIN = 1; // R00 reserved for return value
+constexpr int SCRATCH_MIN = 1; // R0 reserved for return value
 constexpr int SCRATCH_MAX = 15;
 constexpr int SCRATCH_COUNT = 15;
 

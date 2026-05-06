@@ -162,7 +162,7 @@ std::optional<std::string> Parser::emit_atom(const char* s, const char** end, in
             if (r < 0) {
                 return error("out of scratch registers");
             }
-            active_cg().emit_mov(r, 0); // R00 is standard return register
+            active_cg().emit_mov(r, 0); // R0 is standard return register
             *out_reg = r;
             return std::nullopt;
         }

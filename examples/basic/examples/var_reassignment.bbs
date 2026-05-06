@@ -16,4 +16,4 @@ INITIAL_STRING = "World"
 WRITE "Updated string: "
 PRINT INITIAL_STRING
 
-HALT OK
+HLT OK

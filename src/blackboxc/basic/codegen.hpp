@@ -59,7 +59,7 @@ class CodeGen {
     virtual void emit_jae(const std::string& label) = 0;
     virtual void emit_call(const std::string& label) = 0;
     virtual void emit_ret() = 0;
-    virtual void emit_halt(uint8_t code) = 0;
+    virtual void emit_HLT(uint8_t code) = 0;
 
     virtual void emit_label(const std::string& name) = 0;
     virtual void emit_frame(uint32_t slots) = 0;

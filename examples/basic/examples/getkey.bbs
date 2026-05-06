@@ -5,4 +5,4 @@ WHILE test == -1:
     SLEEP 100
 ENDWHILE
 PRINT "Key code: ", test
-HALT OK
+HLT OK

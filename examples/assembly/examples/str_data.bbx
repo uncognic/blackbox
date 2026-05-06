@@ -1,8 +1,8 @@
-%asm
-%data
+.asm
+.data
     str "Hello, World!"
-%main
-    LOADSTR $str, R05 ;6
-    PRINTSTR R05 ;2
+.main
+    LOADSTR $str, R5 ;6
+    PRINTSTR R5 ;2
     NEWLINE
-    HALT OK
+    HLT OK

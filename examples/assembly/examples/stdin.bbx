@@ -1,11 +1,11 @@
-%asm
-%data
+.asm
+.data
     prompt "Enter your name: "
-%main
-    loadstr $prompt, R01
-    printstr R01
-    readstr R00          ; Read user input, store the pointer in R00
+.main
+    loadstr $prompt, R1
+    printstr R1
+    readstr R0          ; Read user input, store the pointer in R0
     write STDOUT "Hello, "
-    printstr R00         ; Print what user typed
+    printstr R0         ; Print what user typed
     newline
-    halt ok
+    HLT ok

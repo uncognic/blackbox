@@ -1,27 +1,27 @@
-%asm
-%bss
+.asm
+.bss
     counter
     something
 
-%macro inc_counter
+.macro inc_counter
     INC [counter]
-%endmacro
+.endmacro
 
-%entry
+.entry
     MOV [something], 67
 
     %inc_counter
     %inc_counter
     %inc_counter
 
-    MOV R01, [counter]
+    MOV R1, [counter]
 
     SUB [something], 1
     ADD [something], 1
 
-    MOV R02, [something]
+    MOV R2, [something]
 
-    PRINTREG R01
-    PRINTREG R02
+    PRINTREG R1
+    PRINTREG R2
 
-    HALT
+    HLT

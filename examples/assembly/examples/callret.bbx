@@ -1,12 +1,12 @@
-%asm
-%main
+.asm
+.main
     WRITE STDOUT "Calling function..."
     NEWLINE
     CALL func
     WRITE STDOUT "Back in main"
     NEWLINE
     write stdout "Success"
-    HALT OK
+    HLT OK
 func:
     WRITE STDOUT "In function"
     NEWLINE

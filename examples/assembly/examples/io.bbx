@@ -1,10 +1,10 @@
 ;writes stuff to a file
-%asm
-%main
+.asm
+.main
     fopen w, F1, "test"
 
-    MOV R00, 123
-    fwrite F1, R00
+    MOV R0, 123
+    fwrite F1, R0
     fseek F1, 10
 
     fwrite F1, 123
@@ -26,6 +26,6 @@
     fclose F1
     newline
 
-    halt ok
+    HLT ok
 
 ;expected output is 123 123

@@ -1,4 +1,4 @@
 
 @ENTRY
 PRINT "Hello from BASIC"
-HALT OK
+HLT OK

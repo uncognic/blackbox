@@ -58,7 +58,7 @@ std::expected<void, std::string> Assembler::preprocess(const std::filesystem::pa
     std::vector<Macro> macros;
     for (size_t i = 0; i < raw.size(); i++) {
         std::string t = trim_copy(raw[i]);
-        if (!blackbox::tools::starts_with_ci(t.data(), "%macro")) {
+        if (!blackbox::tools::starts_with_ci(t.data(), ".macro")) {
             continue;
         }
 
@@ -73,7 +73,7 @@ std::expected<void, std::string> Assembler::preprocess(const std::filesystem::pa
 
         size_t j = i + 1;
         for (; j < raw.size(); j++) {
-            if (trim_copy(raw[j]) == "%endmacro") {
+            if (trim_copy(raw[j]) == ".endmacro") {
                 break;
             }
             body.push_back(raw[j]);
@@ -87,17 +87,17 @@ std::expected<void, std::string> Assembler::preprocess(const std::filesystem::pa
     for (size_t i = 0; i < raw.size(); i++) {
         std::string t = trim_copy(raw[i]);
 
-        if (blackbox::tools::starts_with_ci(t.data(), "%macro")) {
+        if (blackbox::tools::starts_with_ci(t.data(), ".macro")) {
             for (i++; i < raw.size(); i++) {
-                if (trim_copy(raw[i]) == "%endmacro") {
+                if (trim_copy(raw[i]) == ".endmacro") {
                     break;
                 }
             }
             continue;
         }
 
-        if (t == "%asm" || t == "%data" || t == "%main" || t == "%entry" || t == "%endmacro" ||
-            t == "%bss") {
+        if (t == ".asm" || t == ".data" || t == ".main" || t == ".entry" || t == ".endmacro" ||
+            t == ".bss") {
             lines.push_back(std::string(t));
             continue;
         }
@@ -160,20 +160,20 @@ std::expected<void, std::string> Assembler::pass1() {
             continue;
         }
 
-        if (s == "%asm") {
+        if (s == ".asm") {
             section = Section::None;
             continue;
         }
-        if (s == "%data") {
+        if (s == ".data") {
             section = Section::Data;
             continue;
         }
-        if (s == "%main" || s == "%entry") {
+        if (s == ".main" || s == ".entry") {
             section = Section::Code;
             continue;
         }
 
-        if (s == "%bss") {
+        if (s == ".bss") {
             section = Section::Bss;
             continue;
         }
@@ -305,11 +305,11 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
             continue;
         }
 
-        if (s == "%asm" || s == "%data" || s == "%bss") {
+        if (s == ".asm" || s == ".data" || s == ".bss") {
             continue;
         }
 
-        if (s == "%main" || s == "%entry") {
+        if (s == ".main" || s == ".entry") {
             section = Section::Code;
             found_code = true;
             continue;
@@ -319,7 +319,7 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
             continue;
         }
 
-        if (s == "%bss") {
+        if (s == ".bss") {
             section = Section::Bss;
             continue;
         }
@@ -345,7 +345,7 @@ std::expected<void, std::string> Assembler::pass2(const std::filesystem::path& o
         }
     }
     if (!found_code) {
-        return std::unexpected("missing %main or %entry section");
+        return std::unexpected("missing .main or .entry section");
     }
 
     // write binary

@@ -56,21 +56,21 @@ static bool preprocess_includes_impl(const char* input, int depth, std::string& 
         trimmed = trim_copy(trimmed);
         const char* s = trimmed.c_str();
 
-        if (starts_with_ci(s, "%include")) {
+        if (starts_with_ci(s, ".include")) {
             const char* p = s + 8;
             while (*p && isspace(static_cast<unsigned char>(*p))) {
                 p++;
             }
 
             if (*p != '"') {
-                std::println(stderr, "Error: malformed %include directive");
+                std::println(stderr, "Error: malformed .include directive");
                 fclose(in);
                 return false;
             }
 
             const char* end = strchr(p + 1, '"');
             if (!end) {
-                std::println(stderr, "Error: malformed %include directive");
+                std::println(stderr, "Error: malformed .include directive");
                 fclose(in);
                 return false;
             }
@@ -123,8 +123,8 @@ bool preprocess_defines(std::string& input, std::unordered_map<std::string, std:
             trimmed = trim_copy(trimmed);
         }
 
-        if (starts_with_ci(trimmed.data(), "%define")) {
-            const char* p = trimmed.c_str() + 7; // skip "%define"
+        if (starts_with_ci(trimmed.data(), ".define")) {
+            const char* p = trimmed.c_str() + 7; // skip ".define"
             while (*p && isspace(static_cast<unsigned char>(*p))) {
                 p++;
             }
@@ -135,7 +135,7 @@ bool preprocess_defines(std::string& input, std::unordered_map<std::string, std:
             }
 
             if (sym_start == p) {
-                std::println(stderr, "Error: malformed %define directive (missing symbol)");
+                std::println(stderr, "Error: malformed .define directive (missing symbol)");
                 return false;
             }
 

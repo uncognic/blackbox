@@ -2,10 +2,10 @@
 PRINT "Before ASM"
 
 ASM:
-    MOV R01, 65 ; ASCII code for 'A'
-    PRINTCHAR R01
+    MOV R1, 65 ; ASCII code for 'A'
+    PRINTCHAR R1
 ENDASM
 
 PRINT
 PRINT "After ASM"
-HALT OK
+HLT OK

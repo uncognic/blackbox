@@ -1,20 +1,20 @@
-%asm
+.asm
 
-%include "macro_library.bbx"
+.include "macro_library.bbx"
 
-%macro loop_n cnt
-    MOV R00, $cnt
+.macro loop_n cnt
+    MOV R0, $cnt
 @@loop:
     print '.'
-    dec R00
-    MOV R01, 0
-    cmp R00, R01
+    dec R0
+    MOV R1, 0
+    cmp R0, R1
     jne @@loop
-%endmacro
+.endmacro
 
 
-%main
+.main
     %loop_n 3
     %hello
 
-    halt ok
+    HLT ok

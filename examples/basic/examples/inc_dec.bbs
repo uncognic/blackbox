@@ -20,4 +20,4 @@ PRINT "Y = ", inc_dec.Y
 CALL inc_dec.inc_y()
 PRINT "Y after INC = ", inc_dec.Y
 
-HALT OK
+HLT OK

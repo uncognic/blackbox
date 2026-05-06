@@ -1,7 +1,7 @@
 LABEL a
 
 PRINT "In label a"
-HALT OK
+HLT OK
 
 @ENTRY
 PRINT "In entry point"

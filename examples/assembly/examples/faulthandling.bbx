@@ -1,5 +1,5 @@
-%asm
-%main
+.asm
+.main
 ; Start privileged
     ; Register fault 1 (FAULT_PERM_WRITE) to handler_fault
     REGFAULT 1, handler_fault
@@ -14,8 +14,8 @@
 ; Handlers
     handler_setup:
         ALLOC 64
-        MOV R00, 67
-        STORE R00, 10
+        MOV R0, 67
+        STORE R0, 10
         SETPERM 10, 10, RW/R
         SYSRET
 
@@ -31,14 +31,14 @@
         SYSCALL 0
         
         ; Can read since RW/R allows reads, should print 67
-        LOAD R00, 10
-        PRINTREG R00
+        LOAD R0, 10
+        PRINTREG R0
         NEWLINE
 
         ; Try to write to slot 10, should trigger a fault and jump to handler_fault because RW/R
-        MOV R01, 99
-        STORE R01, 10
+        MOV R1, 99
+        STORE R1, 10
         
         WRITE stdout "still running after fault!"
         NEWLINE
-        HALT OK
+        HLT OK

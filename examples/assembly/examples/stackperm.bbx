@@ -1,5 +1,5 @@
-%asm
-%main
+.asm
+.main
 ; Start privileged
     ; Register syscall 0 to allocate and set permissions
     REGSYSCALL 0, handler_setup
@@ -28,12 +28,12 @@
         SYSCALL 0
 
         ; Read from slot 10, should work fine
-        MOV R00, &10
+        MOV R0, &10
         WRITE stdout "Read value: "
-        PRINTREG R00
+        PRINTREG R0
         NEWLINE
 
         ; Try to write to slot 10, should fault
         MOV &10, 99
 
-        HALT OK
+        HLT OK

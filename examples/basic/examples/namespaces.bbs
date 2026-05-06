@@ -15,4 +15,4 @@ ENDNAMESPACE
 CALL namespace.print("Hello, World!")
 PRINT "Accessing X externally: ", namespace.x
 CALL namespace.print_x()
-HALT OK
+HLT OK

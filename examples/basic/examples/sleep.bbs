@@ -6,4 +6,4 @@ VAR X = 1000
 PRINT "Sleeping for ", X, " milliseconds..."
 SLEEP X + 500
 
-HALT OK
+HLT OK

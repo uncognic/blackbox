@@ -415,6 +415,13 @@ std::expected<Operand, std::string> parse_operand(std::string_view tok, const Op
 
     if (starts_with_keyword(tok, "VAR")) {
         auto rest = trim(tok.substr(3));
+        if (auto reg = parse_register(rest)) {
+            Operand op;
+            op.kind = Operand::Kind::VarReg;
+            op.reg = *reg;
+            op.name = std::string(tok);
+            return op;
+        }
         auto slot = parse_u32(rest);
         if (!slot) {
             return std::unexpected(std::format("invalid VAR slot '{}'", rest));
@@ -937,7 +944,7 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         write_u8(out, opcode_to_byte(Opcode::RET));
         return {};
     }
-    if (starts_with_keyword(s, "HALT")) {
+    if (starts_with_keyword(s, "HLT")) {
         auto tok = trim(after_keyword(s, 4));
         uint8_t code = 0;
         if (!tok.empty()) {
@@ -948,12 +955,12 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
             } else {
                 auto v = parse_u32(tok);
                 if (!v) {
-                    return err("invalid HALT operand");
+                    return err("invalid HLT operand");
                 }
                 code = static_cast<uint8_t>(*v);
             }
         }
-        write_u8(out, opcode_to_byte(Opcode::HALT));
+        write_u8(out, opcode_to_byte(Opcode::HLT));
         write_u8(out, code);
         return {};
     }
@@ -1285,14 +1292,15 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         TRY_REG(r, reg_tok)
         name_tok = trim(name_tok);
         std::string_view name = name_tok;
-        if (!name.empty() && name[0] == '"') {
-            size_t pos = 0;
-            auto q = parse_quoted(name_tok, pos);
-            if (!q) {
-                return err("unterminated string in GETENV");
-            }
-            name = *q;
+        if (name.empty() || name[0] != '"') {
+            return err("GETENV requires a quoted string");
         }
+        size_t pos = 0;
+        auto q = parse_quoted(name_tok, pos);
+        if (!q) {
+            return err("unterminated string in GETENV");
+        }
+        name = *q;
         if (name.size() > static_cast<size_t>(std::numeric_limits<uint32_t>::max())) {
             return err("env var name too long in GETENV");
         }
@@ -1401,8 +1409,8 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         write_u8(out, opcode_to_byte(Opcode::BREAK));
         return {};
     }
-    if (starts_with_keyword(s, "CONTINUE")) {
-        write_u8(out, opcode_to_byte(Opcode::CONTINUE));
+    if (starts_with_keyword(s, "NOP")) {
+        write_u8(out, opcode_to_byte(Opcode::NOP));
         return {};
     }
     if (starts_with_keyword(s, "DUMPREGS")) {

@@ -8,7 +8,7 @@
 namespace basic {
 
 std::string BlackboxCodeGen::reg(int r) {
-    return std::format("R{:02}", r);
+    return std::format("R{}", r);
 }
 
 void BlackboxCodeGen::code(std::string_view line) {
@@ -177,13 +177,13 @@ void BlackboxCodeGen::emit_ret() {
     code("    RET");
 }
 
-void BlackboxCodeGen::emit_halt(uint8_t code_val) {
+void BlackboxCodeGen::emit_HLT(uint8_t code_val) {
     if (code_val == 0) {
-        code("    HALT OK");
+        code("    HLT OK");
     } else if (code_val == 1) {
-        code("    HALT BAD");
+        code("    HLT BAD");
     } else {
-        code(std::format("    HALT {}", code_val));
+        code(std::format("    HLT {}", code_val));
     }
 }
 
@@ -223,13 +223,13 @@ void BlackboxCodeGen::emit_eprint_char(int r) {
 }
 
 void BlackboxCodeGen::emit_newline() {
-    code("    MOV R01, 10");
-    code("    PRINTCHAR R01");
+    code("    MOV R1, 10");
+    code("    PRINTCHAR R1");
 }
 
 void BlackboxCodeGen::emit_enewline() {
-    code("    MOV R01, 10");
-    code("    EPRINTCHAR R01");
+    code("    MOV R1, 10");
+    code("    EPRINTCHAR R1");
 }
 
 void BlackboxCodeGen::emit_read(int r) {

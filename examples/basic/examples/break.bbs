@@ -4,4 +4,4 @@ WHILE 0 == 0:
     BREAK
 ENDWHILE
 
-HALT OK
+HLT OK

@@ -4,36 +4,27 @@
 
 ### STR
 
-Define a string constant. Must be in the `%data` section.
+Define a string constant. Must be in the `.data` section.
 
 - Syntax: `STR $<name>, "<contents>"`
 - Behavior: Adds a string entry to the data table. Referenced by name with `LOADSTR`.
 
-or `%define` for named numeric constants.
+or `.define` for named numeric constants.
 
 ## Directives
 
-### %globals
-
-Declare the number of global variable slots for the program.
-
-- Syntax: `%globals <n>`
-- Placement: Before `%data` or `%main`.
-- Behavior: Allocates `n` slots in the global segment at program startup, initialized to zero. Accessed via
-  `LOADGLOBAL`/`STOREGLOBAL`.
-
-### %define
+### .define
 
 Define a named constant that is substituted textually before assembly.
 
-- Syntax: `%define $<name> <value>`
+- Syntax: `.define $<name> <value>`
 - Behavior: Every occurrence of `$<name>` in the source is replaced with `<value>` before instruction encoding. Works
   for both numeric and string values.
 
 ```
-%define $MAX 100
-%define $MSG "Hello"
-MOV R00, $MAX
+.define $MAX 100
+.define $MSG "Hello"
+MOV R0, $MAX
 ```
 
 ### FRAME
@@ -148,7 +139,7 @@ Read a single non-whitespace character from stdin.
 
 Copy data from a register or immediate value into a register or bss segment slot.
 
-- Syntax: `MOV <dst>, <src>` or use bracketed name for bss references, e.g. `MOV [mybss], R00` or use & for heap slot e.g. `MOV &10, 100` (the idx by & must be within stack range (ALLOC/GROW capacity)) or heap slot via reg `MOV &R00, 10`. you get the point, it's pretty flexible
+- Syntax: `MOV <dst>, <src>` or use bracketed name for bss references, e.g. `MOV [mybss], R0` or use & for heap slot e.g. `MOV &10, 100` (the idx by & must be within stack range (ALLOC/GROW capacity)) or heap slot via reg `MOV &R0, 10` or local variable slot with `MOV VAR <var number>, R0` you get the point, it's pretty flexible
 - Encoding: opcode, 1 byte dst, 1 byte src or 4 byte imm
 
 ### PUSH
@@ -267,11 +258,11 @@ Return from a subroutine.
 - Encoding: opcode only.
 - Behavior: Pops the return address, releases the callee frame, resumes execution at the return address.
 
-### HALT
+### HLT
 
 Stop program execution.
 
-- Syntax: `HALT` / `HALT OK` / `HALT BAD` / `HALT <n>`
+- Syntax: `HLT` / `HLT OK` / `HLT BAD` / `HLT <n>`
 - Encoding: opcode, 1 byte exit code.
 - Behavior: `OK` = exit code 0. `BAD` = exit code 1. Numeric form uses the given value.
 
@@ -459,11 +450,11 @@ Get an environment variable as a string handle.
 - Encoding: opcode, 1 byte register, 4-byte name length, then name bytes.
 - Behavior: Stores a runtime string handle for the variable's value. Raises a fault if the variable does not exist.
 
-### CONTINUE
+### NOP
 
 No operation.
 
-- Syntax: `CONTINUE`
+- Syntax: `NOP`
 - Encoding: opcode only.
 
 ## Privilege

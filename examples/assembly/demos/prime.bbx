@@ -1,27 +1,27 @@
-%asm
+.asm
 ;prints prime numbers up to 50 
-%main
-    MOV R00, 50
-    MOV R01, 2 
+.main
+    MOV R0, 50
+    MOV R1, 2 
     MOV R20, 0
     loop_outer:
-        MOV R02, 2
-        MOV R03, 1
+        MOV R2, 2
+        MOV R3, 1
 
     loop_inner:
-        mov R04, R01
-        div R04, R02
-        mul R04, R02
-        sub R04, R01
-        cmp R04, R20
+        mov R4, R1
+        div R4, R2
+        mul R4, R2
+        sub R4, R1
+        cmp R4, R20
         je not_prime
-        inc R02
-        mov R05, R02
-        sub R05, R01
-        cmp R05, R20
+        inc R2
+        mov R5, R2
+        sub R5, R1
+        cmp R5, R20
         jne loop_inner
 
-        printreg R01
+        printreg R1
         newline
         jmp next_number
 
@@ -29,10 +29,10 @@
 
 
     next_number:
-        inc R01
-        mov R05, R01
-        sub R05, R00
-        cmp R05, R20
+        inc R1
+        mov R5, R1
+        sub R5, R0
+        cmp R5, R20
         jne loop_outer
-    halt ok
+    HLT ok
 

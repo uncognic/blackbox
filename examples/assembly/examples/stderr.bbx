@@ -1,22 +1,22 @@
-%asm
-%data
+.asm
+.data
     OUT_MSG "stdout message"
     ERR_MSG "stderr message"
-%main
-    LOADSTR $OUT_MSG, R01 ; stdout message
-    PRINTSTR R01
+.main
+    LOADSTR $OUT_MSG, R1 ; stdout message
+    PRINTSTR R1
     NEWLINE
 
-    LOADSTR $ERR_MSG, R01 ; stderr message
-    EPRINTSTR R01
+    LOADSTR $ERR_MSG, R1 ; stderr message
+    EPRINTSTR R1
     NEWLINE
 
-    MOV R02, 123
-    PRINTREG R02 ; print 123
-    MOV R03, 10
-    PRINTCHAR R03 ; print newline (ascii 10)
+    MOV R2, 123
+    PRINTREG R2 ; print 123
+    MOV R3, 10
+    PRINTCHAR R3 ; print newline (ascii 10)
 
-    EPRINTREG R02 ; print 123 to stderr
-    EPRINTCHAR R03 ; print newline to stderr
+    EPRINTREG R2 ; print 123 to stderr
+    EPRINTCHAR R3 ; print newline to stderr
 
-    HALT OK
+    HLT OK

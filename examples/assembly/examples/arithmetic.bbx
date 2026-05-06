@@ -1,42 +1,42 @@
-%asm
-%main
+.asm
+.main
     ;arithmetic operations example
 
     ;Add operation
     PUSH 20
-    pop R00
+    pop R0
     PUSH 10
-    pop R01
-    add R00, R01
-    printreg R00 ;Result: 30
+    pop R1
+    add R0, R1
+    printreg R0 ;Result: 30
 
     ;Subtract operation
     newline
     PUSH 2
-    pop R02
-    sub R00, R02
-    printreg R00 ;Result: 28
+    pop R2
+    sub R0, R2
+    printreg R0 ;Result: 28
 
     ;Multiply operation
     newline
     PUSH 2
-    pop R02
-    mul R00, R02
-    printreg R00 ;Result: 56
+    pop R2
+    mul R0, R2
+    printreg R0 ;Result: 56
 
     ;Divide operation
     newline
     PUSH 2
-    pop R02
-    div R00, R02
-    printreg R00 ;Result: 28
+    pop R2
+    div R0, R2
+    printreg R0 ;Result: 28
 
     ;Modulus operation
     newline
-    MOV R00, 10
-    MOV R01, 3
-    mod R00, R01
-    printreg R00 ;Result: 1
+    MOV R0, 10
+    MOV R1, 3
+    mod R0, R1
+    printreg R0 ;Result: 1
 
     newline
-    halt ok
+    HLT ok

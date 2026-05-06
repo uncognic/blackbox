@@ -1,21 +1,21 @@
-%asm
+.asm
 ;tests case sensitivity for labels and macros
-%macro lowercase
+.macro lowercase
     write STDOUT "lowercase"
     newline
     call lowercase
-%endmacro
+.endmacro
 
-%macro Lowercase
+.macro Lowercase
     write STDOUT "Lowercase"
     newline
     call Lowercase
-%endmacro
+.endmacro
 
-%main
+.main
     %lowercase
     %Lowercase
-    halt ok
+    HLT ok
     lowercase:
         write STDOUT "lowercase label"
         newline
@@ -24,4 +24,4 @@
         write STDOUT "Lowercase label"
         newline
         ret
-    halt ok
+    HLT ok

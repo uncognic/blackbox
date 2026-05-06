@@ -5,4 +5,4 @@ IF X >= 10:
 ELSE:
     PRINT "X is below 10"
 ENDIF
-HALT OK
+HLT OK

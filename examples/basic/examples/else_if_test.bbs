@@ -28,4 +28,4 @@ ELSE IF y > 5:
     ENDIF
 ENDIF
 
-HALT OK
+HLT OK

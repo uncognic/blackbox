@@ -1,5 +1,5 @@
-%asm
-%main
+.asm
+.main
 ; Start privileged
     ; Register fault 6 (FAULT_ENV_VAR_NOT_FOUND) to handler_fault
     REGFAULT 6, handler_fault
@@ -17,9 +17,9 @@
     
 ; Protected code
     protected_start:
-        GETENV R00, "TEST_ENV_VAR" ; This should fail
-        GETENV R01, "PATH" ; This should succeed and store the string heap pointer to the PATH environment variable in R01
-        PRINTSTR R01 ; Print the PATH environment variable
+        GETENV R0, "TEST_ENV_VAR" ; This should fail
+        GETENV R1, "PATH" ; This should succeed and store the string heap pointer to the PATH environment variable in R1
+        PRINTSTR R1 ; Print the PATH environment variable
         NEWLINE
-        HALT OK
+        HLT OK
         

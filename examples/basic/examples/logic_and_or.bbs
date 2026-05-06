@@ -35,4 +35,4 @@ WHILE A > 0 AND A > 3 OR C != 9:
 ENDWHILE
 
 PRINT "done"
-HALT OK
+HLT OK

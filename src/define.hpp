@@ -69,7 +69,7 @@ enum class Opcode : uint8_t {
     JAE = 0x1C,
     CALL = 0x1D,
     RET = 0x1E,
-    HALT = 0x1F,
+    HLT = 0x1F,
     LOADREF = 0x24,
     STOREREF = 0x25,
     LOADSTR = 0x26,
@@ -112,7 +112,7 @@ enum class Opcode : uint8_t {
     FAULTRET = 0x67,
     GETFAULT = 0x68,
     BREAK = 0xFD,
-    CONTINUE = 0xFE,
+    NOP = 0xFE,
     DUMPREGS = 0xF0,
     PRINT_STACKSIZE = 0xF1,
 };

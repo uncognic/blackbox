@@ -1,9 +1,9 @@
-%asm
+.asm
 ; Brainfuck interpreter
 ; Usage: echo "<bf program>" | ./bbx brainfuck.bcx
 ; Example: 
 ; echo "++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>." | .\bbx .\out.bcx
-%main
+.main
     ALLOC 60000
     MOV R10, 0
     MOV R11, 1
@@ -15,16 +15,16 @@
     MOV R25, 44  ; ','
     MOV R26, 91  ; '['
     MOV R27, 93  ; ']'
-    MOV R04, 0
+    MOV R4, 0
 read_src:
-    FREAD F0, R06
-    CMP R06, R10
+    FREAD F0, R6
+    CMP R6, R10
     JL read_src_done
-    STORE R06, R04
-    INC R04
+    STORE R6, R4
+    INC R4
     JMP read_src
 read_src_done:
-    MOV R14, R04
+    MOV R14, R4
     MOV R15, 30000
     MOV R16, 30000
     MOV R17, R15
@@ -36,84 +36,84 @@ zero_tape:
     DEC R16
     JMP zero_tape
 zero_done:
-    MOV R04, 0
-    MOV R07, 0
+    MOV R4, 0
+    MOV R7, 0
 main_loop:
-    CMP R04, R14
+    CMP R4, R14
     JGE end_program
-    LOAD R06, R04
-    CMP R06, R20
+    LOAD R6, R4
+    CMP R6, R20
     JE op_gt
-    CMP R06, R21
+    CMP R6, R21
     JE op_lt
-    CMP R06, R22
+    CMP R6, R22
     JE op_plus
-    CMP R06, R23
+    CMP R6, R23
     JE op_minus
-    CMP R06, R24
+    CMP R6, R24
     JE op_dot
-    CMP R06, R25
+    CMP R6, R25
     JE op_comma
-    CMP R06, R26
+    CMP R6, R26
     JE op_lb
-    CMP R06, R27
+    CMP R6, R27
     JE op_rb
-    INC R04
+    INC R4
     JMP main_loop
 op_gt:
-    INC R07
-    INC R04
+    INC R7
+    INC R4
     JMP main_loop
 op_lt:
-    DEC R07
-    INC R04
+    DEC R7
+    INC R4
     JMP main_loop
 op_plus:
     MOV R12, R15
-    ADD R12, R07
-    LOAD R08, R12
-    INC R08
-    STORE R08, R12
-    INC R04
+    ADD R12, R7
+    LOAD R8, R12
+    INC R8
+    STORE R8, R12
+    INC R4
     JMP main_loop
 op_minus:
     MOV R12, R15
-    ADD R12, R07
-    LOAD R08, R12
-    DEC R08
-    STORE R08, R12
-    INC R04
+    ADD R12, R7
+    LOAD R8, R12
+    DEC R8
+    STORE R8, R12
+    INC R4
     JMP main_loop
 op_dot:
     MOV R12, R15
-    ADD R12, R07
-    LOAD R08, R12
-    FWRITE F1, R08
-    INC R04
+    ADD R12, R7
+    LOAD R8, R12
+    FWRITE F1, R8
+    INC R4
     JMP main_loop
 op_comma:
     MOV R12, R15
-    ADD R12, R07
-    FREAD F0, R08
-    STORE R08, R12
-    INC R04
+    ADD R12, R7
+    FREAD F0, R8
+    STORE R8, R12
+    INC R4
     JMP main_loop
 op_lb:
     MOV R12, R15
-    ADD R12, R07
-    LOAD R08, R12
-    CMP R08, R10
+    ADD R12, R7
+    LOAD R8, R12
+    CMP R8, R10
     JE skip_loop
-    INC R04
+    INC R4
     JMP main_loop
 skip_loop:
     MOV R13, R11
 scan_fwd:
-    INC R04
-    LOAD R06, R04
-    CMP R06, R26
+    INC R4
+    LOAD R6, R4
+    CMP R6, R26
     JE inc_depth_fwd
-    CMP R06, R27
+    CMP R6, R27
     JE dec_depth_fwd
     JMP scan_fwd
 inc_depth_fwd:
@@ -125,21 +125,21 @@ dec_depth_fwd:
     JE after_scan_fwd
     JMP scan_fwd
 after_scan_fwd:
-    INC R04
+    INC R4
     JMP main_loop
 op_rb:
     MOV R12, R15
-    ADD R12, R07
-    LOAD R08, R12
-    CMP R08, R10
+    ADD R12, R7
+    LOAD R8, R12
+    CMP R8, R10
     JE after_rb
     MOV R13, R11
 scan_bwd:
-    DEC R04
-    LOAD R06, R04
-    CMP R06, R27
+    DEC R4
+    LOAD R6, R4
+    CMP R6, R27
     JE inc_depth_bwd
-    CMP R06, R26
+    CMP R6, R26
     JE dec_depth_bwd
     JMP scan_bwd
 inc_depth_bwd:
@@ -151,10 +151,10 @@ dec_depth_bwd:
     JE found_lb
     JMP scan_bwd
 found_lb:
-    INC R04
+    INC R4
     JMP main_loop
 after_rb:
-    INC R04
+    INC R4
     JMP main_loop
 end_program:
-    HALT 0
+    HLT 0

@@ -58,7 +58,7 @@ class BlackboxCodeGen final : public CodeGen {
     void emit_jae(const std::string& label) override;
     void emit_call(const std::string& label) override;
     void emit_ret() override;
-    void emit_halt(uint8_t code) override;
+    void emit_HLT(uint8_t code) override;
 
     void emit_label(const std::string& name) override;
     void emit_frame(uint32_t slots) override;

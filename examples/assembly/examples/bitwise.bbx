@@ -1,43 +1,43 @@
-%asm
+.asm
 ; Bitwise ops test
-%main
+.main
     ; AND: 6 & 3 = 2
-    MOV R00, 6
-    MOV R01, 3
-    and R00, R01
-    printreg R00 ; Expected: 2
+    MOV R0, 6
+    MOV R1, 3
+    and R0, R1
+    printreg R0 ; Expected: 2
     newline
 
     ; OR: 6 | 1 = 7
-    MOV R02, 6
-    MOV R03, 1
-    or R02, R03
-    printreg R02 ; Expected: 7
+    MOV R2, 6
+    MOV R3, 1
+    or R2, R3
+    printreg R2 ; Expected: 7
     newline
 
     ; XOR: 6 ^ 3 = 5
-    MOV R04, 6
-    MOV R05, 3
-    xor R04, R05
-    printreg R04 ; Expected: 5
+    MOV R4, 6
+    MOV R5, 3
+    xor R4, R5
+    printreg R4 ; Expected: 5
     newline
 
     ; NOT (bitwise): ~0 = -1
-    MOV R06, 0
-    not R06
-    printreg R06 ; Expected: -1
+    MOV R6, 0
+    not R6
+    printreg R6 ; Expected: -1
     newline
 
     ; NOT (bitwise): ~1 = -2
-    MOV R07, 1
-    not R07
-    printreg R07 ; Expected: -2
+    MOV R7, 1
+    not R7
+    printreg R7 ; Expected: -2
     newline
 
     ; NOT (bitwise): ~255 = -256
-    MOV R08, 255
-    not R08
-    printreg R08 ; Expected: -256
+    MOV R8, 255
+    not R8
+    printreg R8 ; Expected: -256
     newline
 
-    halt ok
+    HLT ok

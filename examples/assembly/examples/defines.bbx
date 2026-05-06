@@ -1,11 +1,11 @@
-%asm
-%define $integer 1000
-%define $string "Hello, World!"
+.asm
+.define $integer 1000
+.define $string "Hello, World!"
 
-%main
-    MOV R00, $integer
-    PRINTREG R00
+.main
+    MOV R0, $integer
+    PRINTREG R0
     NEWLINE
     WRITE STDOUT $string
     NEWLINE
-    HALT OK
+    HLT OK

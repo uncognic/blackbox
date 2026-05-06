@@ -1,65 +1,65 @@
-%asm
+.asm
 ; Shift operations demo
-%main
+.main
     WRITE STDOUT "Shifts immediate"
     NEWLINE
     CALL shifts_imm
     WRITE STDOUT "Shifts register"
     NEWLINE
     CALL shifts_reg
-    HALT OK
+    HLT OK
 shifts_imm:
     ; SHL: 1 << 3 = 8
-    MOV R00, 1
-    SHL R00, 3
-    PRINTREG R00
+    MOV R0, 1
+    SHL R0, 3
+    PRINTREG R0
     NEWLINE
 
     ; SHR: 16 >> 2 = 4
-    MOV R01, 16
-    SHR R01, 2
-    PRINTREG R01
+    MOV R1, 16
+    SHR R1, 2
+    PRINTREG R1
     NEWLINE
 
     ; SHR on negative: -8 >> 1 = -4
-    MOV R02, -8
-    SHR R02, 1
-    PRINTREG R02
+    MOV R2, -8
+    SHR R2, 1
+    PRINTREG R2
     NEWLINE
 
     ; large shift amounts are encoded as 64-bit immediates
-    MOV R03, 1
-    SHL R03, 64
-    PRINTREG R03
+    MOV R3, 1
+    SHL R3, 64
+    PRINTREG R3
     NEWLINE
 
-    MOV R04, -1
-    SHR R04, 100
-    PRINTREG R04
+    MOV R4, -1
+    SHR R4, 100
+    PRINTREG R4
     NEWLINE
 
     RET
 
 shifts_reg:
     ; SHL: 2 << 3 = 16
-    MOV R00, 2
-    MOV R01, 3
-    SHL R00, R01
-    PRINTREG R00
+    MOV R0, 2
+    MOV R1, 3
+    SHL R0, R1
+    PRINTREG R0
     NEWLINE
 
     ; SHR: 32 >> 4 = 2
-    MOV R02, 32
-    MOV R03, 4
-    SHR R02, R03
-    PRINTREG R02
+    MOV R2, 32
+    MOV R3, 4
+    SHR R2, R3
+    PRINTREG R2
     NEWLINE
 
     ; SHR on negative: -64 >> 3 = -8
-    MOV R04, -64
-    MOV R05, 3
-    SHR R04, R05
-    PRINTREG R04
+    MOV R4, -64
+    MOV R5, 3
+    SHR R4, R5
+    PRINTREG R4
     NEWLINE
 
     RET

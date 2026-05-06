@@ -634,8 +634,8 @@ std::optional<std::string> Parser::compile_line(const std::string& s) {
     if (starts_with_ci(s, "RETURN")) {
         return stmt_return(s);
     }
-    if (starts_with_ci(s, "HALT")) {
-        return stmt_halt(s);
+    if (starts_with_ci(s, "HLT")) {
+        return stmt_HLT(s);
     }
     if (starts_with_ci(s, "GOTO ")) {
         return stmt_goto(s);

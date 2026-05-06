@@ -1,63 +1,63 @@
-%asm
+.asm
 
-%bss
+.bss
     a
     b
     c
 
-%entry
+.entry
     ; imm to reg
-    MOV R01, 42
-    PRINTREG R01
+    MOV R1, 42
+    PRINTREG R1
     NEWLINE
 
     ; reg to reg
-    MOV R02, R01
-    PRINTREG R02
+    MOV R2, R1
+    PRINTREG R2
     NEWLINE
 
     ; reg to [bss]
-    MOV [a], R01
-    MOV R03, [a]
-    PRINTREG R03
+    MOV [a], R1
+    MOV R3, [a]
+    PRINTREG R3
     NEWLINE
 
     ; imm to [bss]
     MOV [b], 100
-    MOV R04, [b]
-    PRINTREG R04
+    MOV R4, [b]
+    PRINTREG R4
     NEWLINE
 
     ; bss address to reg
-    MOV R05, a
-    PRINTREG R05
+    MOV R5, a
+    PRINTREG R5
     NEWLINE
 
     ; bss address to reg
-    MOV R06, b
-    PRINTREG R06
+    MOV R6, b
+    PRINTREG R6
     NEWLINE
 
     ; bss address to reg
-    MOV R07, c
-    PRINTREG R07
+    MOV R7, c
+    PRINTREG R7
     NEWLINE
 
     CALL testfunc
-    PRINTREG R00
+    PRINTREG R0
     NEWLINE
 
     ; reg to [bss], then [bss] to reg
-    MOV [c], R04 ; should be 100
-    MOV R08, [c]
-    PRINTREG R08
+    MOV [c], R4 ; should be 100
+    MOV R8, [c]
+    PRINTREG R8
     NEWLINE
 
     ; imm to heap address
     ALLOC 5
     MOV &0, 10
-    MOV R09, &0 ; should be 10
-    PRINTREG R09
+    MOV R9, &0 ; should be 10
+    PRINTREG R9
     NEWLINE
 
     ; [bss] to heap, then heap to reg
@@ -68,17 +68,17 @@
 
     ; reg to heap addr in reg
     ALLOC 21
-    MOV R00, 20
-    MOV &R00, R00 ; should write 20 to heap address 20
-    MOV R00, &R00 ; should read 20 from heap address 20
-    PRINTREG R00 ; should print 20
+    MOV R0, 20
+    MOV &R0, R0 ; should write 20 to heap address 20
+    MOV R0, &R0 ; should read 20 from heap address 20
+    PRINTREG R0 ; should print 20
     NEWLINE
 
-    HALT OK
+    HLT OK
 
 testfunc:
     FRAME 1
-    MOV R01, 777
-    MOV VAR 0, R01
-    MOV R00, VAR 0
+    MOV R1, 777
+    MOV VAR 0, R1
+    MOV R0, VAR 0
     RET

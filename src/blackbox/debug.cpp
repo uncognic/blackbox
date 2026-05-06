@@ -57,12 +57,8 @@ const char* opcode_name(uint8_t op) {
             return "CALL";
         case Opcode::RET:
             return "RET";
-        case Opcode::HALT:
-            return "HALT";
-        case Opcode::LOAD:
-            return "LOAD";
-        case Opcode::STORE:
-            return "STORE";
+        case Opcode::HLT:
+            return "HLT";
         case Opcode::LOADREF:
             return "LOADREF";
         case Opcode::STOREREF:
@@ -143,8 +139,8 @@ const char* opcode_name(uint8_t op) {
             return "GETFAULT";
         case Opcode::BREAK:
             return "BREAK";
-        case Opcode::CONTINUE:
-            return "CONTINUE";
+        case Opcode::NOP:
+            return "NOP";
         case Opcode::DUMPREGS:
             return "DUMPREGS";
         case Opcode::PRINT_STACKSIZE:

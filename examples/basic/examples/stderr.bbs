@@ -7,4 +7,4 @@ PRINT X
 EWRITE "stderr: "
 EPRINT X
 
-HALT OK
+HLT OK

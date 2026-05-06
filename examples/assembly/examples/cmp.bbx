@@ -1,18 +1,18 @@
-%asm
-%main
+.asm
+.main
 start:
     write STDOUT "Which function to test? (1 for JE/JNE, 2 for JL/JGE, 3 for JB/JAE): "
-    read R00
+    read R0
 
     MOV R95, 1
     MOV R96, 2
     MOV R97, 3
 
-    cmp R00, R95
+    cmp R0, R95
     je jejne
-    cmp R00, R96
+    cmp R0, R96
     je jljge
-    cmp R00, R97
+    cmp R0, R97
     je jbjae
 
     write STDOUT "Invalid choice"
@@ -23,9 +23,9 @@ jejne:
     write STDOUT "JE/JNE pass 1"
     newline
 
-    MOV R01, 0
-    MOV R05, 0
-    cmp R05, R01
+    MOV R1, 0
+    MOV R5, 0
+    cmp R5, R1
     je jejne2
     jmp jejnefail
 
@@ -33,29 +33,29 @@ jejne2:
     write STDOUT "JE/JNE pass 2"
     newline
 
-    MOV R03, 1
-    cmp R01, R03
+    MOV R3, 1
+    cmp R1, R3
     jne jejnesuccess
     jmp jejnefail
 
 jejnesuccess:
     write STDOUT "JE and JNE Success"
     newline
-    halt ok
+    HLT ok
 
 jejnefail:
     write STDOUT "JE/JNE Fail"
     newline
-    halt bad
+    HLT bad
 
 jljge:
     write STDOUT "JL/JGE pass 1"
     NEWLINE
 
     ; -1 < 1  (signed)
-    MOV R01, -1
-    MOV R02, 1
-    CMP R01, R02
+    MOV R1, -1
+    MOV R2, 1
+    CMP R1, R2
     JL jljge2
     JMP jljgefail
 
@@ -64,30 +64,30 @@ jljge2:
     NEWLINE
 
     ; 5 >= 5 (signed)
-    MOV R03, 5
-    MOV R04, 5
-    CMP R03, R04
+    MOV R3, 5
+    MOV R4, 5
+    CMP R3, R4
     JGE jljgesuccess
     JMP jljgefail
 
 jljgesuccess:
     write STDOUT "JL and JGE Success"
     NEWLINE
-    HALT OK
+    HLT OK
 
 jljgefail:
     write STDOUT "JL/JGE Fail"
     NEWLINE
-    HALT BAD
+    HLT BAD
 
 jbjae:
     write STDOUT "JB/JAE pass 1"
     NEWLINE
 
     ; 1 < 2 (unsigned)
-    MOV R01, 1
-    MOV R02, 2
-    CMP R01, R02
+    MOV R1, 1
+    MOV R2, 2
+    CMP R1, R2
     JB jbjae2
     JMP jbjaefail
 
@@ -96,18 +96,18 @@ jbjae2:
     NEWLINE
 
     ; 255 >= 1 (unsigned)
-    MOV R03, 255
-    MOV R04, 1
-    CMP R03, R04
+    MOV R3, 255
+    MOV R4, 1
+    CMP R3, R4
     JAE jbjaesuccess
     JMP jbjaefail
 
 jbjaesuccess:
     write STDOUT "JB and JAE Success"
     NEWLINE
-    HALT OK
+    HLT OK
 
 jbjaefail:
     write STDOUT "JB/JAE Fail"
     NEWLINE
-    HALT BAD
+    HLT BAD

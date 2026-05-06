@@ -27,25 +27,25 @@ std::optional<std::string> preprocess_basic(const std::filesystem::path& input,
     std::string code = cg.get_code_section();
     std::string ns_init_code = parser.get_namespace_init_code_section();
 
-    out << "%asm\n";
+    out << ".asm\n";
 
     auto global_names = parser.get_global_names();
 
     if (!global_names.empty()) {
-        out << "%bss\n";
+        out << ".bss\n";
         for (const auto& name : global_names) {
             out << "    " << name << "\n";
         }
     }
 
     if (!data.empty()) {
-        out << "%data\n";
+        out << ".data\n";
         out << data;
     }
 
-    out << "%main\n";
+    out << ".main\n";
     out << "    CALL __bbx_basic_main\n";
-    out << "    HALT OK\n";
+    out << "    HLT OK\n";
 
     uint32_t local_slots = parser.get_local_slot_count();
 

@@ -1,7 +1,7 @@
-%asm
-%main
-    exec "echo Hello World!", r00
+.asm
+.main
+    exec "echo Hello World!", R0
     write STDOUT "exit code: "
-    printreg r00
+    printreg R0
     newline
-    halt ok
+    HLT ok

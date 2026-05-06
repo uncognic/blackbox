@@ -1,7 +1,7 @@
 @ENTRY
 CALL program
 PRINT "Success"
-HALT OK
+HLT OK
 
 LABEL program
     PRINT "In program"

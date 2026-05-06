@@ -922,7 +922,7 @@ std::optional<std::string> Parser::stmt_return(const std::string& s) {
         if (auto err = emit_expr(arg.c_str(), &r)) {
             return err;
         }
-        active_cg().emit_mov(0, r); // R00 = return value
+        active_cg().emit_mov(0, r); // R0 = return value
         ralloc_release(r);
     }
 
@@ -933,7 +933,7 @@ std::optional<std::string> Parser::stmt_return(const std::string& s) {
     return std::nullopt;
 }
 
-std::optional<std::string> Parser::stmt_halt(const std::string& s) {
+std::optional<std::string> Parser::stmt_HLT(const std::string& s) {
     std::string arg = trim(s.substr(4));
     uint8_t code = 0;
 
@@ -945,14 +945,14 @@ std::optional<std::string> Parser::stmt_halt(const std::string& s) {
         char* endp = nullptr;
         unsigned long v = strtoul(arg.c_str(), &endp, 0);
         if (!endp || *endp != '\0') {
-            return error(std::format("invalid HALT operand '{}'", arg));
+            return error(std::format("invalid HLT operand '{}'", arg));
         }
         code = static_cast<uint8_t>(v);
     }
 
-    active_cg().emit_halt(code);
+    active_cg().emit_HLT(code);
     if (debug_) {
-        std::println("[BASIC] HALT {}", arg);
+        std::println("[BASIC] HLT {}", arg);
     }
     return std::nullopt;
 }

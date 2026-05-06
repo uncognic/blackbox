@@ -23,7 +23,7 @@ class VM {
     int64_t get_reg(size_t r) const { return regs[r]; }
     size_t get_mem_top() const { return mem_top; }
     size_t get_call_depth() const { return call_stack.size(); }
-    bool is_halted() const { return halted; }
+    bool is_HLTed() const { return HLTed; }
     int get_exit_code() const { return exit_code; }
     bool hit_breakpoint() const { return breakpoint; }
     void set_hit_breakpoint() { breakpoint = true; }
@@ -34,7 +34,7 @@ class VM {
     Program prog;
     size_t pc = 0;
     int exit_code = 0;
-    bool halted = false;
+    bool HLTed = false;
     bool breakpoint = false;
 
     std::array<int64_t, REGISTERS> regs{};
@@ -148,7 +148,7 @@ class VM {
     void op_jae();
     void op_call();
     void op_ret();
-    void op_halt();
+    void op_HLT();
 
     // memory
     void op_loadref();
@@ -203,7 +203,7 @@ class VM {
 
     // debug
     void op_break();
-    void op_continue();
+    void op_nop();
     void op_dumpregs();
     void op_print_stacksize();
 };

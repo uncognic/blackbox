@@ -1,34 +1,34 @@
-%asm
+.asm
 ; demonstrates GETKEY non-blocking instruction
-%data
+.data
     prompt "Press a key (or wait briefly)..."
     no_key "No key pressed"
     got "Got key: "
 
-%main
-    loadstr $prompt, R01
-    printstr R01
+.main
+    loadstr $prompt, R1
+    printstr R1
     newline
 
 
 wait:
-    getkey R00
-    mov R01, R00
-    inc R01
-    MOV R02, 0
-    cmp R01, R02
+    getkey R0
+    mov R1, R0
+    inc R1
+    MOV R2, 0
+    cmp R1, R2
     jne got
     sleep 100
     jmp wait
 
-    loadstr $no_key, R02
-    printstr R02
+    loadstr $no_key, R2
+    printstr R2
     newline
-    halt ok
+    HLT ok
 
 got:
-    loadstr $got, R02
-    printstr R02
-    printreg R00
+    loadstr $got, R2
+    printstr R2
+    printreg R0
     newline
-    halt ok
+    HLT ok

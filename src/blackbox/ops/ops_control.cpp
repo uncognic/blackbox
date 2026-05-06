@@ -96,8 +96,8 @@ void VM::op_ret() {
     pop_frame();
 }
 
-void VM::op_halt() {
+void VM::op_HLT() {
     uint8_t code = fetch_u8();
     exit_code = static_cast<int>(code);
-    halted = true;
+    HLTed = true;
 }

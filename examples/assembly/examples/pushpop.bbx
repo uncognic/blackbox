@@ -1,12 +1,12 @@
-%asm
+.asm
 ;tests PUSH and pop
-%main
+.main
     call test_push_pop
-    halt ok
+    HLT ok
 
 test_push_pop:
     PUSH 19
-    pop r00
-    printreg r00
+    pop R0
+    printreg R0
     newline
     ret

@@ -40,7 +40,7 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
     t[opcode_to_byte(Opcode::JAE)] = &VM::op_jae;
     t[opcode_to_byte(Opcode::CALL)] = &VM::op_call;
     t[opcode_to_byte(Opcode::RET)] = &VM::op_ret;
-    t[opcode_to_byte(Opcode::HALT)] = &VM::op_halt;
+    t[opcode_to_byte(Opcode::HLT)] = &VM::op_HLT;
 
     t[opcode_to_byte(Opcode::LOADREF)] = &VM::op_loadref;
     t[opcode_to_byte(Opcode::STOREREF)] = &VM::op_storeref;
@@ -87,7 +87,7 @@ const std::array<VM::Handler, 256> VM::dispatch_table = [] {
     t[opcode_to_byte(Opcode::GETFAULT)] = &VM::op_getfault;
 
     t[opcode_to_byte(Opcode::BREAK)] = &VM::op_break;
-    t[opcode_to_byte(Opcode::CONTINUE)] = &VM::op_continue;
+    t[opcode_to_byte(Opcode::NOP)] = &VM::op_nop;
     t[opcode_to_byte(Opcode::DUMPREGS)] = &VM::op_dumpregs;
     t[opcode_to_byte(Opcode::PRINT_STACKSIZE)] = &VM::op_print_stacksize;
 
@@ -350,7 +350,7 @@ void VM::op_unknown() {
 }
 
 bool VM::step() {
-    if (halted || pc >= prog.code.size()) {
+    if (HLTed || pc >= prog.code.size()) {
         return false;
     }
 
@@ -367,11 +367,11 @@ bool VM::step() {
         } else {
             std::println(stderr, "FAULT [{}] at pc={}: {}", fault_name(f.type), f.program_counter,
                          f.name);
-            halted = true;
+            HLTed = true;
             exit_code = 1;
         }
     }
-    return !halted;
+    return !HLTed;
 }
 int64_t& VM::heap_addr(uint32_t addr) {
     if (addr >= op_stack.size()) {

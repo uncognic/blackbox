@@ -1,12 +1,12 @@
-%asm
-%main
-    GETARGC R00 ; get argument count
-    PRINTREG R00 ; print argument count
+.asm
+.main
+    GETARGC R0 ; get argument count
+    PRINTREG R0 ; print argument count
 
-    GETARG R01, 0 ; get first argument
-    PRINTSTR R01 ; print first argument
+    GETARG R1, 0 ; get first argument
+    PRINTSTR R1 ; print first argument
 
-    GETARG R02, 1 ; get second argument
-    PRINTSTR R02 ; print second argument
+    GETARG R2, 1 ; get second argument
+    PRINTSTR R2 ; print second argument
 
-    HALT OK
+    HLT OK

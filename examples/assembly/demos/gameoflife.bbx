@@ -4,133 +4,133 @@
 ;  Slots 0..799 = grid A
 ;  Slots 800..1599 = grid B
 
-; R08 = current buffer base (0 or 800)
-; R09 = next buffer base (800 or 0)
+; R8 = current buffer base (0 or 800)
+; R9 = next buffer base (800 or 0)
 ; R10 = row (outer loop counter)
 ; R11 = col (inner loop counter)
-; R04 = neighbor accumulator
-; R03 = current cell value
-; R05 = scratch / next cell value
-; R06 = flat index scratch
-; R07 = scratch (used by IDX macro)
-; R00,R01 = scratch / neighbor offset regs
+; R4 = neighbor accumulator
+; R3 = current cell value
+; R5 = scratch / next cell value
+; R6 = flat index scratch
+; R7 = scratch (used by IDX macro)
+; R0,R1 = scratch / neighbor offset regs
 ; R12 = cursor row (setup phase)
 ; R13 = cursor col (setup phase)
 
-%asm
-%macro IDX row col dst
+.asm
+.macro IDX row col dst
     MOV $dst, $row
-    MOV R07, 40
-    MUL $dst, R07
+    MOV R7, 40
+    MUL $dst, R7
     ADD $dst, $col
-%endmacro
+.endmacro
 
-%macro CHECK_NEIGHBOR nr nc buf acc
-    MOV R05, 0
-    CMP $nr, R05
-    JL @@skip
-
-    MOV R05, 19
-    CMP R05, $nr
-    JL @@skip
-    MOV R05, 0
-    CMP $nc, R05
+.macro CHECK_NEIGHBOR nr nc buf acc
+    MOV R5, 0
+    CMP $nr, R5
     JL @@skip
 
-    MOV R05, 39
-    CMP R05, $nc
+    MOV R5, 19
+    CMP R5, $nr
     JL @@skip
-    %IDX $nr, $nc, R06
-    ADD R06, $buf
-    LOAD R05, R06
-    ADD $acc, R05
+    MOV R5, 0
+    CMP $nc, R5
+    JL @@skip
+
+    MOV R5, 39
+    CMP R5, $nc
+    JL @@skip
+    %IDX $nr, $nc, R6
+    ADD R6, $buf
+    MOV R5, &R6
+    ADD $acc, R5
 @@skip:
-%endmacro
+.endmacro
 
-%main
+.main
     ALLOC 1600
-    MOV R00, 0
+    MOV R0, 0
 
 zero_loop:
     ; Zero out the entire grid
-    MOV R05, 0
-    STORE R05, R00
-    INC R00
-    MOV R05, 1600
-    CMP R00, R05
+    MOV R5, 0
+    MOV &R5, R0
+    INC R0
+    MOV R5, 1600
+    CMP R0, R5
     JL zero_loop
 
-    MOV R08, 0
-    MOV R09, 800
+    MOV R8, 0
+    MOV R9, 800
 
     WRITE STDOUT "Start with: (1) glider seed or (2) draw your own: "
-    READ R00
+    READ R0
 
-    MOV R01, 2
-    CMP R00, R01
+    MOV R1, 2
+    CMP R0, R1
     JE setup_phase
-    MOV R02, 0
-    MOV R03, 1
+    MOV R2, 0
+    MOV R3, 1
 
-    MOV R00, 1
-    MOV R01, 3
-    %IDX R00, R01, R06
-    ADD R06, R02
-    STORE R03, R06
+    MOV R0, 1
+    MOV R1, 3
+    %IDX R0, R1, R6
+    ADD R6, R2
+    MOV &R3, R6
 
-    MOV R00, 2
-    MOV R01, 1
-    %IDX R00, R01, R06
-    ADD R06, R02
-    STORE R03, R06
+    MOV R0, 2
+    MOV R1, 1
+    %IDX R0, R1, R6
+    ADD R6, R2
+    MOV &R3, R6
 
-    MOV R00, 2
-    MOV R01, 3
-    %IDX R00, R01, R06
-    ADD R06, R02
-    STORE R03, R06
+    MOV R0, 2
+    MOV R1, 3
+    %IDX R0, R1, R6
+    ADD R6, R2
+    MOV &R3, R6
 
-    MOV R00, 3
-    MOV R01, 2
-    %IDX R00, R01, R06
-    ADD R06, R02
-    STORE R03, R06
+    MOV R0, 3
+    MOV R1, 2
+    %IDX R0, R1, R6
+    ADD R6, R2
+    MOV &R3, R6
 
-    MOV R00, 3
-    MOV R01, 3
-    %IDX R00, R01, R06
-    ADD R06, R02
-    STORE R03, R06
+    MOV R0, 3
+    MOV R1, 3
+    %IDX R0, R1, R6
+    ADD R6, R2
+    MOV &R3, R6
 
-    MOV R00, 8
-    MOV R01, 19
-    %IDX R00, R01, R06
-    ADD R06, R02
-    STORE R03, R06
+    MOV R0, 8
+    MOV R1, 19
+    %IDX R0, R1, R6
+    ADD R6, R2
+    MOV &R3, R6
 
-    MOV R00, 8
-    MOV R01, 20
-    %IDX R00, R01, R06
-    ADD R06, R02
-    STORE R03, R06
+    MOV R0, 8
+    MOV R1, 20
+    %IDX R0, R1, R6
+    ADD R6, R2
+    MOV &R3, R6
 
-    MOV R00, 9
-    MOV R01, 18
-    %IDX R00, R01, R06
-    ADD R06, R02
-    STORE R03, R06
+    MOV R0, 9
+    MOV R1, 18
+    %IDX R0, R1, R6
+    ADD R6, R2
+    MOV &R3, R6
 
-    MOV R00, 9
-    MOV R01, 19
-    %IDX R00, R01, R06
-    ADD R06, R02
-    STORE R03, R06
+    MOV R0, 9
+    MOV R1, 19
+    %IDX R0, R1, R6
+    ADD R6, R2
+    MOV &R3, R6
 
-    MOV R00, 10
-    MOV R01, 19
-    %IDX R00, R01, R06
-    ADD R06, R02
-    STORE R03, R06
+    MOV R0, 10
+    MOV R1, 19
+    %IDX R0, R1, R6
+    ADD R6, R2
+    MOV &R3, R6
 
     JMP main_loop
 
@@ -155,11 +155,11 @@ setup_render_col:
     PRINT '@'
     JMP setup_render_col_next
 setup_not_cursor:
-    %IDX R10, R11, R06
-    ADD R06, R08
-    LOAD R00, R06
-    MOV R05, 0
-    CMP R00, R05
+    %IDX R10, R11, R6
+    ADD R6, R8
+    MOV R0, &R6
+    MOV R5, 0
+    CMP R0, R5
     JNE setup_print_alive
     PRINT '.'
     JMP setup_render_col_next
@@ -167,93 +167,93 @@ setup_print_alive:
     PRINT '#'
 setup_render_col_next:
     INC R11
-    MOV R05, 40
-    CMP R11, R05
+    MOV R5, 40
+    CMP R11, R5
     JL setup_render_col
     NEWLINE
     INC R10
-    MOV R05, 20
-    CMP R10, R05
+    MOV R5, 20
+    CMP R10, R5
     JL setup_render_row
 
     SLEEP 80
-    GETKEY R00
+    GETKEY R0
 
-    MOV R05, -1
-    CMP R00, R05
+    MOV R5, -1
+    CMP R0, R5
     JE setup_loop
 
-    MOV R05, 119
-    CMP R00, R05
+    MOV R5, 119
+    CMP R0, R5
     JE setup_move_up
 
-    MOV R05, 115
-    CMP R00, R05
+    MOV R5, 115
+    CMP R0, R5
     JE setup_move_down
 
-    MOV R05, 97
-    CMP R00, R05
+    MOV R5, 97
+    CMP R0, R5
     JE setup_move_left
 
-    MOV R05, 100
-    CMP R00, R05
+    MOV R5, 100
+    CMP R0, R5
     JE setup_move_right
 
-    MOV R05, 32
-    CMP R00, R05
+    MOV R5, 32
+    CMP R0, R5
     JE setup_toggle
 
-    MOV R05, 13
-    CMP R00, R05
+    MOV R5, 13
+    CMP R0, R5
     JE main_loop
 
-    MOV R05, 10
-    CMP R00, R05
+    MOV R5, 10
+    CMP R0, R5
     JE main_loop
 
     JMP setup_loop
 
 setup_move_up:
-    MOV R05, 0
-    CMP R12, R05
+    MOV R5, 0
+    CMP R12, R5
     JE setup_loop
     DEC R12
     JMP setup_loop
 
 setup_move_down:
-    MOV R05, 19
-    CMP R05, R12
+    MOV R5, 19
+    CMP R5, R12
     JE setup_loop
     INC R12
     JMP setup_loop
 
 setup_move_left:
-    MOV R05, 0
-    CMP R13, R05
+    MOV R5, 0
+    CMP R13, R5
     JE setup_loop
     DEC R13
     JMP setup_loop
 
 setup_move_right:
-    MOV R05, 39
-    CMP R05, R13
+    MOV R5, 39
+    CMP R5, R13
     JE setup_loop
     INC R13
     JMP setup_loop
 
 setup_toggle:
-    %IDX R12, R13, R06
-    ADD R06, R08
-    LOAD R00, R06
-    MOV R05, 0
-    CMP R00, R05
+    %IDX R12, R13, R6
+    ADD R6, R8
+    MOV R0, &R6
+    MOV R5, 0
+    CMP R0, R5
     JE setup_set_alive
-    MOV R00, 0
-    STORE R00, R06
+    MOV R0, 0
+    MOV &R0, R6
     JMP setup_loop
 setup_set_alive:
-    MOV R00, 1
-    STORE R00, R06
+    MOV R0, 1
+    MOV &R0, R6
     JMP setup_loop
 
 main_loop:
@@ -263,11 +263,11 @@ main_loop:
 render_row:
     MOV R11, 0
 render_col:
-    %IDX R10, R11, R06
-    ADD R06, R08
-    LOAD R00, R06
-    MOV R05, 0
-    CMP R00, R05
+    %IDX R10, R11, R6
+    ADD R6, R8
+    MOV R0, &R6
+    MOV R5, 0
+    CMP R0, R5
     JNE print_alive
     PRINT '.'
     JMP render_next_col
@@ -275,112 +275,112 @@ print_alive:
     PRINT '#'
 render_next_col:
     INC R11
-    MOV R05, 40
-    CMP R11, R05
+    MOV R5, 40
+    CMP R11, R5
     JL render_col
     NEWLINE
     INC R10
-    MOV R05, 20
-    CMP R10, R05
+    MOV R5, 20
+    CMP R10, R5
     JL render_row
 
     MOV R10, 0
 gen_row:
     MOV R11, 0
 gen_col:
-    MOV R04, 0
+    MOV R4, 0
 
-    MOV R00, R10
-    DEC R00
-    MOV R01, R11
-    DEC R01
-    %CHECK_NEIGHBOR R00, R01, R08, R04
+    MOV R0, R10
+    DEC R0
+    MOV R1, R11
+    DEC R1
+    %CHECK_NEIGHBOR R0, R1, R8, R4
 
-    MOV R00, R10
-    DEC R00
-    MOV R01, R11
-    %CHECK_NEIGHBOR R00, R01, R08, R04
+    MOV R0, R10
+    DEC R0
+    MOV R1, R11
+    %CHECK_NEIGHBOR R0, R1, R8, R4
 
-    MOV R00, R10
-    DEC R00
-    MOV R01, R11
-    INC R01
-    %CHECK_NEIGHBOR R00, R01, R08, R04
+    MOV R0, R10
+    DEC R0
+    MOV R1, R11
+    INC R1
+    %CHECK_NEIGHBOR R0, R1, R8, R4
 
-    MOV R00, R10
-    MOV R01, R11
-    DEC R01
-    %CHECK_NEIGHBOR R00, R01, R08, R04
+    MOV R0, R10
+    MOV R1, R11
+    DEC R1
+    %CHECK_NEIGHBOR R0, R1, R8, R4
 
-    MOV R00, R10
-    MOV R01, R11
-    INC R01
-    %CHECK_NEIGHBOR R00, R01, R08, R04
+    MOV R0, R10
+    MOV R1, R11
+    INC R1
+    %CHECK_NEIGHBOR R0, R1, R8, R4
 
-    MOV R00, R10
-    INC R00
-    MOV R01, R11
-    DEC R01
-    %CHECK_NEIGHBOR R00, R01, R08, R04
+    MOV R0, R10
+    INC R0
+    MOV R1, R11
+    DEC R1
+    %CHECK_NEIGHBOR R0, R1, R8, R4
 
-    MOV R00, R10
-    INC R00
-    MOV R01, R11
-    %CHECK_NEIGHBOR R00, R01, R08, R04
+    MOV R0, R10
+    INC R0
+    MOV R1, R11
+    %CHECK_NEIGHBOR R0, R1, R8, R4
 
-    MOV R00, R10
-    INC R00
-    MOV R01, R11
-    INC R01
-    %CHECK_NEIGHBOR R00, R01, R08, R04
+    MOV R0, R10
+    INC R0
+    MOV R1, R11
+    INC R1
+    %CHECK_NEIGHBOR R0, R1, R8, R4
 
-    %IDX R10, R11, R06
-    ADD R06, R08
-    LOAD R03, R06
+    %IDX R10, R11, R6
+    ADD R6, R8
+    MOV R3, &R6
 
-    MOV R05, 0
+    MOV R5, 0
 
-    MOV R00, 0
-    CMP R03, R00
+    MOV R0, 0
+    CMP R3, R0
     JE check_birth
 
-    MOV R00, 2
-    CMP R04, R00
+    MOV R0, 2
+    CMP R4, R0
     JE set_alive
-    MOV R00, 3
-    CMP R04, R00
+    MOV R0, 3
+    CMP R4, R0
     JE set_alive
     JMP write_next
 
 check_birth:
-    MOV R00, 3
-    CMP R04, R00
+    MOV R0, 3
+    CMP R4, R0
     JE set_alive
     JMP write_next
 
 set_alive:
-    MOV R05, 1
+    MOV R5, 1
 
 write_next:
-    %IDX R10, R11, R06
-    ADD R06, R09
-    STORE R05, R06
+    %IDX R10, R11, R6
+    ADD R6, R9
+    MOV &R5, R6
 
     INC R11
-    MOV R00, 40
-    CMP R11, R00
+    MOV R0, 40
+    CMP R11, R0
     JL gen_col
 
     INC R10
-    MOV R00, 20
-    CMP R10, R00
+    MOV R0, 20
+    CMP R10, R0
     JL gen_row
 
-    MOV R00, R08
-    MOV R08, R09
-    MOV R09, R00
+    MOV R0, R8
+    MOV R8, R9
+    MOV R9, R0
 
     SLEEP 120
     JMP main_loop
 
-    HALT
+    HLT

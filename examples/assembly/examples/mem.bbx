@@ -1,23 +1,23 @@
 ;example that uses alloc, store and load
-%asm
-%main
+.asm
+.main
     alloc 68
 
-    MOV R00, 10
-    MOV R02, 20
+    MOV R0, 10
+    MOV R2, 20
 
-    store R00, 41
-    store R02, 67
+    store R0, 41
+    store R2, 67
 
-    load R03, 41
-    load R04, 67
+    load R3, 41
+    load R4, 67
 
-    printreg R03
+    printreg R3
     newline
-    printreg R04
+    printreg R4
     newline
 
-    add R03, R04
-    printreg R03
+    add R3, R4
+    printreg R3
     newline
-    halt ok
+    HLT ok

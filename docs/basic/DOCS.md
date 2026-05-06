@@ -24,7 +24,7 @@ Supported statements and blocks:
 - `FOREACH VAR <var> IN <array>:` ... `NEXT <var>`
 - `BREAK` (exits innermost loop)
 - `CONTINUE` (skips to next iteration of innermost loop)
-- `HALT [OK|BAD|number]`
+- `HLT [OK|BAD|number]`
 - `LABEL, CALL, RETURN, GOTO`
 - `FUNC name: VAR arg1, STR arg2, &ref, ...` ... `ENDFUNC` (define a BASIC function)
 - `CALL name(expr1, expr2, ...)` (call a BASIC function; functions return a value to be used in expressions)
@@ -61,7 +61,7 @@ Expressions:
 
 Data model:
 - Integers (64-bit VM register/slot model)
-- Strings (stored in `%data`, loaded/printed as string pointers)
+- Strings (stored in `.data`, loaded/printed as string pointers)
 
 Code structure:
 - Namespacing with NAMESPACE blocks.

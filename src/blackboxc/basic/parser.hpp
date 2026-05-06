@@ -118,7 +118,7 @@ class Parser {
     std::optional<std::string> stmt_write(const std::string& s, bool to_stderr);
     std::optional<std::string> stmt_call(const std::string& s);
     std::optional<std::string> stmt_return(const std::string& s);
-    std::optional<std::string> stmt_halt(const std::string& s);
+    std::optional<std::string> stmt_HLT(const std::string& s);
     std::optional<std::string> stmt_input(const std::string& s);
     std::optional<std::string> stmt_break();
     std::optional<std::string> stmt_continue();

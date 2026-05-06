@@ -215,7 +215,7 @@ NEXT I
 ## Labels
 ```basic
 CALL program
-HALT OK
+HLT OK
 
 LABEL program
     PRINT "In program"
@@ -332,7 +332,7 @@ FOR VAR I = 0 TO 10
     RANDOM X, 0, 100
     PRINT "Random number: ", X
 NEXT I
-HALT OK
+HLT OK
 ```
 ```basic
 VAR test = -1
@@ -377,10 +377,10 @@ If the variable is not defined, the interpreter raises `FAULT_ENV_VAR_NOT_FOUND`
 
 ## Program termination
 ```basic
-HALT
-HALT OK
-HALT BAD
-HALT 3
+HLT
+HLT OK
+HLT BAD
+HLT 3
 ```
 
 ## Inline assembly
@@ -388,8 +388,8 @@ Use an assembly block when you need instructions not exposed by BASIC statements
 
 ```basic
 ASM:
-    MOV R01, 65 ; Assembly syntax rules apply here
-    PRINTCHAR R01 ; Like these comments
+    MOV R1, 65 ; Assembly syntax rules apply here
+    PRINTCHAR R1 ; Like these comments
 ENDASM
 ```
 
@@ -461,7 +461,7 @@ PRINT x
 ```
 
 ## Notes:
-- `R01`-`R15` are used by the BASIC compiler as scratch registers (`R00` is used for function return values). Nothing prevents using them manually (such as in ASM blocks) but BASIC statements may overwrite them.
+- `R1`-`R15` are used by the BASIC compiler as scratch registers (`R0` is used for function return values). Nothing prevents using them manually (such as in ASM blocks) but BASIC statements may overwrite them.
 - ASM block lines are passed to the assembler.
 - Use assembly syntax rules inside the block.
 

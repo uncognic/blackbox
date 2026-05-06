@@ -128,7 +128,7 @@ void Debugger::handle_command(std::string_view raw) {
 }
 
 int Debugger::run() {
-    while (!vm.is_halted()) {
+    while (!vm.is_HLTed()) {
         vm.step();
 
         if (vm.hit_breakpoint()) {

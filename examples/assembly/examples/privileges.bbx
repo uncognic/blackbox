@@ -1,5 +1,5 @@
-%asm
-%main
+.asm
+.main
 ; Start privileged
     ; Register syscall 0 to allocate memory
     REGSYSCALL 0, handler_alloc
@@ -36,6 +36,6 @@
         ; Attempt to execute a privileged instruction (should fault)
         ALLOC 256
 
-    HALT OK
+    HLT OK
 
 

@@ -19,7 +19,7 @@ GLOBAL VAR result = 0
 CALL compute(counter, accumulator)
 PRINT result
 
-HALT OK
+HLT OK
 
 FUNC compute: VAR x, VAR y
     result = x * y
