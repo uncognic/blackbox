@@ -268,20 +268,6 @@ Stop program execution.
 
 ## Memory
 
-### LOADVAR / STOREVAR
-
-Access frame-local variable slots (relative to the current call frame).
-
-- Syntax: `LOADVAR <dst>, <slot>` / `STOREVAR <src>, <slot>`
-- Encoding: opcode, 1 byte register, 4-byte slot index.
-
-### LOADVAR_REG / STOREVAR_REG
-
-Frame-local access with register-indexed slot.
-
-- Syntax: `LOADVAR_REG <dst>, <idx_reg>` / `STOREVAR_REG <src>, <idx_reg>`
-- Encoding: opcode, 1 byte register, 1 byte index register.
-
 ### LOADREF / STOREREF
 
 Access a variable slot in the caller's frame (for reference parameters).

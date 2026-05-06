@@ -39,6 +39,7 @@ enum class OperandType : uint8_t {
     Data = 0x06,   // 4 bytes: data index
     HeapAddr = 0x07,   // 4 bytes: heap address
     HeapReg = 0x08, // 1 byte heap addr in reg
+    VarReg = 0x09, // 1 byte var slot in reg
 };
 
 enum class Opcode : uint8_t {

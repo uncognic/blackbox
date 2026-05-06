@@ -34,6 +34,8 @@ size_t operand_encoded_size(Operand::Kind kind) {
             return 2;
         case Operand::Kind::HeapAddr:
             return 5;
+        case Operand::Kind::VarReg:
+            return 2;
         default:
             return 0;
     }
@@ -85,6 +87,10 @@ template <typename Buf> void encode_operand(const Operand& op, Buf& out) {
 
         case Operand::Kind::HeapReg:
             write_u8(out, static_cast<uint8_t>(OperandType::HeapReg));
+            write_u8(out, op.reg);
+            break;
+        case Operand::Kind::VarReg:
+            write_u8(out, static_cast<uint8_t>(OperandType::VarReg));
             write_u8(out, op.reg);
             break;
     }
@@ -740,25 +746,15 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         return {};
     }
     if (starts_with_keyword(s, "NOT")) {
-        auto [dst_tok, src_tok] = split_comma(after_keyword(s, 3));
-
-        auto dst = parse_operand(dst_tok, ctx);
+        auto dst = parse_operand(trim(after_keyword(s, 3)), ctx);
         if (!dst) {
             return std::unexpected(dst.error());
         }
-
-        auto src = parse_operand(src_tok, ctx);
-        if (!src) {
-            return std::unexpected(src.error());
-        }
-
         if (!is_writable(dst->kind)) {
             return err("NOT dst must be register, [bss] or framevar");
         }
-
         write_u8(out, opcode_to_byte(Opcode::NOT));
         encode_operand(*dst, out);
-        encode_operand(*src, out);
         return {};
     }
     if (starts_with_keyword(s, "SHL")) {

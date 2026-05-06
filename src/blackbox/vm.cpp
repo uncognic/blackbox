@@ -162,6 +162,10 @@ int64_t VM::read_operand() {
                 }
             return heap_addr(addr);
         }
+        case OperandType::VarReg: {
+            uint32_t slot = static_cast<uint32_t>(regs[fetch_reg()]);
+            return var(slot);
+        }
         default:
             hard_fault(FaultType::OutOfBounds, std::format("unknown operand type 0x{:02X} at pc={}",
                                                            static_cast<uint8_t>(type), pc));

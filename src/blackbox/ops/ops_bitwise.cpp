@@ -20,7 +20,7 @@ void VM::op_xor() {
 }
 void VM::op_not() {
     auto& dst = fetch_writable();
-    dst = ~read_operand();
+    dst = ~dst;
 }
 void VM::op_shl() {
     size_t dst = fetch_reg();
