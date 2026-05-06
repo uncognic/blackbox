@@ -1,0 +1,67 @@
+.asm
+.main
+
+; hex
+MOV r0, 0xFF
+PRINTREG r0        ; expect 255
+NEWLINE
+
+; hex with separators
+MOV r0, 0xFF_FF
+PRINTREG r0        ; expect 65535
+NEWLINE
+
+; binary
+MOV r0, 0b1010
+PRINTREG r0        ; expect 10
+NEWLINE
+
+; binary with separators
+MOV r0, 0b1111_0000
+PRINTREG r0        ; expect 240
+NEWLINE
+
+; char literal
+MOV r0, 'A'
+PRINTREG r0        ; expect 65
+NEWLINE
+
+; char literal in arithmetic
+MOV r0, 'A'
+ADD r0, 1
+PRINTCHAR r0       ; expect B
+NEWLINE
+
+; escape sequences
+MOV r0, '\n'
+PRINTREG r0        ; expect 10
+NEWLINE
+
+MOV r0, '\t'
+PRINTREG r0        ; expect 9
+NEWLINE
+
+MOV r0, '\\'
+PRINTREG r0        ; expect 92
+NEWLINE
+
+MOV r0, '\0'
+PRINTREG r0        ; expect 0
+NEWLINE
+
+; decimal separator
+MOV r0, 1_000_000
+PRINTREG r0        ; expect 1000000
+NEWLINE
+
+; negative decimal still works
+MOV r0, -1
+PRINTREG r0        ; expect -1
+NEWLINE
+
+; large hex (tests reinterpret via parse_u32)
+MOV r0, 0xDEAD_BEEF
+PRINTREG r0
+NEWLINE
+
+HLT OK

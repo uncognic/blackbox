@@ -243,32 +243,145 @@ std::optional<std::string_view> parse_quoted(std::string_view s, size_t& pos) {
 
 std::optional<int32_t> parse_i32(std::string_view s) {
     s = trim(s);
-    int32_t v = 0;
-    auto result = std::from_chars(s.data(), s.data() + s.size(), v);
-    if (result.ec != std::errc{} || result.ptr != s.data() + s.size()) {
+    if (s.empty()) {
         return std::nullopt;
     }
-    return v;
+
+    // char literal 'A', '\n', '\t', '\0', '\\'
+    if (s.size() >= 3 && s.front() == '\'' && s.back() == '\'') {
+        auto inner = s.substr(1, s.size() - 2);
+        if (inner.size() == 1) {
+            return static_cast<int32_t>(inner[0]);
+        }
+        if (inner.size() == 2 && inner[0] == '\\') {
+            switch (inner[1]) {
+                case 'n':
+                    return '\n';
+                case 't':
+                    return '\t';
+                case 'r':
+                    return '\r';
+                case '0':
+                    return '\0';
+                case '\\':
+                    return '\\';
+                case '\'':
+                    return '\'';
+            }
+        }
+        return std::nullopt;
+    }
+
+    std::string clean;
+    clean.reserve(s.size());
+    for (char c : s) {
+        if (c != '_') {
+            clean += c;
+        }
+    }
+    std::string_view sv = clean;
+
+    // hex
+    if (sv.size() > 2 && sv[0] == '0' && (sv[1] == 'x' || sv[1] == 'X')) {
+        uint32_t val = 0;
+        auto result = std::from_chars(sv.data() + 2, sv.data() + sv.size(), val, 16);
+        if (result.ec != std::errc{} || result.ptr != sv.data() + sv.size()) {
+            return std::nullopt;
+        }
+        return static_cast<int32_t>(val);
+    }
+
+    // binary
+    if (sv.size() > 2 && sv[0] == '0' && (sv[1] == 'b' || sv[1] == 'B')) {
+        uint32_t val = 0;
+        auto result = std::from_chars(sv.data() + 2, sv.data() + sv.size(), val, 2);
+        if (result.ec != std::errc{} || result.ptr != sv.data() + sv.size()) {
+            return std::nullopt;
+        }
+        return static_cast<int32_t>(val);
+    }
+
+    // decimal
+    int32_t val = 0;
+    auto result = std::from_chars(sv.data(), sv.data() + sv.size(), val);
+    if (result.ec != std::errc{} || result.ptr != sv.data() + sv.size()) {
+        return std::nullopt;
+    }
+    return val;
 }
 
 std::optional<uint32_t> parse_u32(std::string_view s) {
-    s = trim(s);
-    uint32_t v = 0;
-    auto result = std::from_chars(s.data(), s.data() + s.size(), v);
-    if (result.ec != std::errc{} || result.ptr != s.data() + s.size()) {
+    auto v = parse_i32(s);
+    if (!v) {
         return std::nullopt;
     }
-    return v;
+    return static_cast<uint32_t>(*v);
 }
 
 std::optional<int64_t> parse_i64(std::string_view s) {
     s = trim(s);
-    int64_t v = 0;
-    auto result = std::from_chars(s.data(), s.data() + s.size(), v);
-    if (result.ec != std::errc{} || result.ptr != s.data() + s.size()) {
+    if (s.empty()) {
         return std::nullopt;
     }
-    return v;
+
+    // char literal (same as above)
+    if (s.size() >= 3 && s.front() == '\'' && s.back() == '\'') {
+        auto inner = s.substr(1, s.size() - 2);
+        if (inner.size() == 1) {
+            return static_cast<int64_t>(inner[0]);
+        }
+        if (inner.size() == 2 && inner[0] == '\\') {
+            switch (inner[1]) {
+                case 'n':
+                    return '\n';
+                case 't':
+                    return '\t';
+                case 'r':
+                    return '\r';
+                case '0':
+                    return '\0';
+                case '\\':
+                    return '\\';
+                case '\'':
+                    return '\'';
+            }
+        }
+        return std::nullopt;
+    }
+
+    std::string clean;
+    clean.reserve(s.size());
+    for (char c : s) {
+        if (c != '_') {
+            clean += c;
+        }
+    }
+    std::string_view sv = clean;
+
+    if (sv.size() > 2 && sv[0] == '0' && (sv[1] == 'x' || sv[1] == 'X')) {
+        uint64_t val = 0;
+        auto result = std::from_chars(sv.data() + 2, sv.data() + sv.size(), val, 16);
+        if (result.ec != std::errc{} || result.ptr != sv.data() + sv.size()) {
+            return std::nullopt;
+        }
+        return static_cast<int64_t>(val);
+    }
+
+    if (sv.size() > 2 && sv[0] == '0' && (sv[1] == 'b' || sv[1] == 'B')) {
+        uint64_t val = 0;
+        auto result = std::from_chars(sv.data() + 2, sv.data() + sv.size(), val, 2);
+        if (result.ec != std::errc{} || result.ptr != sv.data() + sv.size()) {
+            return std::nullopt;
+        }
+        return static_cast<int64_t>(val);
+    }
+
+    int64_t val = 0;
+    auto result = std::from_chars(sv.data(), sv.data() + sv.size(), val);
+    if (result.ec != std::errc{} || result.ptr != sv.data() + sv.size()) {
+        return std::nullopt;
+    }
+    return val;
 }
 // split on first comma, returning lhs and rhs trimmed
 std::pair<std::string_view, std::string_view> split_comma(std::string_view s) {
