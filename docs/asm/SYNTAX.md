@@ -41,6 +41,28 @@ MOV R0, $MAX
 - Substitution is purely textual, done before assembly.
 - Works for numbers, strings, register names, or any token.
 
+You can use it in expressions:
+```asm
+.asm
+.define $VAL1 10
+.define $VAL2 11
+
+.main
+
+MOV r0, $VAL1 + $VAL2
+PRINTREG r0        ; expect 21
+NEWLINE
+
+MOV r0, $VAL1 * $VAL2
+PRINTREG r0        ; expect 110
+NEWLINE
+
+MOV r0, ($VAL1 + 5) * 2
+PRINTREG r0        ; expect 30
+NEWLINE
+
+HLT OK
+```
 ## Sections
 
 ### .bss

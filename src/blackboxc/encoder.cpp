@@ -240,6 +240,171 @@ std::optional<std::string_view> parse_quoted(std::string_view s, size_t& pos) {
     pos = end + 1;
     return s.substr(start, end - start);
 }
+// maybe jank
+static std::optional<int32_t> parse_i32(std::string_view s);
+static std::optional<int32_t> eval_expr(std::string_view s);
+static std::optional<int32_t> parse_add(std::string_view s, size_t& pos);
+static std::optional<int32_t> parse_mul(std::string_view s, size_t& pos);
+static std::optional<int32_t> parse_atom(std::string_view s, size_t& pos);
+
+static std::optional<int32_t> parse_atom(std::string_view s, size_t& pos) {
+    while (pos < s.size() && isspace((unsigned char) s[pos])) {
+        ++pos;
+    }
+    if (pos >= s.size()) {
+        return std::nullopt;
+    }
+
+    if (s[pos] == '(') {
+        ++pos;
+        auto val = parse_add(s, pos);
+        while (pos < s.size() && isspace((unsigned char) s[pos])) {
+            ++pos;
+        }
+        if (!val || pos >= s.size() || s[pos] != ')') {
+            return std::nullopt;
+        }
+        ++pos;
+        return val;
+    }
+
+    if (s[pos] == '-') {
+        ++pos;
+        auto val = parse_atom(s, pos);
+        if (!val) {
+            return std::nullopt;
+        }
+        return -*val;
+    }
+
+    size_t start = pos;
+    if (pos < s.size() && s[pos] == '\'') {
+        ++pos;
+        if (pos >= s.size()) {
+            return std::nullopt;
+        }
+        char c = s[pos++];
+        int32_t val;
+        if (c == '\\') {
+            if (pos >= s.size()) {
+                return std::nullopt;
+            }
+            switch (s[pos++]) {
+                case 'n':
+                    val = '\n';
+                    break;
+                case 't':
+                    val = '\t';
+                    break;
+                case 'r':
+                    val = '\r';
+                    break;
+                case '0':
+                    val = '\0';
+                    break;
+                case '\\':
+                    val = '\\';
+                    break;
+                case '\'':
+                    val = '\'';
+                    break;
+                default:
+                    return std::nullopt;
+            }
+        } else {
+            val = static_cast<int32_t>(c);
+        }
+        if (pos >= s.size() || s[pos] != '\'') {
+            return std::nullopt;
+        }
+        ++pos;
+        return val;
+    }
+    // consume digits/prefix
+    while (pos < s.size() && (isalnum((unsigned char) s[pos]) || s[pos] == '_')) {
+        ++pos;
+    }
+    auto tok = s.substr(start, pos - start);
+    return parse_i32(tok); // hex, bin, dec
+}
+
+static std::optional<int32_t> parse_mul(std::string_view s, size_t& pos) {
+    auto lhs = parse_atom(s, pos);
+    if (!lhs) {
+        return std::nullopt;
+    }
+    for (;;) {
+        while (pos < s.size() && isspace((unsigned char) s[pos])) {
+            ++pos;
+        }
+        if (pos >= s.size()) {
+            break;
+        }
+        char op = s[pos];
+        if (op != '*' && op != '/' && op != '%') {
+            break;
+        }
+        ++pos;
+        auto rhs = parse_atom(s, pos);
+        if (!rhs) {
+            return std::nullopt;
+        }
+        if (op == '*') {
+            lhs = *lhs * *rhs;
+        } else if (op == '/') {
+            if (*rhs == 0) {
+                return std::nullopt;
+            }
+            lhs = *lhs / *rhs;
+        } else {
+            if (*rhs == 0) {
+                return std::nullopt;
+            }
+            lhs = *lhs % *rhs;
+        }
+    }
+    return lhs;
+}
+
+static std::optional<int32_t> parse_add(std::string_view s, size_t& pos) {
+    auto lhs = parse_mul(s, pos);
+    if (!lhs) {
+        return std::nullopt;
+    }
+    for (;;) {
+        while (pos < s.size() && isspace((unsigned char) s[pos])) {
+            ++pos;
+        }
+        if (pos >= s.size()) {
+            break;
+        }
+        char op = s[pos];
+        if (op != '+' && op != '-') {
+            break;
+        }
+        ++pos;
+        auto rhs = parse_mul(s, pos);
+        if (!rhs) {
+            return std::nullopt;
+        }
+        lhs = (op == '+') ? *lhs + *rhs : *lhs - *rhs;
+    }
+    return lhs;
+}
+
+static std::optional<int32_t> eval_expr(std::string_view s) {
+    s = trim(s);
+    size_t pos = 0;
+    auto val = parse_add(s, pos);
+    // must consume entire input
+    while (pos < s.size() && isspace((unsigned char) s[pos])) {
+        ++pos;
+    }
+    if (pos != s.size()) {
+        return std::nullopt;
+    }
+    return val;
+}
 
 std::optional<int32_t> parse_i32(std::string_view s) {
     s = trim(s);
@@ -304,10 +469,11 @@ std::optional<int32_t> parse_i32(std::string_view s) {
     // decimal
     int32_t val = 0;
     auto result = std::from_chars(sv.data(), sv.data() + sv.size(), val);
-    if (result.ec != std::errc{} || result.ptr != sv.data() + sv.size()) {
-        return std::nullopt;
+    if (result.ec == std::errc{} && result.ptr == sv.data() + sv.size()) {
+        return val;
     }
-    return val;
+
+    return eval_expr(s);
 }
 
 std::optional<uint32_t> parse_u32(std::string_view s) {
@@ -579,10 +745,12 @@ size_t instr_size(std::string_view line, const OperandContext& ctx) {
     OperandContext lenient = ctx;
     lenient.sizing_pass = true;
     CountingBuffer buf;
-    static_cast<void>(encode(line, lenient, buf));
+    [[maybe_unused]] auto result = encode(line, lenient, buf);
     return buf.n;
 }
+
 template <typename Buf>
+[[nodiscard]]
 std::expected<void, std::string> encode(std::string_view line, const OperandContext& ctx, Buf& out,
                                         bool debug) {
     std::string_view s = strip_comment(line);
@@ -1054,7 +1222,7 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         return {};
     }
     if (starts_with_keyword(s, "HLT")) {
-        auto tok = trim(after_keyword(s, 4));
+        auto tok = trim(after_keyword(s, 3));
         uint8_t code = 0;
         if (!tok.empty()) {
             if (tok == "OK" || tok == "ok") {
@@ -1124,7 +1292,7 @@ std::expected<void, std::string> encode(std::string_view line, const OperandCont
         return {};
     }
     if (starts_with_keyword(s, "LOADSTR")) {
-        auto [name_tok, reg_tok] = split_comma(after_keyword(s, 7));
+        auto [reg_tok, name_tok] = split_comma(after_keyword(s, 7));
         TRY_DATA(idx, name_tok)
         TRY_REG(r, reg_tok)
         write_u8(out, opcode_to_byte(Opcode::LOADSTR));
